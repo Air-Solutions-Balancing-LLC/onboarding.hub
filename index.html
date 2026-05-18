@@ -28,7 +28,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .badge { font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 500; }
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 200; }
 .modal-backdrop.open { display: flex; }
-.modal { background: #fff; border-radius: 12px; border: 1px solid #e2e8f0; width: 480px; max-width: 95vw; box-shadow: 0 20px 60px rgba(0,0,0,.2); overflow: hidden; }
+.modal { background: #fff; border-radius: 12px; border: 1px solid #e2e8f0; width: 520px; max-width: 95vw; box-shadow: 0 20px 60px rgba(0,0,0,.2); overflow: hidden; }
 .modal-head { background: #1a2540; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; }
 .modal-title { color: #fff; font-size: 15px; font-weight: 500; }
 .modal-close { background: none; border: none; color: #94a3b8; font-size: 22px; cursor: pointer; line-height: 1; }
@@ -37,22 +37,39 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .modal-footer { padding: 14px 20px; border-top: 1px solid #f1f5f9; display: flex; gap: 8px; justify-content: flex-end; }
 .form-row { margin-bottom: 14px; }
 .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
-.form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
 .form-label { font-size: 12px; color: #64748b; margin-bottom: 5px; display: block; font-weight: 500; }
 .form-input { width: 100%; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 7px; padding: 8px 12px; font-size: 13px; color: #1e293b; outline: none; font-family: inherit; transition: border-color .15s; }
 .form-input:focus { border-color: #94a3b8; }
 .form-input.error { border-color: #dc2626; }
 
-/* RESOURCES */
+/* ── RESOURCES ── */
+.res-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+.res-filter-btn { padding: 6px 14px; border-radius: 20px; border: 1px solid #e2e8f0; background: #fff; font-size: 12px; cursor: pointer; color: #475569; font-family: inherit; transition: all .15s; }
+.res-filter-btn.active { background: #1a2540; color: #fff; border-color: #1a2540; }
 .resources-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
-.resource-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px 18px; }
-.resource-cat { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; margin-bottom: 6px; font-weight: 600; }
-.resource-name { font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 5px; }
-.resource-desc { font-size: 12px; color: #64748b; line-height: 1.5; margin-bottom: 10px; }
-.resource-link { font-size: 12px; color: #3b82f6; word-break: break-all; text-decoration: none; }
+.resource-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px 18px; position: relative; }
+.resource-cat-badge { display: inline-block; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; font-weight: 600; padding: 2px 8px; border-radius: 4px; margin-bottom: 8px; }
+.cat-hiring { background: #dbeafe; color: #1d4ed8; }
+.cat-ata { background: #d1fae5; color: #065f46; }
+.resource-name { font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 6px; }
+.resource-section { margin-bottom: 6px; }
+.resource-section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; margin-bottom: 2px; }
+.resource-section-text { font-size: 12px; color: #64748b; line-height: 1.5; }
+.resource-links { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
+.resource-link { font-size: 12px; color: #3b82f6; word-break: break-all; text-decoration: none; display: flex; align-items: center; gap: 4px; }
 .resource-link:hover { text-decoration: underline; }
+.resource-card-actions { display: flex; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #f1f5f9; }
+.btn-xs { font-size: 11px; padding: 4px 10px; border-radius: 5px; cursor: pointer; border: 1px solid #e2e8f0; background: #f8fafc; color: #475569; font-family: inherit; }
+.btn-xs:hover { background: #f1f5f9; }
+.btn-xs.danger { color: #dc2626; border-color: #fca5a5; }
+.btn-xs.danger:hover { background: #fee2e2; }
+.btn-xs.primary { background: #e0e7ff; color: #4f46e5; border-color: transparent; }
+.link-item { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.link-item .form-input { flex: 1; }
+.btn-remove-link { background: #fee2e2; border: none; color: #dc2626; border-radius: 5px; width: 26px; height: 26px; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 
-/* RESPONSIBILITIES */
+/* ── RESPONSIBILITIES ── */
+.resp-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
 .resp-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; margin-bottom: 12px; }
 .resp-header { padding: 14px 18px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; cursor: pointer; user-select: none; }
 .resp-header:hover { background: #f8fafc; }
@@ -68,8 +85,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .step-check { width: 16px; height: 16px; flex-shrink: 0; cursor: pointer; margin-top: 2px; accent-color: #1a2540; }
 .step-text { font-size: 12px; color: #334155; line-height: 1.5; }
 .step-text.checked { text-decoration: line-through; color: #94a3b8; }
+.resp-card-actions { display: flex; gap: 6px; padding: 8px 18px; border-top: 1px solid #f1f5f9; background: #f8fafc; }
+/* Steps editor inside modal */
+.steps-list { margin-top: 6px; }
+.step-row { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 6px; }
+.step-row .form-input { flex: 1; font-size: 12px; padding: 6px 10px; }
+.btn-add-step { font-size: 12px; color: #1a2540; background: #e0e7ff; border: none; border-radius: 5px; padding: 5px 12px; cursor: pointer; margin-top: 4px; }
 
-/* ORIENTATION */
+/* ── ORIENTATION ── */
 .orient-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .cal-day-head { font-size: 10px; font-weight: 600; text-transform: uppercase; color: #94a3b8; text-align: center; padding: 6px 0; letter-spacing: .04em; }
@@ -83,6 +106,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .cal-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin: 1px; }
 .dot-orient { background: #f59e0b; }
 .dot-note { background: #3b82f6; }
+.dot-bootcamp { background: #7c3aed; }
 .cal-note-preview { font-size: 9px; color: #3b82f6; line-height: 1.3; margin-top: 2px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .cal-orient-label { font-size: 9px; color: #f59e0b; font-weight: 600; margin-top: 2px; }
 .orient-groups { margin-top: 24px; }
@@ -95,120 +119,116 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .btn-sm { font-size: 11px; padding: 4px 10px; border-radius: 5px; cursor: pointer; border: 1px solid #e2e8f0; background: #f8fafc; color: #475569; font-family: inherit; white-space: nowrap; }
 .btn-sm:hover { background: #f1f5f9; }
 .btn-sm.danger:hover { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
-
-/* SUB-TABS (Orientation / Bootcamp) */
 .sub-tabs { display: flex; gap: 6px; margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 0; }
 .sub-tab { padding: 8px 18px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; background: none; color: #64748b; border-bottom: 3px solid transparent; margin-bottom: -1px; font-family: inherit; transition: color .15s; }
 .sub-tab:hover { color: #1e293b; }
 .sub-tab.active { color: #1a2540; border-bottom-color: #1a2540; }
 .sub-section { display: none; }
 .sub-section.active { display: block; }
-
-/* BOOTCAMP GROUP CARD */
 .bc-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
 .bc-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; gap: 10px; }
 .bc-name { font-size: 14px; font-weight: 600; color: #1e293b; }
 .bc-date { font-size: 12px; color: #64748b; }
-.bc-tasks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .bc-task-row { width: 100%; display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f8fafc; }
 .bc-task-row:last-child { border-bottom: none; }
 .bc-check { width: 15px; height: 15px; flex-shrink: 0; margin-top: 2px; cursor: pointer; accent-color: #7c3aed; }
 .bc-task-text { font-size: 12px; color: #334155; line-height: 1.4; }
 .bc-task-text.checked { text-decoration: line-through; color: #94a3b8; }
-.bc-day-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #7c3aed; background: #ede9fe; border-radius: 4px; padding: 2px 6px; white-space: nowrap; flex-shrink: 0; }
-.bc-day-label.fri { color: #0369a1; background: #e0f2fe; }
-.dot-bootcamp { background: #7c3aed; }
+.bc-day-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #7c3aed; background: #ede9fe; border-radius: 4px; padding: 2px 6px; white-space: nowrap; }
 
-/* WEEKLY TASKS */
-.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
-.stat { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px 20px; }
-.stat-num { font-size: 30px; font-weight: 600; color: #1e293b; }
+/* extra tasks in group */
+.extra-task-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.extra-task-row .form-input { flex: 1; font-size: 12px; padding: 6px 10px; }
+.extra-task-row select.form-input { width: 110px; flex: none; }
+
+/* ── WEEKLY TASKS – Outlook-style ── */
+.wt-stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 18px; }
+.stat { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 16px; }
+.stat-num { font-size: 26px; font-weight: 600; color: #1e293b; }
 .stat-num.green { color: #16a34a; border-left: 3px solid #16a34a; padding-left: 10px; }
 .stat-num.amber { color: #d97706; border-left: 3px solid #d97706; padding-left: 10px; }
-.stat-num.red { color: #dc2626; border-left: 3px solid #dc2626; padding-left: 10px; }
-.stat-label { font-size: 11px; font-weight: 500; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em; margin-top: 4px; }
-.toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
-.week-nav { display: flex; align-items: center; gap: 8px; }
-.nav-btn { width: 30px; height: 30px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; color: #334155; }
+.stat-num.red   { color: #dc2626; border-left: 3px solid #dc2626; padding-left: 10px; }
+.stat-label { font-size: 10px; font-weight: 500; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em; margin-top: 3px; }
+
+/* toolbar */
+.wt-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.week-nav { display: flex; align-items: center; gap: 6px; }
+.nav-btn { width: 28px; height: 28px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; color: #334155; }
 .nav-btn:hover { background: #f1f5f9; }
-.week-label { font-size: 14px; font-weight: 500; color: #1e293b; white-space: nowrap; min-width: 180px; }
-.btn-today { background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 14px; font-size: 12px; cursor: pointer; color: #334155; }
-.btn-today:hover { background: #f1f5f9; }
-.btn-add { background: #1a2540; color: #fff; border: none; border-radius: 6px; padding: 7px 18px; font-size: 13px; font-weight: 500; cursor: pointer; margin-left: auto; }
-.btn-add:hover { background: #263454; }
-.content-row { display: flex; gap: 16px; align-items: flex-start; }
-.calendar-wrap { flex: 1; min-width: 0; }
-.days { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
-.day-col { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; min-height: 210px; }
-.day-head { padding: 10px 12px; display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #f1f5f9; }
-.day-head.today-col { background: #1a2540; }
-.day-head.today-col .day-name, .day-head.today-col .day-date { color: #94a3b8; }
-.day-name { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; }
-.day-date { font-size: 11px; color: #94a3b8; }
-.day-body { padding: 8px; }
-.no-tasks { font-size: 11px; color: #cbd5e1; text-align: center; padding: 24px 0; }
-.task-card { border: 1px solid #e2e8f0; border-radius: 7px; padding: 8px 10px; margin-bottom: 6px; background: #f8fafc; }
-.task-tag { font-size: 10px; border-radius: 4px; padding: 1px 6px; display: inline-block; margin-bottom: 3px; font-weight: 500; }
-.tag-recurring { background: #e0f2fe; color: #0369a1; }
-.tag-allday { background: #ede9fe; color: #7c3aed; }
-.task-time { font-size: 10px; color: #7c3aed; font-weight: 500; margin-bottom: 3px; }
-.task-name { font-size: 12px; font-weight: 500; color: #1e293b; margin-bottom: 6px; line-height: 1.35; }
-.task-name.done { text-decoration: line-through; color: #94a3b8; }
-.task-footer { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
-.status-btn { font-size: 10px; padding: 3px 8px; border-radius: 4px; font-weight: 500; cursor: pointer; border: none; display: inline-flex; align-items: center; user-select: none; }
-.status-btn:hover { opacity: .8; }
-.status-btn:active { transform: scale(.95); }
-.status-btn::after { content: ' ↻'; font-size: 9px; opacity: .6; }
-.status-btn.pending { background: #fef3c7; color: #92400e; }
-.status-btn.progress { background: #dbeafe; color: #1e40af; }
-.status-btn.done    { background: #d1fae5; color: #065f46; }
-.status-btn.blocked { background: #fee2e2; color: #991b1b; }
-.badge-owner { font-size: 10px; color: #64748b; }
-.btn-del { background: none; border: none; color: #cbd5e1; font-size: 13px; cursor: pointer; padding: 0 2px; line-height: 1; margin-left: auto; }
-.btn-del:hover { color: #ef4444; }
-.btn-note { background: none; border: none; font-size: 12px; cursor: pointer; padding: 0 3px; line-height: 1; color: #cbd5e1; transition: color .15s; }
-.btn-note:hover { color: #6366f1; }
-.btn-note.has-note { color: #6366f1; }
-.task-note-preview { font-size: 10px; color: #6366f1; background: #eef2ff; border-radius: 4px; padding: 3px 6px; margin-top: 4px; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.sidebar { width: 248px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; }
-.side-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; }
-.side-head { background: #1a2540; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; }
-.side-head-title { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: .05em; color: #e2e8f0; }
-.side-body { padding: 12px 14px; }
-.log-item { padding: 6px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; color: #64748b; line-height: 1.4; }
-.log-item:last-child { border-bottom: none; }
-.log-item strong { color: #334155; font-weight: 500; }
-.log-date { color: #94a3b8; margin-top: 2px; font-size: 10px; }
-.legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; padding: 10px 12px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; align-items: center; }
-.leg-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #64748b; }
-.leg-tip { font-size: 11px; color: #94a3b8; margin-left: auto; }
+.week-label { font-size: 14px; font-weight: 600; color: #1e293b; white-space: nowrap; min-width: 200px; text-align: center; }
+.wt-filters { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 10px; align-items: center; }
+.wt-filter-btn { padding: 3px 11px; border-radius: 20px; border: 1px solid #e2e8f0; background: #fff; font-size: 11px; cursor: pointer; color: #475569; font-family: inherit; transition: all .15s; }
+.wt-filter-btn.active { background: #1a2540; color: #fff; border-color: #1a2540; }
+.wt-search { background: #fff; border: 1px solid #e2e8f0; border-radius: 7px; padding: 5px 12px; font-size: 12px; color: #1e293b; outline: none; font-family: inherit; width: 200px; }
+.wt-search:focus { border-color: #94a3b8; }
+
+/* ── Outlook calendar grid ── */
+.cal-outer { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
+/* day headers row */
+.cal-header { display: grid; grid-template-columns: 52px repeat(5, 1fr); border-bottom: 2px solid #e2e8f0; }
+.cal-header-gutter { border-right: 1px solid #e2e8f0; }
+.cal-day-hd { padding: 10px 8px; text-align: center; border-right: 1px solid #f1f5f9; }
+.cal-day-hd:last-child { border-right: none; }
+.cal-day-hd-name { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; }
+.cal-day-hd-num  { font-size: 22px; font-weight: 700; color: #334155; line-height: 1.1; margin-top: 2px; }
+.cal-day-hd-num.today-num { background: #1a2540; color: #fff; width: 36px; height: 36px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 18px; }
+.cal-day-hd.today-hd { background: #f0f4ff; }
+
+/* all-day / recurring strip */
+.cal-allday-row { display: grid; grid-template-columns: 52px repeat(5, 1fr); border-bottom: 1px solid #e2e8f0; min-height: 28px; }
+.cal-allday-label { font-size: 9px; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em; border-right: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: flex-end; padding: 4px 6px 4px 0; }
+.cal-allday-cell { border-right: 1px solid #f1f5f9; padding: 3px 4px; display: flex; flex-direction: column; gap: 2px; }
+.cal-allday-cell:last-child { border-right: none; }
+
+/* timed grid */
+.cal-body { display: grid; grid-template-columns: 52px repeat(5, 1fr); overflow-y: auto; max-height: 560px; position: relative; }
+.cal-time-col { border-right: 1px solid #e2e8f0; }
+.cal-time-slot { height: 52px; display: flex; align-items: flex-start; justify-content: flex-end; padding: 2px 6px 0 0; font-size: 10px; color: #94a3b8; border-bottom: 1px solid #f8fafc; }
+.cal-day-col { border-right: 1px solid #f1f5f9; position: relative; }
+.cal-day-col:last-child { border-right: none; }
+.cal-day-col.today-col-bg { background: #fafcff; }
+.cal-hour-row { height: 52px; border-bottom: 1px solid #f8fafc; }
+.cal-hour-row.half { border-bottom: 1px dashed #f1f5f9; height: 26px; }
+
+/* event pills */
+.cal-event { border-radius: 5px; padding: 3px 7px; margin: 1px 3px; font-size: 11px; font-weight: 500; line-height: 1.3; cursor: pointer; position: relative; overflow: hidden; transition: filter .15s; }
+.cal-event:hover { filter: brightness(.93); }
+.cal-event.ev-hiring    { background: #dbeafe; color: #1d4ed8; border-left: 3px solid #3b82f6; }
+.cal-event.ev-training  { background: #d1fae5; color: #065f46; border-left: 3px solid #10b981; }
+.cal-event.ev-orientation { background: #fff7ed; color: #c2410c; border-left: 3px solid #f97316; }
+.cal-event.ev-meetings  { background: #f3e8ff; color: #7c3aed; border-left: 3px solid #a78bfa; }
+.cal-event.ev-onboarding { background: #fef9c3; color: #854d0e; border-left: 3px solid #fbbf24; }
+.cal-event.ev-bootcamp  { background: #ede9fe; color: #5b21b6; border-left: 3px solid #7c3aed; }
+.cal-event.ev-default   { background: #f1f5f9; color: #475569; border-left: 3px solid #94a3b8; }
+.cal-event.ev-done      { opacity: .45; text-decoration: line-through; }
+.cal-event.ev-past      { opacity: .35; filter: grayscale(.4); }
+.cal-event.ev-blocked   { border-left-color: #ef4444 !important; background: #fee2e2 !important; color: #991b1b !important; }
+.cal-event-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-event-meta { font-size: 10px; opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-event-status { font-size: 9px; padding: 1px 5px; border-radius: 3px; display: inline-block; margin-top: 2px; font-weight: 600; cursor: pointer; user-select: none; background: rgba(255,255,255,.6); }
+.past-section-label { font-size: 11px; color: #94a3b8; text-align: center; padding: 6px 0 2px; letter-spacing: .04em; }
+
+/* event detail popover */
+.ev-popover { position: fixed; z-index: 300; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,.18); width: 280px; padding: 14px 16px; }
+.ev-pop-title { font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 6px; line-height: 1.3; }
+.ev-pop-row { font-size: 12px; color: #64748b; margin-bottom: 4px; display: flex; gap: 6px; }
+.ev-pop-row strong { color: #334155; }
+.ev-pop-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.ev-pop-close { position: absolute; top: 8px; right: 10px; background: none; border: none; font-size: 18px; cursor: pointer; color: #94a3b8; }
+
+/* misc */
+.no-tasks-cal { font-size: 11px; color: #cbd5e1; text-align: center; padding: 20px 0; }
+.recurring-section { display: none; margin-top: 10px; }
+.recurring-section.visible { display: block; }
 .days-picker { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
 .day-toggle { padding: 5px 10px; border-radius: 6px; border: 1px solid #e2e8f0; background: #f8fafc; font-size: 12px; font-weight: 500; color: #475569; cursor: pointer; user-select: none; transition: all .15s; }
 .day-toggle.selected { background: #1a2540; color: #fff; border-color: #1a2540; }
-.recur-hint { font-size: 11px; color: #94a3b8; margin-top: 6px; }
-.recurring-section { display: none; margin-top: 10px; }
-.recurring-section.visible { display: block; }
 .tz-preview { font-size: 11px; color: #7c3aed; margin-top: 5px; min-height: 16px; }
-
-/* NEW HIRE CHECKLIST */
-.checklist-toolbar { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; }
-.hire-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
-.hire-tab { padding: 6px 14px; border-radius: 20px; border: 1px solid #e2e8f0; background: #fff; font-size: 12px; cursor: pointer; color: #475569; font-family: inherit; }
-.hire-tab.active { background: #1a2540; color: #fff; border-color: #1a2540; }
-.hire-section { margin-bottom: 18px; }
-.hire-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; padding: 8px 0 6px; border-bottom: 1px solid #f1f5f9; margin-bottom: 8px; }
-.hire-item { display: flex; align-items: flex-start; gap: 10px; padding: 7px 0; border-bottom: 1px solid #f8fafc; }
-.hire-check { width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px; cursor: pointer; accent-color: #1a2540; }
-.hire-text { font-size: 12px; color: #334155; line-height: 1.5; }
-.hire-text.checked { text-decoration: line-through; color: #94a3b8; }
-.hire-progress { height: 6px; background: #e2e8f0; border-radius: 3px; margin-bottom: 16px; overflow: hidden; }
-.hire-progress-bar { height: 100%; background: #16a34a; border-radius: 3px; transition: width .3s; }
-.hire-progress-label { font-size: 11px; color: #64748b; margin-bottom: 6px; }
+.form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.recur-hint { font-size: 11px; color: #94a3b8; margin-top: 6px; }
 
 @media (max-width: 900px) {
   .days { grid-template-columns: repeat(3, minmax(0,1fr)); }
-  .sidebar { width: 100%; }
-  .content-row { flex-direction: column; }
   .stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
   .resources-grid { grid-template-columns: 1fr; }
 }
@@ -221,7 +241,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 </head>
 <body>
 
-<!-- NAV -->
 <nav class="nav">
   <div class="nav-logo">
     <div class="nav-icon">🏢</div>
@@ -231,18 +250,102 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     </div>
   </div>
   <div class="nav-links">
-    <button class="nav-link" onclick="showPage('resources',this)">Resources</button>
+    <button class="nav-link active" onclick="showPage('resources',this)">Resources</button>
     <button class="nav-link" onclick="showPage('responsibilities',this)">Responsibilities</button>
     <button class="nav-link" onclick="showPage('orientation',this)">Orientation &amp; Bootcamp 2026</button>
-    <button class="nav-link active" onclick="showPage('weekly',this)">Weekly Tasks</button>
-    <button class="nav-link" onclick="showPage('newhire',this)">New Hire Checklist</button>
+    <button class="nav-link" onclick="showPage('weekly',this)">Weekly Tasks</button>
   </div>
 </nav>
+
+<!-- ═══════════════════ MODALS ═══════════════════ -->
+
+<!-- MODAL: ADD/EDIT RESOURCE -->
+<div id="res-modal" class="modal-backdrop">
+  <div class="modal" style="width:560px">
+    <div class="modal-head"><span class="modal-title" id="res-modal-title">Add Resource</span><button class="modal-close" onclick="closeResModal()">×</button></div>
+    <div class="modal-body">
+      <div class="form-row-2">
+        <div>
+          <label class="form-label">Category *</label>
+          <select id="res-cat" class="form-input">
+            <option value="Hiring / Onboarding">Hiring / Onboarding</option>
+            <option value="ATA / Training">ATA / Training</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Title *</label>
+          <input id="res-name" class="form-input" type="text" placeholder="Resource name">
+        </div>
+      </div>
+      <div class="form-row">
+        <label class="form-label">What is this?</label>
+        <textarea id="res-what" class="form-input" rows="2" placeholder="Describe what this resource is..."></textarea>
+      </div>
+      <div class="form-row">
+        <label class="form-label">When to use it</label>
+        <textarea id="res-when" class="form-input" rows="2" placeholder="When should you use this resource?"></textarea>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Why use it</label>
+        <textarea id="res-why" class="form-input" rows="2" placeholder="What purpose does it serve?"></textarea>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Links / Files</label>
+        <div id="res-links-list"></div>
+        <button class="btn-add-step" onclick="addResLink()" style="margin-top:6px">+ Add link or file</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeResModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveResource()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ADD/EDIT RESPONSIBILITY -->
+<div id="resp-modal" class="modal-backdrop">
+  <div class="modal" style="width:600px">
+    <div class="modal-head"><span class="modal-title" id="resp-modal-title">Add Responsibility</span><button class="modal-close" onclick="closeRespModal()">×</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label class="form-label">Trigger / Cue *</label>
+        <input id="rm-trigger" class="form-input" type="text" placeholder="What triggers this responsibility?">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Responsibility Title *</label>
+        <input id="rm-title" class="form-input" type="text" placeholder="Name of this responsibility">
+      </div>
+      <div class="form-row-2">
+        <div>
+          <label class="form-label">Owner</label>
+          <input id="rm-owner" class="form-input" type="text" placeholder="e.g. Paula, Natalia">
+        </div>
+        <div>
+          <label class="form-label">Timing / Frequency</label>
+          <input id="rm-timing" class="form-input" type="text" placeholder="e.g. One week before orientation">
+        </div>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Notes</label>
+        <input id="rm-notes" class="form-input" type="text" placeholder="Optional notes">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Action Steps</label>
+        <div class="steps-list" id="rm-steps-list"></div>
+        <button class="btn-add-step" onclick="addRespStep()">+ Add step</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeRespModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveResp()">Save</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL: ADD TASK -->
 <div id="task-modal" class="modal-backdrop">
   <div class="modal">
-    <div class="modal-head"><span class="modal-title">Add new task</span><button class="modal-close" onclick="closeTaskModal()">×</button></div>
+    <div class="modal-head"><span class="modal-title">Add task</span><button class="modal-close" onclick="closeTaskModal()">×</button></div>
     <div class="modal-body">
       <div class="form-row">
         <label class="form-label">Task name *</label>
@@ -252,7 +355,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <div>
           <label class="form-label">Owner</label>
           <select id="f-owner" class="form-input">
-            <option>Paula</option><option>Natalia</option><option>Natalia &amp; Paula</option><option>Brenda &amp; Paula</option>
+            <option>Paula</option><option>Natalia</option><option>Natalia &amp; Paula</option><option>Brenda &amp; Paula</option><option>Brenda</option>
           </select>
         </div>
         <div id="single-day-row">
@@ -264,7 +367,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       </div>
       <div class="form-row">
         <label class="form-label">Time <span style="color:#94a3b8;font-weight:400">(optional)</span></label>
-        <div class="form-row-3"><input id="f-time-start" class="form-input" type="time" placeholder="Start"><input id="f-time-end" class="form-input" type="time" placeholder="End"><select id="f-timezone" class="form-input"><option value="ET">ET – Eastern</option><option value="CT">CT – Central</option><option value="MT">MT – Mountain</option><option value="PT">PT – Pacific</option><option value="AKT">AKT – Alaska</option><option value="HT">HT – Hawaii</option></select></div>
+        <div class="form-row-3"><input id="f-time-start" class="form-input" type="time"><input id="f-time-end" class="form-input" type="time"><select id="f-timezone" class="form-input"><option value="ET">ET – Eastern</option><option value="CT">CT – Central</option><option value="MT">MT – Mountain</option><option value="PT">PT – Pacific</option></select></div>
         <div class="tz-preview" id="tz-preview"></div>
       </div>
       <div class="form-row-2">
@@ -280,10 +383,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       <div class="form-row"><label class="form-label">Notes</label><input id="f-notes" class="form-input" type="text" placeholder="Optional notes..."></div>
       <div class="form-row" style="display:flex;align-items:center;gap:8px">
         <input id="f-recurring" type="checkbox" style="width:16px;height:16px;cursor:pointer" onchange="toggleRecurring(this.checked)">
-        <label class="form-label" style="margin:0;cursor:pointer" for="f-recurring">Recurring task</label>
+        <label class="form-label" style="margin:0;cursor:pointer">Recurring task (repeats every week)</label>
       </div>
       <div class="recurring-section" id="recurring-section">
-        <label class="form-label">Repeat on these days</label>
+        <label class="form-label">Repeat on</label>
         <div class="days-picker">
           <span class="day-toggle" data-day="0" onclick="toggleDay(this)">Mon</span>
           <span class="day-toggle" data-day="1" onclick="toggleDay(this)">Tue</span>
@@ -298,61 +401,78 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   </div>
 </div>
 
+<!-- MODAL: TASK NOTE -->
+<div id="task-note-modal" class="modal-backdrop">
+  <div class="modal" style="width:400px">
+    <div class="modal-head"><span class="modal-title" id="task-note-modal-title">Task Note</span><button class="modal-close" onclick="closeTaskNoteModal()">×</button></div>
+    <div class="modal-body">
+      <div class="form-row"><label class="form-label">Note</label><textarea id="task-note-input" class="form-input" rows="4" placeholder="Add a note or comment..."></textarea></div>
+    </div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeTaskNoteModal()">Cancel</button><button onclick="clearTaskNote()" style="background:#fee2e2;color:#dc2626;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px">Clear</button><button class="btn-primary" onclick="saveTaskNote()">Save</button></div>
+  </div>
+</div>
+
 <!-- MODAL: CALENDAR NOTE -->
 <div id="note-modal" class="modal-backdrop">
   <div class="modal" style="width:420px">
     <div class="modal-head"><span class="modal-title" id="note-modal-title">Day Note</span><button class="modal-close" onclick="closeNoteModal()">×</button></div>
     <div class="modal-body">
       <div id="note-orient-info" style="margin-bottom:10px"></div>
-      <div class="form-row"><label class="form-label">Note / reminder for this day</label><textarea id="note-input" class="form-input" rows="4" placeholder="Add a note..."></textarea></div>
+      <div class="form-row"><label class="form-label">Note / reminder</label><textarea id="note-input" class="form-input" rows="4" placeholder="Add a note..."></textarea></div>
     </div>
     <div class="modal-footer"><button class="btn-secondary" onclick="closeNoteModal()">Cancel</button><button class="btn-primary" onclick="saveNote()">Save</button></div>
   </div>
 </div>
 
-<!-- MODAL: TASK NOTE -->
-<div id="task-note-modal" class="modal-backdrop">
-  <div class="modal" style="width:400px">
-    <div class="modal-head"><span class="modal-title" id="task-note-modal-title">Task Note</span><button class="modal-close" onclick="closeTaskNoteModal()">×</button></div>
-    <div class="modal-body">
-      <div class="form-row"><label class="form-label">Note for this task</label><textarea id="task-note-input" class="form-input" rows="4" placeholder="Add a note or comment..."></textarea></div>
-    </div>
-    <div class="modal-footer"><button class="btn-secondary" onclick="closeTaskNoteModal()">Cancel</button><button class="btn-danger" id="task-note-clear-btn" onclick="clearTaskNote()" style="background:#fee2e2;color:#dc2626;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px">Clear</button><button class="btn-primary" onclick="saveTaskNote()">Save</button></div>
-  </div>
-</div>
-
-<!-- MODAL: NEW ORIENTATION GROUP -->
+<!-- MODAL: NEW / EDIT ORIENTATION GROUP -->
 <div id="orient-modal" class="modal-backdrop">
-  <div class="modal">
-    <div class="modal-head"><span class="modal-title">New Orientation Group</span><button class="modal-close" onclick="closeOrientModal()">×</button></div>
+  <div class="modal" style="width:580px">
+    <div class="modal-head"><span class="modal-title" id="orient-modal-title">New Orientation Group</span><button class="modal-close" onclick="closeOrientModal()">×</button></div>
     <div class="modal-body">
       <div class="form-row"><label class="form-label">Orientation date *</label><input id="og-date" class="form-input" type="date"></div>
-      <div class="form-row"><label class="form-label">Technician names (one per line) *</label><textarea id="og-techs" class="form-input" rows="4" placeholder="John Smith&#10;Jane Doe"></textarea></div>
-    </div>
-    <div class="modal-footer"><button class="btn-secondary" onclick="closeOrientModal()">Cancel</button><button class="btn-primary" onclick="saveOrientGroup()">Create group</button></div>
-  </div>
-</div>
-
-<!-- MODAL: ADD HIRE -->
-<div id="hire-modal" class="modal-backdrop">
-  <div class="modal" style="width:400px">
-    <div class="modal-head"><span class="modal-title">Add New Hire</span><button class="modal-close" onclick="closeHireModal()">×</button></div>
-    <div class="modal-body">
-      <div class="form-row"><label class="form-label">Full name *</label><input id="h-name" class="form-input" type="text" placeholder="e.g. John Smith"></div>
-      <div class="form-row-2">
-        <div><label class="form-label">Start date</label><input id="h-start" class="form-input" type="date"></div>
-        <div><label class="form-label">Region</label><input id="h-region" class="form-input" type="text" placeholder="e.g. DFW"></div>
+      <div class="form-row"><label class="form-label">Technician names (one per line) *</label><textarea id="og-techs" class="form-input" rows="3" placeholder="John Smith&#10;Jane Doe"></textarea></div>
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid #f1f5f9">
+        <div style="font-size:13px;font-weight:600;color:#1e293b;margin-bottom:4px">Additional tasks for this group</div>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:10px">These tasks will also be added to Weekly Tasks. Once saved, they'll be included in future groups you create.</div>
+        <div id="og-extra-tasks"></div>
+        <button class="btn-add-step" onclick="addOrientExtraTask()">+ Add task</button>
       </div>
     </div>
-    <div class="modal-footer"><button class="btn-secondary" onclick="closeHireModal()">Cancel</button><button class="btn-primary" onclick="saveHire()">Add hire</button></div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeOrientModal()">Cancel</button><button class="btn-primary" id="orient-save-btn" onclick="saveOrientGroup()">Create group</button></div>
   </div>
 </div>
 
+<!-- MODAL: NEW / EDIT BOOTCAMP GROUP -->
+<div id="bootcamp-modal" class="modal-backdrop">
+  <div class="modal" style="width:580px">
+    <div class="modal-head"><span class="modal-title" id="bc-modal-title">New Bootcamp Group</span><button class="modal-close" onclick="closeBootcampModal()">×</button></div>
+    <div class="modal-body">
+      <div class="form-row"><label class="form-label">Bootcamp start date *</label><input id="bc-date" class="form-input" type="date"></div>
+      <div class="form-row"><label class="form-label">Technician names (one per line) *</label><textarea id="bc-techs" class="form-input" rows="3" placeholder="John Smith&#10;Jane Doe"></textarea></div>
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid #f1f5f9">
+        <div style="font-size:13px;font-weight:600;color:#1e293b;margin-bottom:4px">Additional tasks for this group</div>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:10px">These tasks will also be added to Weekly Tasks. Once saved, they'll be included in future groups you create.</div>
+        <div id="bc-extra-tasks"></div>
+        <button class="btn-add-step" onclick="addBcExtraTask()">+ Add task</button>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeBootcampModal()">Cancel</button><button class="btn-primary" id="bc-save-btn" onclick="saveBootcampGroup()">Create group</button></div>
+  </div>
+</div>
+
+<!-- ═══════════════════ PAGES ═══════════════════ -->
+
 <!-- PAGE: RESOURCES -->
-<div id="page-resources" class="page">
+<div id="page-resources" class="page active">
   <div class="main">
     <div class="page-title">Onboarding Resources</div>
     <div class="page-sub">Key files, platforms, and links used in the onboarding process.</div>
+    <div class="res-toolbar">
+      <button class="res-filter-btn active" onclick="setResFilter('all',this)">All</button>
+      <button class="res-filter-btn" onclick="setResFilter('Hiring / Onboarding',this)">Hiring / Onboarding</button>
+      <button class="res-filter-btn" onclick="setResFilter('ATA / Training',this)">ATA / Training</button>
+      <button class="btn-primary" onclick="openResModal()" style="margin-left:auto">+ Add Resource</button>
+    </div>
     <div class="resources-grid" id="resources-grid"></div>
   </div>
 </div>
@@ -362,36 +482,22 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="main">
     <div class="page-title">Responsibilities &amp; SOPs</div>
     <div class="page-sub">Trigger-based procedures — click to expand and check off steps.</div>
+    <div class="resp-toolbar">
+      <button class="btn-primary" onclick="openRespModal()">+ Add Responsibility</button>
+    </div>
     <div id="resp-list"></div>
   </div>
 </div>
 
-<!-- MODAL: NEW BOOTCAMP GROUP -->
-<div id="bootcamp-modal" class="modal-backdrop">
-  <div class="modal">
-    <div class="modal-head"><span class="modal-title">New Bootcamp Group</span><button class="modal-close" onclick="closeBootcampModal()">×</button></div>
-    <div class="modal-body">
-      <div class="form-row"><label class="form-label">Bootcamp start date *</label><input id="bc-date" class="form-input" type="date"></div>
-      <div class="form-row"><label class="form-label">Technician names (one per line) *</label><textarea id="bc-techs" class="form-input" rows="4" placeholder="John Smith&#10;Jane Doe"></textarea></div>
-      <div style="font-size:12px;color:#94a3b8;margin-top:6px">Auto-generates tasks for the Monday and Friday of the prior week.</div>
-    </div>
-    <div class="modal-footer"><button class="btn-secondary" onclick="closeBootcampModal()">Cancel</button><button class="btn-primary" onclick="saveBootcampGroup()">Create group</button></div>
-  </div>
-</div>
-
-<!-- PAGE: ORIENTATION & BOOTCAMP 2026 -->
+<!-- PAGE: ORIENTATION & BOOTCAMP -->
 <div id="page-orientation" class="page">
   <div class="main">
     <div class="page-title">Orientation &amp; Bootcamp 2026</div>
-    <div class="page-sub">Monthly calendar — click any day to add a note or view tasks.</div>
-
-    <!-- SUB-TABS -->
+    <div class="page-sub">Monthly calendar — click any day to add a note.</div>
     <div class="sub-tabs">
       <button class="sub-tab active" onclick="switchSubTab('orientation-sub',this)">🎓 Orientation</button>
       <button class="sub-tab" onclick="switchSubTab('bootcamp-sub',this)">🚀 Bootcamp</button>
     </div>
-
-    <!-- ── ORIENTATION SUB-SECTION ── -->
     <div id="orientation-sub" class="sub-section active">
       <div class="orient-toolbar">
         <select id="cal-month-select" class="form-input" style="width:180px" onchange="calChangeMonth()">
@@ -408,8 +514,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <div id="orient-groups-list"></div>
       </div>
     </div>
-
-    <!-- ── BOOTCAMP SUB-SECTION ── -->
     <div id="bootcamp-sub" class="sub-section">
       <div class="orient-toolbar">
         <select id="bc-month-select" class="form-input" style="width:180px" onchange="bcCalChangeMonth()">
@@ -426,69 +530,75 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <div id="bootcamp-groups-list"></div>
       </div>
     </div>
-
   </div>
 </div>
 
 <!-- PAGE: WEEKLY TASKS -->
-<div id="page-weekly" class="page active">
+<div id="page-weekly" class="page">
   <div class="main">
     <div class="page-title">Weekly Tasks</div>
-    <div class="page-sub">5-day week view — click any status badge to change it.</div>
-    <div class="stats">
+    <div class="page-sub">Vista tipo calendario — click en un evento para ver detalles y cambiar estado.</div>
+    <div class="wt-stats">
       <div class="stat"><div class="stat-num" id="s-total">0</div><div class="stat-label">Total</div></div>
       <div class="stat"><div class="stat-num green" id="s-done">0</div><div class="stat-label">Completed</div></div>
       <div class="stat"><div class="stat-num amber" id="s-pending">0</div><div class="stat-label">Pending</div></div>
       <div class="stat"><div class="stat-num red" id="s-blocked">0</div><div class="stat-label">Blocked</div></div>
     </div>
-    <div class="toolbar">
+    <div class="wt-toolbar">
       <div class="week-nav">
         <button class="nav-btn" onclick="changeWeek(-1)">&#8249;</button>
         <span class="week-label" id="week-label"></span>
         <button class="nav-btn" onclick="changeWeek(1)">&#8250;</button>
       </div>
-      <button class="btn-today" onclick="goToday()">Today</button>
-      <button class="btn-add" onclick="openTaskModal()">+ Add Task</button>
-    </div>
-    <div class="content-row">
-      <div class="calendar-wrap">
-        <div class="days" id="days-grid"></div>
-        <div class="legend">
-          <div class="leg-item"><span class="badge" style="background:#d1fae5;color:#065f46">done</span></div>
-          <div class="leg-item"><span class="badge" style="background:#dbeafe;color:#1e40af">in progress</span></div>
-          <div class="leg-item"><span class="badge" style="background:#fef3c7;color:#92400e">pending</span></div>
-          <div class="leg-item"><span class="badge" style="background:#fee2e2;color:#991b1b">blocked</span></div>
-          <div class="leg-item"><span class="badge" style="background:#e0f2fe;color:#0369a1">↻ recurring</span></div>
-          <div class="leg-tip">Click status to change ↻</div>
-        </div>
-      </div>
-      <div class="sidebar">
-        <div class="side-card">
-          <div class="side-head"><span class="side-head-title">📋 Activity Log</span><span style="font-size:10px;color:#94a3b8">Last 10</span></div>
-          <div class="side-body" id="activity-log">
-            <div class="log-item"><strong>✓ ATA Hours Report</strong> submitted<div class="log-date">Apr 14</div></div>
-          </div>
-        </div>
+      <button class="btn-secondary" onclick="goToday()" style="font-size:12px;padding:5px 14px">Today</button>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <input class="wt-search" id="wt-search" type="text" placeholder="🔍 Search..." oninput="renderWeekly()">
+        <button class="btn-primary" onclick="openTaskModal()">+ Add Task</button>
       </div>
     </div>
-  </div>
-</div>
-
-<!-- PAGE: NEW HIRE CHECKLIST -->
-<div id="page-newhire" class="page">
-  <div class="main">
-    <div class="page-title">New Hire Checklist</div>
-    <div class="page-sub">Per-technician onboarding checklist — checkboxes save automatically.</div>
-    <div class="checklist-toolbar">
-      <div class="hire-tabs" id="hire-tabs"></div>
-      <button class="btn-primary" onclick="openHireModal()" style="font-size:12px;padding:7px 14px">+ Add hire</button>
+    <div class="wt-filters">
+      <span style="font-size:11px;color:#94a3b8;font-weight:500;margin-right:2px">Filter:</span>
+      <button class="wt-filter-btn active" onclick="setWtFilter('all',this)">All</button>
+      <button class="wt-filter-btn" onclick="setWtFilter('Hiring',this)">Hiring</button>
+      <button class="wt-filter-btn" onclick="setWtFilter('Training',this)">Training</button>
+      <button class="wt-filter-btn" onclick="setWtFilter('Orientation',this)">Orientation</button>
+      <button class="wt-filter-btn" onclick="setWtFilter('Meetings',this)">Meetings</button>
+      <button class="wt-filter-btn" onclick="setWtFilter('Onboarding',this)">Onboarding</button>
     </div>
-    <div id="hire-content"></div>
+    <!-- Outlook calendar grid -->
+    <div class="cal-outer">
+      <!-- day headers -->
+      <div class="cal-header" id="cal-day-headers">
+        <div class="cal-header-gutter"></div>
+      </div>
+      <!-- all-day / recurring strip -->
+      <div class="cal-allday-row" id="cal-allday-row">
+        <div class="cal-allday-label">All day</div>
+      </div>
+      <!-- scrollable timed body -->
+      <div class="cal-body" id="cal-body"></div>
+    </div>
+    <!-- event detail popover (hidden) -->
+    <div class="ev-popover" id="ev-popover" style="display:none">
+      <button class="ev-pop-close" onclick="closePopover()">×</button>
+      <div class="ev-pop-title" id="ep-title"></div>
+      <div class="ev-pop-row"><strong>Owner:</strong><span id="ep-owner"></span></div>
+      <div class="ev-pop-row"><strong>Category:</strong><span id="ep-cat"></span></div>
+      <div class="ev-pop-row" id="ep-notes-row" style="display:none"><strong>Notes:</strong><span id="ep-notes"></span></div>
+      <div class="ev-pop-row" id="ep-time-row" style="display:none"><strong>Time:</strong><span id="ep-time"></span></div>
+      <div class="ev-pop-actions">
+        <button id="ep-status-btn" class="btn-xs primary" onclick="popoverCycleStatus()">↻ Status: <span id="ep-status-label"></span></button>
+        <button class="btn-xs" onclick="popoverNote()">📝 Note</button>
+        <button class="btn-xs danger" onclick="popoverDelete()">Delete</button>
+      </div>
+    </div>
   </div>
 </div>
 
 <script>
-// ─── NAVIGATION ───
+// ═══════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════
 function showPage(id, btn) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-link').forEach(b => b.classList.remove('active'));
@@ -497,104 +607,355 @@ function showPage(id, btn) {
   if (id === 'resources') renderResources();
   if (id === 'responsibilities') renderResponsibilities();
   if (id === 'orientation') { renderOrientCalendar(); renderOrientGroups(); }
-  if (id === 'newhire') renderHireChecklist();
+  if (id === 'weekly') renderWeekly();
 }
 
-// ─── RESOURCES ───
-const RESOURCES = [
-  { cat:'Hiring / Onboarding', name:'New Hire Checklist', desc:'Centralized checklist for each new hire — office and field staff. Tracks onboarding completion.', url:'New hire checklist - Updated File Sept. 2025.xlsx' },
-  { cat:'Hiring / Onboarding', name:'Diploma / GED / OSHA List', desc:'Confirms whether each technician has submitted OSHA 10/30 and Diploma or GED. Required for NEBB exam eligibility.', url:'Diploma_GED_OSHA List.xlsx' },
-  { cat:'Hiring / Onboarding', name:'OSHA 10 & 30 Cards – Certificates', desc:'SharePoint folder storing OSHA cards/certificates, organized by region.', url:'company documents - OSHA 10 & 30 Cards - Certificates - All Documents' },
-  { cat:'Hiring / Onboarding', name:'Tech Education Certs (SharePoint)', desc:'Technicians\' education documents (Diploma, GED, transcripts). Saved as LastName, FirstName.', url:'High School or GED Diplomas - OneDrive' },
-  { cat:'ATA / Training', name:'ATA Progress – Hours Sheet', desc:'Tracks technician training hours by region. Reviewed every Monday using PM assistant weekly reports.', url:'ATA progress since Feb 2025.xlsx' },
-  { cat:'ATA / Training', name:'ATA Progress – TIMELOGS Sheet', desc:'Paste weekly training hours from the Training Cost Code timelogs. Updated every Monday.', url:'ATA progress since Feb 2025.xlsx' },
-  { cat:'ATA / Training', name:'ATA Progress – Lesson Progress Sheet', desc:'Tracks ATA lesson status using color coding (green/yellow/blue). Reviewed every Friday.', url:'ATA progress since Feb 2025.xlsx' },
-  { cat:'ATA / Training', name:'Airadigm Technical Academy', desc:'Training platform for ATA lessons. Accounts created with Airadigm emails. Technicians enrolled on Day 1 of orientation.', url:'https://joe-balancer.teachable.com/admin/dashboard' },
-  { cat:'ATA / Training', name:'Digital ATA Scores', desc:'Individual spreadsheets per tech — Last Name, First Name – Digital ATA Scores. Created at orientation start, updated every Friday.', url:'Digital ATA Scores (SharePoint)' },
+// ═══════════════════════════════════════════════
+// RESOURCES
+// ═══════════════════════════════════════════════
+const DEFAULT_RESOURCES = [
+  { id:'r1', cat:'Hiring / Onboarding', name:'New Hire Checklist',
+    what:'Centralized checklist containing detailed information for each new hire, including office and field staff.',
+    when:'Used during the hiring and onboarding process, and as an ongoing reference for team information.',
+    why:'Used to track onboarding completion and quickly access any required information for team members.',
+    links:['New hire checklist - Updated File Sept. 2025.xlsx'] },
+  { id:'r2', cat:'Hiring / Onboarding', name:'Diploma / GED / OSHA List',
+    what:'Confirms whether each technician has submitted required documents: OSHA 10/30 certification and a Diploma or GED.',
+    when:'Requested immediately after the offer letter is sent. Documents collected via Indeed messages.',
+    why:'Required to verify eligibility for NEBB exam certification and ensure compliance with training standards.',
+    links:['Diploma_GED_OSHA List.xlsx'] },
+  { id:'r3', cat:'Hiring / Onboarding', name:'OSHA 10 & 30 Cards – Certificates',
+    what:'SharePoint location used to store OSHA 10 and OSHA 30 cards/certificates for candidates and technicians, organized by region.',
+    when:'Requested immediately after the offer letter is sent. Uploaded as soon as received via Indeed message or email.',
+    why:'To maintain an official, centralized record of OSHA certifications for future reference and compliance needs.',
+    links:['company documents - OSHA 10 & 30 Cards - Certificates - All Documents'] },
+  { id:'r4', cat:'Hiring / Onboarding', name:'Tech Education Certs (SharePoint)',
+    what:'SharePoint location used to store technicians\' education documents, including Diploma, GED, or transcripts. Files saved as LastName, FirstName.',
+    when:'Requested immediately after the offer letter is sent (same message as OSHA request).',
+    why:'To maintain education records required for future technician certification.',
+    links:['High School or GED Diplomas - OneDrive'] },
+  { id:'r5', cat:'ATA / Training', name:'ATA Progress – Hours Sheet',
+    what:'Tracking document used to review technician training hours by region, including start date and calculated tenure.',
+    when:'Reviewed every Monday using data shared by Project Manager assistants in the ATA Training Cost - WEEKLY REPORTS.',
+    why:'To monitor weekly Costcode Training hours and ensure compliance with the two-hour weekly guideline.',
+    links:['ATA progress since Feb 2025.xlsx'] },
+  { id:'r6', cat:'ATA / Training', name:'ATA Progress – TIMELOGS Sheet',
+    what:'Sheet used to paste the training hours each technician punches under the Training Cost Code.',
+    when:'Updated every Monday using the weekly timelog data.',
+    why:'To capture and consolidate weekly training time data used for tracking and reporting purposes.',
+    links:['ATA progress since Feb 2025.xlsx'] },
+  { id:'r7', cat:'ATA / Training', name:'ATA Progress – Lesson Progress Sheet',
+    what:'Sheet used to track the status of ATA lessons for each technician using color coding (green, yellow, blue).',
+    when:'Reviewed and updated every Friday.',
+    why:'To monitor ATA lesson progress, identify technicians who are behind, and document PM approval when applicable.',
+    links:['ATA progress since Feb 2025.xlsx'] },
+  { id:'r8', cat:'ATA / Training', name:'Airadigm Technical Academy',
+    what:'Training platform where technicians complete their ATA lessons.',
+    when:'Technicians enrolled on their first day of orientation. Lesson progress reviewed every Friday.',
+    why:'To manage and track technician training, ensure course completion, and support ATA learning requirements.',
+    links:['https://joe-balancer.teachable.com/admin/dashboard'] },
+  { id:'r9', cat:'ATA / Training', name:'Digital ATA Scores',
+    what:'Individual spreadsheets for each new technician, saved as Last Name, First Name – Digital ATA Scores.',
+    when:'Created when the technician starts orientation. Updated every Friday using data extracted from the ATA platform.',
+    why:'To maintain a centralized record of each technician\'s ATA learning process and performance over time.',
+    links:['Digital ATA Scores (SharePoint)'] },
 ];
+
+let resources = JSON.parse(localStorage.getItem('airadigm_resources') || 'null') || JSON.parse(JSON.stringify(DEFAULT_RESOURCES));
+function saveResources() { localStorage.setItem('airadigm_resources', JSON.stringify(resources)); }
+
+let resFilter = 'all';
+let editingResId = null;
+
+function setResFilter(f, btn) {
+  resFilter = f;
+  document.querySelectorAll('.res-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderResources();
+}
+
 function renderResources() {
-  document.getElementById('resources-grid').innerHTML = RESOURCES.map(r => `
-    <div class="resource-card">
-      <div class="resource-cat">${r.cat}</div>
+  const filtered = resFilter === 'all' ? resources : resources.filter(r => r.cat === resFilter);
+  const grid = document.getElementById('resources-grid');
+  if (!filtered.length) {
+    grid.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px">No resources yet. Click "+ Add Resource" to add one.</div>';
+    return;
+  }
+  grid.innerHTML = filtered.map(r => {
+    const catClass = r.cat === 'Hiring / Onboarding' ? 'cat-hiring' : 'cat-ata';
+    const linksHtml = (r.links || []).map(l =>
+      l.startsWith('http')
+        ? `<a class="resource-link" href="${l}" target="_blank">🔗 ${l}</a>`
+        : `<span class="resource-link" style="color:#64748b">📄 ${l}</span>`
+    ).join('');
+    return `<div class="resource-card">
+      <span class="resource-cat-badge ${catClass}">${r.cat}</span>
       <div class="resource-name">${r.name}</div>
-      <div class="resource-desc">${r.desc}</div>
-      ${r.url.startsWith('http') ? `<a class="resource-link" href="${r.url}" target="_blank">🔗 Open</a>` : `<span class="resource-link">📄 ${r.url}</span>`}
+      ${r.what ? `<div class="resource-section"><div class="resource-section-label">What</div><div class="resource-section-text">${r.what}</div></div>` : ''}
+      ${r.when ? `<div class="resource-section"><div class="resource-section-label">When</div><div class="resource-section-text">${r.when}</div></div>` : ''}
+      ${r.why ? `<div class="resource-section"><div class="resource-section-label">Why</div><div class="resource-section-text">${r.why}</div></div>` : ''}
+      <div class="resource-links">${linksHtml}</div>
+      <div class="resource-card-actions">
+        <button class="btn-xs primary" onclick="openResModal('${r.id}')">Edit</button>
+        <button class="btn-xs danger" onclick="deleteResource('${r.id}')">Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openResModal(id) {
+  editingResId = id || null;
+  document.getElementById('res-modal-title').textContent = id ? 'Edit Resource' : 'Add Resource';
+  if (id) {
+    const r = resources.find(x => x.id === id);
+    if (!r) return;
+    document.getElementById('res-cat').value = r.cat;
+    document.getElementById('res-name').value = r.name;
+    document.getElementById('res-what').value = r.what || '';
+    document.getElementById('res-when').value = r.when || '';
+    document.getElementById('res-why').value = r.why || '';
+    renderResLinks(r.links || []);
+  } else {
+    document.getElementById('res-cat').value = 'Hiring / Onboarding';
+    ['res-name','res-what','res-when','res-why'].forEach(id => document.getElementById(id).value = '');
+    renderResLinks([]);
+  }
+  document.getElementById('res-modal').classList.add('open');
+}
+
+function renderResLinks(links) {
+  const container = document.getElementById('res-links-list');
+  container.innerHTML = links.map((l, i) => `
+    <div class="link-item" id="rlink-${i}">
+      <input class="form-input" type="text" value="${l}" placeholder="https:// or file name" id="rlink-val-${i}">
+      <button class="btn-remove-link" onclick="removeResLink(${i})">×</button>
     </div>`).join('');
 }
 
-// ─── RESPONSIBILITIES ───
-const RESPONSIBILITIES = [
-  { trigger:'New candidate applications in Indeed under "New" status', title:'Screen New Candidates (Indeed)', owner:'Brenda, Paula, Natalia', timing:'Multiple times per month',
+function addResLink() {
+  const container = document.getElementById('res-links-list');
+  const i = container.children.length;
+  const div = document.createElement('div');
+  div.className = 'link-item';
+  div.id = 'rlink-' + i;
+  div.innerHTML = `<input class="form-input" type="text" placeholder="https:// or file name" id="rlink-val-${i}"><button class="btn-remove-link" onclick="this.parentElement.remove()">×</button>`;
+  container.appendChild(div);
+}
+
+function removeResLink(i) {
+  const el = document.getElementById('rlink-' + i);
+  if (el) el.remove();
+}
+
+function saveResource() {
+  const name = document.getElementById('res-name').value.trim();
+  if (!name) { document.getElementById('res-name').classList.add('error'); return; }
+  document.getElementById('res-name').classList.remove('error');
+  const links = [...document.getElementById('res-links-list').querySelectorAll('input[type="text"]')]
+    .map(el => el.value.trim()).filter(Boolean);
+  const data = {
+    id: editingResId || ('r' + Date.now()),
+    cat: document.getElementById('res-cat').value,
+    name,
+    what: document.getElementById('res-what').value.trim(),
+    when: document.getElementById('res-when').value.trim(),
+    why: document.getElementById('res-why').value.trim(),
+    links
+  };
+  if (editingResId) {
+    resources = resources.map(r => r.id === editingResId ? data : r);
+  } else {
+    resources.push(data);
+  }
+  saveResources();
+  closeResModal();
+  renderResources();
+}
+
+function deleteResource(id) {
+  if (!confirm('Delete this resource?')) return;
+  resources = resources.filter(r => r.id !== id);
+  saveResources();
+  renderResources();
+}
+
+function closeResModal() {
+  document.getElementById('res-modal').classList.remove('open');
+  editingResId = null;
+}
+
+// ═══════════════════════════════════════════════
+// RESPONSIBILITIES
+// ═══════════════════════════════════════════════
+const DEFAULT_RESPONSIBILITIES = [
+  { id:'resp1', trigger:'New candidate applications available in Indeed under "New" status', title:'Screen New Candidates (Indeed)', owner:'Brenda, Paula, Natalia', timing:'Multiple times per month, as needed',
+    notes:'Pre-Interview Questions',
     steps:['Open Indeed → Jobs → select job post → review New applicants oldest to newest','Verify candidate is within 1 hour of a major airport or city (Google Maps)','Check screener questions — candidate should answer "Yes" to all','Resume review: manual/hands-on work, HVAC experience, stable work history, professional maturity','Check Indeed indicators: Status, Activity Fit, multiple applications, prior rejections','Decision: does NOT meet criteria → Reject. Meets criteria → click (?) icon next to name'] },
-  { trigger:'One week prior to remote orientation, after receiving Brenda\'s ORIENTATION email', title:'Prepare & Send Consolidated Onboarding Checklists', owner:'Paula', timing:'One week before orientation',
+  { id:'resp2', trigger:'One week prior to remote orientation, after receiving Brenda\'s ORIENTATION email', title:'Prepare & Send Consolidated Onboarding Checklists', owner:'Paula', timing:'One week before orientation',
+    notes:'',
     steps:['Pre-step: Confirm cell phone number and mailing address via Indeed messaging','Reply ALL to Brenda\'s ORIENTATION email','Create checklist per tech: digital onboarding complete? OSHA 10/30 on file? Diploma/GED on file?','If digital onboarding unclear → follow up with Lisa','Mark what is completed vs. pending before Day 1','Combine all checklists into ONE single email for the group','Send to Brenda and the onboarding team'] },
-  { trigger:'Friday morning before orientation week', title:'Email Follow-Up — Update Onboarding Status', owner:'Paula', timing:'Friday before orientation week',
+  { id:'resp3', trigger:'Friday morning before orientation week', title:'Email Follow-Up — Update Onboarding Status', owner:'Paula', timing:'Friday before orientation week',
+    notes:'Final check before orientation week. Ensure all onboarding items are resolved or clearly flagged as pending.',
     steps:['Reply ALL to Brenda\'s original ORIENTATION email','Update status per technician: all items completed or flag pending','Include: digital onboarding, OSHA 10/30, Diploma/GED status','Note any outstanding follow-ups with Lisa','This is the final status update before orientation week begins'] },
-  { trigger:'Monday of Orientation week', title:'Send Orientation Link to Ana & Joe + Schedule Meet & Greet', owner:'Paula', timing:'Monday of orientation week',
+  { id:'resp4', trigger:'Monday of Orientation week', title:'Send Orientation Link to Ana & Joe + Schedule Meet & Greet', owner:'Paula', timing:'Monday of orientation week',
+    notes:'Meet & Greet: try to schedule on Wednesday. Check team availability.',
     steps:['Post Orientation link in Onboarding Thread in RC','Set up 1-hour placeholder in Outlook Calendar and send link to Ana for IT Onboarding','Set up Meet & Greet: Brian, Brenda, Techs, Paula — use same Orientation link','Target Wednesday of orientation week — check calendars first','Send calendar invite to all participants'] },
-  { trigger:'ORIENTATION — Once Brenda confirms RC account is active in the Onboarding thread', title:'Add New Techs to RC Threads, Create TEAM & Set Up Recurring Meetings', owner:'Paula', timing:'As soon as RC account is active',
+  { id:'resp5', trigger:'ORIENTATION — Once Brenda confirms RC account is active in the Onboarding thread', title:'Add New Techs to RC Threads, Create TEAM & Set Up Recurring Meetings', owner:'Paula', timing:'As soon as RC account is active',
+    notes:'Recurring meetings: New Tech Update (Wednesdays), TTB (Thursdays). If SURVEY tech → do NOT add to Wednesday meeting.',
     steps:['Add to: Company Social RC Thread','Add to: Field Tech Resources RC Thread','Add to: Training Touch Base / BZ Info Thread','Add to: Competition GROUP RC Thread','Create TEAM: assigned PM + Lead Tech (Brenda) + new tech','Add to recurring meetings: New Tech Update (Wed) and TTB (Thu)','⚠ SURVEY tech → do NOT add to Wednesday New Tech Update meeting','Post confirmation in Orientation thread','Ask tech to confirm attendance for scheduled meetings'] },
 ];
 
+let responsibilities = JSON.parse(localStorage.getItem('airadigm_responsibilities') || 'null') || JSON.parse(JSON.stringify(DEFAULT_RESPONSIBILITIES));
+function saveResponsibilities() { localStorage.setItem('airadigm_responsibilities', JSON.stringify(responsibilities)); }
 let respChecks = JSON.parse(localStorage.getItem('resp_checks') || '{}');
+
+let editingRespId = null;
+
 function renderResponsibilities() {
-  document.getElementById('resp-list').innerHTML = RESPONSIBILITIES.map((r, ri) => `
-    <div class="resp-card">
-      <div class="resp-header" onclick="toggleResp(${ri})">
+  const list = document.getElementById('resp-list');
+  if (!responsibilities.length) {
+    list.innerHTML = '<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px">No responsibilities yet.</div>';
+    return;
+  }
+  list.innerHTML = responsibilities.map((r, ri) => {
+    const stepsHtml = r.steps.map((s, si) => {
+      const key = `${r.id}_${si}`;
+      const checked = !!respChecks[key];
+      return `<div class="resp-step">
+        <input type="checkbox" class="step-check" ${checked?'checked':''} onchange="toggleRespCheck('${key}',this,'${r.id}',${si})">
+        <div class="step-text ${checked?'checked':''}" id="rs-${r.id}-${si}">${s}</div>
+      </div>`;
+    }).join('');
+    return `<div class="resp-card">
+      <div class="resp-header" onclick="toggleResp('${r.id}')">
         <div>
-          <div class="resp-trigger">Trigger: ${r.trigger}</div>
+          <div class="resp-trigger">⚡ ${r.trigger}</div>
           <div class="resp-title">${r.title}</div>
           <div class="resp-meta">👤 ${r.owner} &nbsp;·&nbsp; 🕐 ${r.timing}</div>
         </div>
-        <span class="resp-chevron" id="resp-chev-${ri}">▾</span>
+        <span class="resp-chevron" id="resp-chev-${r.id}">▾</span>
       </div>
-      <div class="resp-body" id="resp-body-${ri}">
-        <div style="padding-top:10px">
-          ${r.steps.map((s, si) => {
-            const key = `${ri}_${si}`;
-            const checked = !!respChecks[key];
-            return `<div class="resp-step">
-              <input type="checkbox" class="step-check" ${checked?'checked':''} onchange="toggleRespCheck('${key}',this,${ri},${si})">
-              <div class="step-text ${checked?'checked':''}" id="rs-${ri}-${si}">${s}</div>
-            </div>`;
-          }).join('')}
-        </div>
+      <div class="resp-body" id="resp-body-${r.id}">
+        ${r.notes ? `<div style="font-size:11px;color:#64748b;background:#f8fafc;border-radius:5px;padding:6px 10px;margin:10px 0 6px;border-left:3px solid #f59e0b">${r.notes}</div>` : ''}
+        <div style="padding-top:6px">${stepsHtml}</div>
       </div>
-    </div>`).join('');
+      <div class="resp-card-actions">
+        <button class="btn-xs primary" onclick="openRespModal('${r.id}');event.stopPropagation()">Edit</button>
+        <button class="btn-xs danger" onclick="deleteResp('${r.id}');event.stopPropagation()">Delete</button>
+      </div>
+    </div>`;
+  }).join('');
 }
-function toggleResp(ri) {
-  document.getElementById('resp-body-'+ri).classList.toggle('open');
-  document.getElementById('resp-chev-'+ri).classList.toggle('open');
+
+function toggleResp(id) {
+  document.getElementById('resp-body-'+id).classList.toggle('open');
+  document.getElementById('resp-chev-'+id).classList.toggle('open');
 }
-function toggleRespCheck(key, el, ri, si) {
+function toggleRespCheck(key, el, id, si) {
   respChecks[key] = el.checked;
   localStorage.setItem('resp_checks', JSON.stringify(respChecks));
-  const el2 = document.getElementById(`rs-${ri}-${si}`);
+  const el2 = document.getElementById(`rs-${id}-${si}`);
   if (el2) el2.classList.toggle('checked', el.checked);
 }
 
-// ─── ORIENTATION CALENDAR ───
-let calYear = 2026;
-let calMonth = new Date().getMonth();
+function openRespModal(id) {
+  editingRespId = id || null;
+  document.getElementById('resp-modal-title').textContent = id ? 'Edit Responsibility' : 'Add Responsibility';
+  if (id) {
+    const r = responsibilities.find(x => x.id === id);
+    if (!r) return;
+    document.getElementById('rm-trigger').value = r.trigger;
+    document.getElementById('rm-title').value = r.title;
+    document.getElementById('rm-owner').value = r.owner;
+    document.getElementById('rm-timing').value = r.timing;
+    document.getElementById('rm-notes').value = r.notes || '';
+    renderRespSteps(r.steps);
+  } else {
+    ['rm-trigger','rm-title','rm-owner','rm-timing','rm-notes'].forEach(id => document.getElementById(id).value = '');
+    renderRespSteps([]);
+  }
+  document.getElementById('resp-modal').classList.add('open');
+}
+
+function renderRespSteps(steps) {
+  const list = document.getElementById('rm-steps-list');
+  list.innerHTML = steps.map((s, i) => `
+    <div class="step-row" id="rstep-${i}">
+      <input class="form-input" type="text" value="${s.replace(/"/g,'&quot;')}" placeholder="Step description" id="rstep-val-${i}">
+      <button class="btn-remove-link" onclick="this.parentElement.remove()">×</button>
+    </div>`).join('');
+}
+
+function addRespStep() {
+  const list = document.getElementById('rm-steps-list');
+  const i = list.children.length;
+  const div = document.createElement('div');
+  div.className = 'step-row';
+  div.innerHTML = `<input class="form-input" type="text" placeholder="Step description" id="rstep-val-${i}"><button class="btn-remove-link" onclick="this.parentElement.remove()">×</button>`;
+  list.appendChild(div);
+  div.querySelector('input').focus();
+}
+
+function saveResp() {
+  const trigger = document.getElementById('rm-trigger').value.trim();
+  const title = document.getElementById('rm-title').value.trim();
+  if (!trigger || !title) { alert('Trigger and title are required.'); return; }
+  const steps = [...document.getElementById('rm-steps-list').querySelectorAll('input[type="text"]')]
+    .map(el => el.value.trim()).filter(Boolean);
+  const data = {
+    id: editingRespId || ('resp' + Date.now()),
+    trigger,
+    title,
+    owner: document.getElementById('rm-owner').value.trim(),
+    timing: document.getElementById('rm-timing').value.trim(),
+    notes: document.getElementById('rm-notes').value.trim(),
+    steps
+  };
+  if (editingRespId) {
+    responsibilities = responsibilities.map(r => r.id === editingRespId ? data : r);
+  } else {
+    responsibilities.push(data);
+  }
+  saveResponsibilities();
+  closeRespModal();
+  renderResponsibilities();
+}
+
+function deleteResp(id) {
+  if (!confirm('Delete this responsibility?')) return;
+  responsibilities = responsibilities.filter(r => r.id !== id);
+  saveResponsibilities();
+  renderResponsibilities();
+}
+
+function closeRespModal() {
+  document.getElementById('resp-modal').classList.remove('open');
+  editingRespId = null;
+}
+
+// ═══════════════════════════════════════════════
+// ORIENTATION CALENDAR
+// ═══════════════════════════════════════════════
+let calYear = 2026, calMonth = new Date().getMonth();
 let calNotes = JSON.parse(localStorage.getItem('orient_notes') || '{}');
 let orientGroups = JSON.parse(localStorage.getItem('orient_groups') || '[]');
 let editingOrientGroupId = null;
 let noteDay = null;
 
+// Extra tasks templates (persisted per event type)
+let orientExtraTemplates = JSON.parse(localStorage.getItem('orient_extra_templates') || '[]');
+let bcExtraTemplates = JSON.parse(localStorage.getItem('bc_extra_templates') || '[]');
+
 document.getElementById('cal-month-select').value = calMonth;
 
-function calChangeMonth() {
-  calMonth = parseInt(document.getElementById('cal-month-select').value);
-  renderOrientCalendar();
-}
+function calChangeMonth() { calMonth = parseInt(document.getElementById('cal-month-select').value); renderOrientCalendar(); }
 
 function renderOrientCalendar() {
   const grid = document.getElementById('cal-grid');
   const today = new Date();
-  const firstDay = new Date(calYear, calMonth, 1);
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-  let startDow = firstDay.getDay();
-  startDow = startDow === 0 ? 6 : startDow - 1; // Monday-first
+  let startDow = new Date(calYear, calMonth, 1).getDay();
+  startDow = startDow === 0 ? 6 : startDow - 1;
 
   const orientDates = {};
   orientGroups.forEach(g => {
@@ -607,126 +968,104 @@ function renderOrientCalendar() {
   const DAY_HEADS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   let html = DAY_HEADS.map(d => `<div class="cal-day-head">${d}</div>`).join('');
   for (let i = 0; i < startDow; i++) html += '<div class="cal-cell empty"></div>';
-
   for (let day = 1; day <= daysInMonth; day++) {
-    const dateKey = `${calYear}-${calMonth+1}-${day}`;
+    const dk = `${calYear}-${calMonth+1}-${day}`;
     const isT = today.getFullYear()===calYear && today.getMonth()===calMonth && today.getDate()===day;
-    const note = calNotes[dateKey];
-    const oTasks = orientDates[dateKey] || [];
-    let cls = 'cal-cell' + (isT?' today-cell':'') + (oTasks.length?' has-orient':'') + (note?' has-note':'');
-    const numHtml = isT
-      ? `<div class="cal-num"><span style="background:#1a2540;color:#fff;width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px">${day}</span></div>`
-      : `<div class="cal-num">${day}</div>`;
-    const dots = (oTasks.length?'<span class="cal-dot dot-orient"></span>':'') + (note?'<span class="cal-dot dot-note"></span>':'');
-    const oLabel = oTasks.length ? `<div class="cal-orient-label">🎓 ${oTasks.length} task${oTasks.length>1?'s':''}</div>` : '';
-    const nPrev = note ? `<div class="cal-note-preview">${note}</div>` : '';
-    html += `<div class="${cls}" onclick="openNoteModal(${day})">${numHtml}<div>${dots}</div>${oLabel}${nPrev}</div>`;
+    const note = calNotes[dk]; const oTasks = orientDates[dk] || [];
+    let cls = 'cal-cell'+(isT?' today-cell':'')+(oTasks.length?' has-orient':'')+(note?' has-note':'');
+    const numHtml = isT ? `<div class="cal-num"><span style="background:#1a2540;color:#fff;width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px">${day}</span></div>` : `<div class="cal-num">${day}</div>`;
+    html += `<div class="${cls}" onclick="openNoteModal(${day})">
+      ${numHtml}
+      <div>${oTasks.length?'<span class="cal-dot dot-orient"></span>':''}${note?'<span class="cal-dot dot-note"></span>':''}</div>
+      ${oTasks.length?`<div class="cal-orient-label">🎓 ${oTasks.length} task${oTasks.length>1?'s':''}</div>`:''}
+      ${note?`<div class="cal-note-preview">${note}</div>`:''}
+    </div>`;
   }
   grid.innerHTML = html;
 }
 
 function openNoteModal(day) {
   noteDay = day;
-  const dateKey = `${calYear}-${calMonth+1}-${day}`;
+  const dk = `${calYear}-${calMonth+1}-${day}`;
   const MN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   document.getElementById('note-modal-title').textContent = `Note — ${MN[calMonth]} ${day}, ${calYear}`;
-  document.getElementById('note-input').value = calNotes[dateKey] || '';
+  document.getElementById('note-input').value = calNotes[dk] || '';
   const orientDates = {};
   orientGroups.forEach(g => { (g.tasks||[]).forEach(t => { if(!orientDates[t.date]) orientDates[t.date]=[]; orientDates[t.date].push(t.name); }); });
-  const oT = orientDates[dateKey] || [];
+  const oT = orientDates[dk] || [];
   document.getElementById('note-orient-info').innerHTML = oT.length
     ? `<div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;margin-bottom:5px">Orientation tasks this day</div>`+oT.map(t=>`<div style="font-size:12px;color:#f59e0b;padding:2px 0">🎓 ${t}</div>`).join('') : '';
   document.getElementById('note-modal').classList.add('open');
   setTimeout(() => document.getElementById('note-input').focus(), 50);
 }
-function closeNoteModal() { document.getElementById('note-modal').classList.remove('open'); noteDay=null; }
+function closeNoteModal() { document.getElementById('note-modal').classList.remove('open'); noteDay = null; }
 function saveNote() {
   if (!noteDay) return;
-  const dateKey = `${calYear}-${calMonth+1}-${noteDay}`;
+  const dk = `${calYear}-${calMonth+1}-${noteDay}`;
   const val = document.getElementById('note-input').value.trim();
-  if (val) calNotes[dateKey]=val; else delete calNotes[dateKey];
+  if (val) calNotes[dk]=val; else delete calNotes[dk];
   localStorage.setItem('orient_notes', JSON.stringify(calNotes));
   closeNoteModal(); renderOrientCalendar();
 }
 
-function openOrientModal() {
-  editingOrientGroupId = null;
-  document.querySelector('#orient-modal .modal-title').textContent = 'New Orientation Group';
-  document.querySelector('#orient-modal .btn-primary').textContent = 'Create group';
-  document.getElementById('og-techs').value = '';
-  document.getElementById('orient-modal').classList.add('open');
-  const d=new Date(); d.setDate(d.getDate()+(1+7-d.getDay())%7||7);
-  document.getElementById('og-date').valueAsDate=d;
-}
-function openEditOrientModal(id) {
-  const g = orientGroups.find(x=>x.id===id);
-  if (!g) return;
-  editingOrientGroupId = id;
-  document.querySelector('#orient-modal .modal-title').textContent = 'Edit Orientation Group';
-  document.querySelector('#orient-modal .btn-primary').textContent = 'Save changes';
-  // Parse stored date and set
-  const parts = g.orientDate.split('-');
-  const d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
-  document.getElementById('og-date').valueAsDate = d;
-  document.getElementById('og-techs').value = g.techs.join('\n');
+// ── Orient modal / extra tasks ──
+function openOrientModal(id) {
+  editingOrientGroupId = id || null;
+  document.getElementById('orient-modal-title').textContent = id ? 'Edit Orientation Group' : 'New Orientation Group';
+  document.getElementById('orient-save-btn').textContent = id ? 'Save changes' : 'Create group';
+  if (id) {
+    const g = orientGroups.find(x => x.id === id);
+    if (!g) return;
+    const parts = g.orientDate.split('-');
+    document.getElementById('og-date').valueAsDate = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+    document.getElementById('og-techs').value = g.techs.join('\n');
+  } else {
+    const d = new Date(); d.setDate(d.getDate()+(1+7-d.getDay())%7||7);
+    document.getElementById('og-date').valueAsDate = d;
+    document.getElementById('og-techs').value = '';
+  }
+  // Load extra templates
+  renderOrientExtraTasks(orientExtraTemplates.map(t => ({...t})));
   document.getElementById('orient-modal').classList.add('open');
 }
-function closeOrientModal() { document.getElementById('orient-modal').classList.remove('open'); document.getElementById('og-date').value=''; document.getElementById('og-techs').value=''; editingOrientGroupId=null; }
+
+function renderOrientExtraTasks(tasks) {
+  const container = document.getElementById('og-extra-tasks');
+  container.innerHTML = tasks.map((t, i) => `
+    <div class="extra-task-row" id="oet-${i}">
+      <input class="form-input" type="text" value="${(t.name||'').replace(/"/g,'&quot;')}" placeholder="Task name" id="oet-name-${i}">
+      <select class="form-input" id="oet-day-${i}" style="width:130px;flex:none">
+        <option value="monBefore" ${t.dayRef==='monBefore'?'selected':''}>Mon (week before)</option>
+        <option value="friBefore" ${t.dayRef==='friBefore'?'selected':''}>Fri (week before)</option>
+        <option value="monOrient" ${t.dayRef==='monOrient'?'selected':''}>Mon (orient week)</option>
+        <option value="orientDay" ${t.dayRef==='orientDay'?'selected':''}>Orientation day</option>
+      </select>
+      <button class="btn-remove-link" onclick="document.getElementById('oet-${i}').remove()">×</button>
+    </div>`).join('');
+}
+
+function addOrientExtraTask() {
+  const container = document.getElementById('og-extra-tasks');
+  const i = container.children.length;
+  const div = document.createElement('div');
+  div.className = 'extra-task-row'; div.id = 'oet-' + i;
+  div.innerHTML = `<input class="form-input" type="text" placeholder="Task name" id="oet-name-${i}"><select class="form-input" id="oet-day-${i}" style="width:130px;flex:none"><option value="monBefore">Mon (week before)</option><option value="friBefore">Fri (week before)</option><option value="monOrient">Mon (orient week)</option><option value="orientDay">Orientation day</option></select><button class="btn-remove-link" onclick="this.parentElement.remove()">×</button>`;
+  container.appendChild(div);
+  div.querySelector('input').focus();
+}
+
+function closeOrientModal() { document.getElementById('orient-modal').classList.remove('open'); editingOrientGroupId = null; }
 
 function toDateKey(d) { return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
-function prevWD(d, n) { let r=new Date(d),c=0; while(c<n){r.setDate(r.getDate()-1);if(r.getDay()!==0&&r.getDay()!==6)c++;} return r; }
+function prevWD(d,n){let r=new Date(d),c=0;while(c<n){r.setDate(r.getDate()-1);if(r.getDay()!==0&&r.getDay()!==6)c++;}return r;}
 
-// ─── SHARED: convert ISO date string to weekOffset relative to today ───
-function dateToWeekOffset(dateStr) {
-  // dateStr format: "2026-5-19" or "2026-05-19"
-  const parts = dateStr.split('-');
-  const d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
-  const today = new Date();
-  // Get Monday of today's week
-  const todayDow = today.getDay();
-  const todayMon = new Date(today);
-  todayMon.setDate(today.getDate() - (todayDow===0?6:todayDow-1));
-  todayMon.setHours(0,0,0,0);
-  // Get Monday of target date's week
-  const dDow = d.getDay();
-  const dMon = new Date(d);
-  dMon.setDate(d.getDate() - (dDow===0?6:dDow-1));
-  dMon.setHours(0,0,0,0);
-  const diffMs = dMon - todayMon;
-  return Math.round(diffMs / (7*24*60*60*1000));
-}
-
-// ─── SHARED: day-of-week index (0=Mon..4=Fri) from dateStr ───
-function dateStrToDayIdx(dateStr) {
-  const parts = dateStr.split('-');
-  const d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
-  const dow = d.getDay(); // 0=Sun,1=Mon,...,6=Sat
-  return dow === 0 ? 6 : dow - 1; // Mon=0..Fri=4
-}
-
-// ─── SHARED: push a list of event tasks into weekly tasks ───
-function addEventTasksToWeekly(eventTasks, groupLabel, cat, sourceId) {
-  // Remove any previously generated tasks for this group (by sourceId)
-  tasks = tasks.filter(t => t.sourceId !== sourceId);
-  eventTasks.forEach(t => {
-    const wo = dateToWeekOffset(t.date);
-    const dayIdx = dateStrToDayIdx(t.date);
-    if (dayIdx < 0 || dayIdx > 4) return; // skip weekends just in case
-    tasks.push({
-      id: genId(),
-      name: t.name,
-      owner: 'Paula',
-      day: dayIdx,
-      status: 'pending',
-      cat: cat,
-      notes: groupLabel,
-      recurring: false,
-      weekOffset: wo,
-      sourceId: sourceId,    // link back to the group so we can delete them together
-      eventTag: cat          // for visual tag on card
-    });
-  });
-  saveTasks();
+function getOrientDates(oDate) {
+  const monOrient = new Date(oDate);
+  const dow = monOrient.getDay();
+  monOrient.setDate(monOrient.getDate()-(dow===0?6:dow-1));
+  const monBefore = new Date(monOrient); monBefore.setDate(monOrient.getDate()-7);
+  const friBefore = new Date(monBefore); friBefore.setDate(monBefore.getDate()+4);
+  return { monBefore, friBefore, monOrient, orientDay: oDate };
 }
 
 function saveOrientGroup() {
@@ -736,71 +1075,71 @@ function saveOrientGroup() {
 
   const oDate = new Date(ds+'T12:00:00');
   const techs = tr.split('\n').map(s=>s.trim()).filter(Boolean);
+  const dates = getOrientDates(oDate);
 
-  // Monday of orientation week
-  const monOrient = new Date(oDate);
-  const dow = monOrient.getDay();
-  monOrient.setDate(monOrient.getDate() - (dow===0?6:dow-1));
+  // Gather extra tasks from modal
+  const extraRows = document.getElementById('og-extra-tasks').children;
+  const newExtras = [];
+  for (let el of extraRows) {
+    const nameEl = el.querySelector('input[type="text"]');
+    const dayEl = el.querySelector('select');
+    if (nameEl && dayEl && nameEl.value.trim()) {
+      newExtras.push({ name: nameEl.value.trim(), dayRef: dayEl.value });
+    }
+  }
+  // Save as new template (replaces old)
+  orientExtraTemplates = newExtras;
+  localStorage.setItem('orient_extra_templates', JSON.stringify(orientExtraTemplates));
 
-  // Monday of the week BEFORE orientation
-  const monBefore = new Date(monOrient);
-  monBefore.setDate(monOrient.getDate() - 7);
-
-  // Friday of the week BEFORE (monBefore + 4 days)
-  const friBefore = new Date(monBefore);
-  friBefore.setDate(monBefore.getDate() + 4);
-
-  const groupId = editingOrientGroupId || ('og'+Date.now());
-
-  const eventTasks = [
-    {name:"Reply ALL to Brenda's email — Onboarding checklists",        date:toDateKey(monBefore)},
-    {name:"Prepare ATA accounts & Digital ATA Scores spreadsheets",      date:toDateKey(monBefore)},
-    {name:"Final onboarding status update (Reply All)",                  date:toDateKey(friBefore)},
-    {name:"Send Orientation link to Ana & Joe (IT Onboarding)",          date:toDateKey(monOrient)},
-    {name:"Schedule Meet & Greet with ATA Team",                         date:toDateKey(monOrient)},
-    {name:"Create ATA profiles — enroll in Safety, Getting Started, Basics", date:toDateKey(monOrient)},
-    {name:"Add techs to RC Channels",                                    date:toDateKey(oDate)},
-    {name:"Create TEAM in RC (PM + Brenda + new tech)",                  date:toDateKey(oDate)},
-    {name:"Post confirmation in Orientation thread",                     date:toDateKey(oDate)},
+  const BASE_TASKS = [
+    {name:"Reply ALL to Brenda's email — Onboarding checklists", dayRef:'monBefore'},
+    {name:"Prepare ATA accounts & Digital ATA Scores spreadsheets", dayRef:'monBefore'},
+    {name:"Final onboarding status update (Reply All)", dayRef:'friBefore'},
+    {name:"Send Orientation link to Ana & Joe (IT Onboarding)", dayRef:'monOrient'},
+    {name:"Schedule Meet & Greet with ATA Team", dayRef:'monOrient'},
+    {name:"Create ATA profiles — enroll in Safety, Getting Started, Basics", dayRef:'monOrient'},
+    {name:"Add techs to RC Channels", dayRef:'orientDay'},
+    {name:"Create TEAM in RC (PM + Brenda + new tech)", dayRef:'orientDay'},
+    {name:"Post confirmation in Orientation thread", dayRef:'orientDay'},
   ];
 
-  const groupData = {
-    id: groupId,
-    orientDate: toDateKey(oDate),
-    techs,
-    tasks: eventTasks.map(t=>({name:t.name, date:t.date})),
-    createdAt: new Date().toISOString()
-  };
+  const allTaskDefs = [...BASE_TASKS, ...newExtras];
+  const eventTasks = allTaskDefs.map(t => ({
+    name: t.name,
+    date: toDateKey(dates[t.dayRef] || dates.orientDay)
+  }));
+
+  const groupId = editingOrientGroupId || ('og'+Date.now());
+  const groupData = { id: groupId, orientDate: toDateKey(oDate), techs, tasks: eventTasks, createdAt: new Date().toISOString() };
 
   if (editingOrientGroupId) {
     orientGroups = orientGroups.map(g => g.id === editingOrientGroupId ? groupData : g);
   } else {
     orientGroups.push(groupData);
   }
-
   localStorage.setItem('orient_groups', JSON.stringify(orientGroups));
-  const tagged = eventTasks.map(t=>({...t, name:'🎓 '+t.name}));
+  const tagged = eventTasks.map(t => ({...t, name:'🎓 '+t.name}));
   addEventTasksToWeekly(tagged, 'Orientation '+toDateKey(oDate)+' — '+techs.join(', '), 'Orientation', groupId);
   closeOrientModal(); renderOrientCalendar(); renderOrientGroups();
 }
+
 function deleteOrientGroup(id) {
   if (!confirm('Delete this orientation group and its Weekly Tasks?')) return;
   orientGroups = orientGroups.filter(g=>g.id!==id);
   tasks = tasks.filter(t => t.sourceId !== id);
   localStorage.setItem('orient_groups', JSON.stringify(orientGroups));
-  saveTasks();
-  renderOrientCalendar(); renderOrientGroups();
+  saveTasks(); renderOrientCalendar(); renderOrientGroups();
 }
 
 function renderOrientGroups() {
   const el = document.getElementById('orient-groups-list');
-  if (!orientGroups.length) { el.innerHTML='<div style="font-size:13px;color:#94a3b8;padding:12px 0">No orientation groups yet. Click "+ New Orientation Group" to create one.</div>'; return; }
+  if (!orientGroups.length) { el.innerHTML='<div style="font-size:13px;color:#94a3b8;padding:12px 0">No orientation groups yet.</div>'; return; }
   el.innerHTML = orientGroups.map(g => `
     <div class="group-card">
       <div class="group-header">
         <div><div class="group-name">🎓 Orientation — ${g.orientDate}</div><div class="group-techs">Techs: ${g.techs.join(', ')}</div></div>
         <div style="display:flex;gap:6px">
-          <button class="btn-sm" onclick="openEditOrientModal('${g.id}')" style="background:#e0e7ff;color:#4f46e5;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px">Edit</button>
+          <button class="btn-sm" onclick="openOrientModal('${g.id}')" style="background:#e0e7ff;color:#4f46e5;border:none">Edit</button>
           <button class="btn-sm danger" onclick="deleteOrientGroup('${g.id}')">Delete</button>
         </div>
       </div>
@@ -808,192 +1147,209 @@ function renderOrientGroups() {
     </div>`).join('');
 }
 
-// ─── SUB-TAB SWITCHING ───
-function switchSubTab(id, btn) {
-  document.querySelectorAll('.sub-section').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.sub-tab').forEach(b => b.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-  if (btn) btn.classList.add('active');
-  if (id === 'bootcamp-sub') { bcCalMonth = new Date().getMonth(); document.getElementById('bc-month-select').value = bcCalMonth; renderBcCalendar(); renderBootcampGroups(); }
-  if (id === 'orientation-sub') { renderOrientCalendar(); renderOrientGroups(); }
-}
-
-// ─── BOOTCAMP CALENDAR ───
-let bcCalYear = 2026;
-let bcCalMonth = new Date().getMonth();
+// ═══════════════════════════════════════════════
+// BOOTCAMP CALENDAR
+// ═══════════════════════════════════════════════
+let bcCalYear = 2026, bcCalMonth = new Date().getMonth();
 let bootcampGroups = JSON.parse(localStorage.getItem('bootcamp_groups') || '[]');
 let bcChecks = JSON.parse(localStorage.getItem('bootcamp_checks') || '{}');
+let editingBcGroupId = null;
 
-function bcCalChangeMonth() {
-  bcCalMonth = parseInt(document.getElementById('bc-month-select').value);
-  renderBcCalendar();
-}
+function bcCalChangeMonth() { bcCalMonth = parseInt(document.getElementById('bc-month-select').value); renderBcCalendar(); }
 
 function renderBcCalendar() {
   const grid = document.getElementById('bc-cal-grid');
   const today = new Date();
-  const firstDay = new Date(bcCalYear, bcCalMonth, 1);
   const daysInMonth = new Date(bcCalYear, bcCalMonth + 1, 0).getDate();
-  let startDow = firstDay.getDay();
+  let startDow = new Date(bcCalYear, bcCalMonth, 1).getDay();
   startDow = startDow === 0 ? 6 : startDow - 1;
 
-  // Collect bootcamp task dates
   const bcDates = {};
   bootcampGroups.forEach(g => {
-    (g.tasks || []).forEach(t => {
-      if (!bcDates[t.date]) bcDates[t.date] = [];
-      bcDates[t.date].push(t.name);
-    });
-    // Also mark the bootcamp start date itself
-    if (g.bootcampDate) {
-      if (!bcDates[g.bootcampDate]) bcDates[g.bootcampDate] = [];
-      bcDates[g.bootcampDate].push('🚀 Bootcamp starts');
-    }
+    (g.tasks||[]).forEach(t => { if(!bcDates[t.date]) bcDates[t.date]=[]; bcDates[t.date].push(t.name); });
+    if (g.bootcampDate) { if(!bcDates[g.bootcampDate]) bcDates[g.bootcampDate]=[]; bcDates[g.bootcampDate].push('🚀 Bootcamp starts'); }
   });
 
   const DAY_HEADS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   let html = DAY_HEADS.map(d => `<div class="cal-day-head">${d}</div>`).join('');
   for (let i = 0; i < startDow; i++) html += '<div class="cal-cell empty"></div>';
-
   for (let day = 1; day <= daysInMonth; day++) {
-    const dateKey = `${bcCalYear}-${bcCalMonth+1}-${day}`;
+    const dk = `${bcCalYear}-${bcCalMonth+1}-${day}`;
     const isT = today.getFullYear()===bcCalYear && today.getMonth()===bcCalMonth && today.getDate()===day;
-    const bcTasks = bcDates[dateKey] || [];
-    const isBootcampDay = bootcampGroups.some(g => g.bootcampDate === dateKey);
-    let cls = 'cal-cell' + (isT?' today-cell':'') + (bcTasks.length?' has-orient':'');
-    if (isBootcampDay) cls += ' has-note';
-    const numHtml = isT
-      ? `<div class="cal-num"><span style="background:#1a2540;color:#fff;width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px">${day}</span></div>`
-      : `<div class="cal-num">${day}</div>`;
-    const dots = bcTasks.length ? '<span class="cal-dot dot-bootcamp"></span>' : '';
-    const oLabel = bcTasks.length ? `<div class="cal-orient-label" style="color:#7c3aed">🚀 ${bcTasks.length} task${bcTasks.length>1?'s':''}</div>` : '';
-    html += `<div class="${cls}" style="cursor:default">${numHtml}<div>${dots}</div>${oLabel}</div>`;
+    const bcT = bcDates[dk] || [];
+    let cls = 'cal-cell'+(isT?' today-cell':'')+(bcT.length?' has-orient':'');
+    const numHtml = isT ? `<div class="cal-num"><span style="background:#1a2540;color:#fff;width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px">${day}</span></div>` : `<div class="cal-num">${day}</div>`;
+    html += `<div class="${cls}" style="cursor:default">${numHtml}<div>${bcT.length?'<span class="cal-dot dot-bootcamp"></span>':''}</div>${bcT.length?`<div class="cal-orient-label" style="color:#7c3aed">🚀 ${bcT.length} task${bcT.length>1?'s':''}</div>`:''}</div>`;
   }
   grid.innerHTML = html;
 }
 
-function openBootcampModal() {
+function openBootcampModal(id) {
+  editingBcGroupId = id || null;
+  document.getElementById('bc-modal-title').textContent = id ? 'Edit Bootcamp Group' : 'New Bootcamp Group';
+  document.getElementById('bc-save-btn').textContent = id ? 'Save changes' : 'Create group';
+  if (id) {
+    const g = bootcampGroups.find(x => x.id === id);
+    if (!g) return;
+    const parts = g.bootcampDate.split('-');
+    document.getElementById('bc-date').valueAsDate = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+    document.getElementById('bc-techs').value = g.techs.join('\n');
+  } else {
+    const d = new Date(); d.setDate(d.getDate()+(1+7-d.getDay())%7||7);
+    document.getElementById('bc-date').valueAsDate = d;
+    document.getElementById('bc-techs').value = '';
+  }
+  renderBcExtraTasks(bcExtraTemplates.map(t => ({...t})));
   document.getElementById('bootcamp-modal').classList.add('open');
-  // Default to next Monday
-  const d = new Date(); d.setDate(d.getDate() + (1+7-d.getDay())%7||7);
-  document.getElementById('bc-date').valueAsDate = d;
-  document.getElementById('bc-techs').value = '';
 }
-function closeBootcampModal() {
-  document.getElementById('bootcamp-modal').classList.remove('open');
-  document.getElementById('bc-date').value = '';
-  document.getElementById('bc-techs').value = '';
+
+function renderBcExtraTasks(tasks) {
+  const container = document.getElementById('bc-extra-tasks');
+  container.innerHTML = tasks.map((t, i) => `
+    <div class="extra-task-row" id="bcet-${i}">
+      <input class="form-input" type="text" value="${(t.name||'').replace(/"/g,'&quot;')}" placeholder="Task name" id="bcet-name-${i}">
+      <select class="form-input" id="bcet-day-${i}" style="width:130px;flex:none">
+        <option value="monBefore" ${t.dayRef==='monBefore'?'selected':''}>Mon (week before)</option>
+        <option value="friBefore" ${t.dayRef==='friBefore'?'selected':''}>Fri (week before)</option>
+        <option value="bcStart" ${t.dayRef==='bcStart'?'selected':''}>Bootcamp start day</option>
+      </select>
+      <button class="btn-remove-link" onclick="document.getElementById('bcet-${i}').remove()">×</button>
+    </div>`).join('');
 }
+
+function addBcExtraTask() {
+  const container = document.getElementById('bc-extra-tasks');
+  const i = container.children.length;
+  const div = document.createElement('div');
+  div.className = 'extra-task-row'; div.id = 'bcet-' + i;
+  div.innerHTML = `<input class="form-input" type="text" placeholder="Task name" id="bcet-name-${i}"><select class="form-input" id="bcet-day-${i}" style="width:130px;flex:none"><option value="monBefore">Mon (week before)</option><option value="friBefore">Fri (week before)</option><option value="bcStart">Bootcamp start day</option></select><button class="btn-remove-link" onclick="this.parentElement.remove()">×</button>`;
+  container.appendChild(div);
+  div.querySelector('input').focus();
+}
+
+function closeBootcampModal() { document.getElementById('bootcamp-modal').classList.remove('open'); editingBcGroupId = null; }
 
 function saveBootcampGroup() {
   const ds = document.getElementById('bc-date').value;
   const tr = document.getElementById('bc-techs').value.trim();
-  if (!ds || !tr) { alert('Please fill in all fields.'); return; }
+  if (!ds||!tr) { alert('Please fill in all fields.'); return; }
 
-  const bcDate = new Date(ds + 'T12:00:00');
-  const techs = tr.split('\n').map(s => s.trim()).filter(Boolean);
+  const bcDate = new Date(ds+'T12:00:00');
+  const techs = tr.split('\n').map(s=>s.trim()).filter(Boolean);
 
-  // Monday of the week BEFORE bootcamp week
   const monBefore = new Date(bcDate);
-  while (monBefore.getDay() !== 1) monBefore.setDate(monBefore.getDate() - 1);
-  monBefore.setDate(monBefore.getDate() - 7);
-  const friBefore = new Date(monBefore); friBefore.setDate(monBefore.getDate() + 4);
+  while (monBefore.getDay() !== 1) monBefore.setDate(monBefore.getDate()-1);
+  monBefore.setDate(monBefore.getDate()-7);
+  const friBefore = new Date(monBefore); friBefore.setDate(monBefore.getDate()+4);
+  const dateMap = { monBefore, friBefore, bcStart: bcDate };
 
-  const groupId = 'bc' + Date.now();
-  const eventTasks = [
-    { name: '🚀 Hotel reservation requested', date: toDateKey(monBefore), day: 'Mon' },
-    { name: '🚀 Hotel reservation confirmed', date: toDateKey(friBefore), day: 'Fri' },
-    { name: '🚀 Hotel reservation forwarded to employee', date: toDateKey(friBefore), day: 'Fri' },
-    { name: '🚀 Flights purchased & received by employee', date: toDateKey(friBefore), day: 'Fri' },
+  // Gather extra tasks
+  const extraRows = document.getElementById('bc-extra-tasks').children;
+  const newExtras = [];
+  for (let el of extraRows) {
+    const nameEl = el.querySelector('input[type="text"]');
+    const dayEl = el.querySelector('select');
+    if (nameEl && dayEl && nameEl.value.trim()) newExtras.push({ name: nameEl.value.trim(), dayRef: dayEl.value });
+  }
+  bcExtraTemplates = newExtras;
+  localStorage.setItem('bc_extra_templates', JSON.stringify(bcExtraTemplates));
+
+  const BASE_TASKS = [
+    { name:'Hotel reservation requested', dayRef:'monBefore', day:'Mon' },
+    { name:'Hotel reservation confirmed', dayRef:'friBefore', day:'Fri' },
+    { name:'Hotel reservation forwarded to employee', dayRef:'friBefore', day:'Fri' },
+    { name:'Flights purchased & received by employee', dayRef:'friBefore', day:'Fri' },
   ];
 
+  const allTaskDefs = [...BASE_TASKS, ...newExtras.map(t => ({...t, day: t.dayRef==='monBefore'?'Mon':'Fri'}))];
+  const eventTasks = allTaskDefs.map(t => ({
+    name: '🚀 ' + t.name,
+    date: toDateKey(dateMap[t.dayRef] || bcDate),
+    day: t.day || 'Mon'
+  }));
+
+  const groupId = editingBcGroupId || ('bc'+Date.now());
   const group = {
     id: groupId,
     bootcampDate: toDateKey(bcDate),
     techs,
-    tasks: eventTasks.map(t => ({ name: t.name.replace('🚀 ',''), date: t.date, day: t.day })),
+    tasks: eventTasks.map(t => ({name:t.name.replace('🚀 ',''), date:t.date, day:t.day})),
     createdAt: new Date().toISOString()
   };
 
-  bootcampGroups.push(group);
+  if (editingBcGroupId) {
+    bootcampGroups = bootcampGroups.map(g => g.id === editingBcGroupId ? group : g);
+  } else {
+    bootcampGroups.push(group);
+  }
   localStorage.setItem('bootcamp_groups', JSON.stringify(bootcampGroups));
   addEventTasksToWeekly(eventTasks, `Bootcamp ${toDateKey(bcDate)} — ${techs.join(', ')}`, 'Bootcamp', groupId);
-  closeBootcampModal();
-  renderBcCalendar();
-  renderBootcampGroups();
+  closeBootcampModal(); renderBcCalendar(); renderBootcampGroups();
 }
 
 function deleteBootcampGroup(id) {
   if (!confirm('Delete this bootcamp group and its Weekly Tasks?')) return;
-  bootcampGroups = bootcampGroups.filter(g => g.id !== id);
+  bootcampGroups = bootcampGroups.filter(g=>g.id!==id);
   tasks = tasks.filter(t => t.sourceId !== id);
-  Object.keys(bcChecks).filter(k => k.startsWith(id)).forEach(k => delete bcChecks[k]);
+  Object.keys(bcChecks).filter(k=>k.startsWith(id)).forEach(k=>delete bcChecks[k]);
   localStorage.setItem('bootcamp_groups', JSON.stringify(bootcampGroups));
   localStorage.setItem('bootcamp_checks', JSON.stringify(bcChecks));
-  saveTasks();
-  renderBcCalendar();
-  renderBootcampGroups();
+  saveTasks(); renderBcCalendar(); renderBootcampGroups();
 }
 
 function toggleBcCheck(key, el) {
   bcChecks[key] = el.checked;
   localStorage.setItem('bootcamp_checks', JSON.stringify(bcChecks));
-  const sp = document.getElementById('bc-t-' + key);
+  const sp = document.getElementById('bc-t-'+key);
   if (sp) sp.classList.toggle('checked', el.checked);
 }
 
 function renderBootcampGroups() {
   const el = document.getElementById('bootcamp-groups-list');
-  if (!bootcampGroups.length) {
-    el.innerHTML = '<div style="font-size:13px;color:#94a3b8;padding:12px 0">No bootcamp groups yet. Click "+ New Bootcamp Group" to create one.</div>';
-    return;
-  }
+  if (!bootcampGroups.length) { el.innerHTML='<div style="font-size:13px;color:#94a3b8;padding:12px 0">No bootcamp groups yet.</div>'; return; }
   el.innerHTML = bootcampGroups.map(g => {
-    const monTasks = g.tasks.filter(t => t.day === 'Mon');
-    const friTasks = g.tasks.filter(t => t.day === 'Fri');
-    const monDate = monTasks[0]?.date || '';
-    const friDate = friTasks[0]?.date || '';
-    const allDone = g.tasks.every(t => bcChecks[`${g.id}_${t.name}`]);
-
+    const monTasks = g.tasks.filter(t=>t.day==='Mon');
+    const friTasks = g.tasks.filter(t=>t.day==='Fri');
+    const monDate = monTasks[0]?.date||''; const friDate = friTasks[0]?.date||'';
+    const allDone = g.tasks.every(t=>bcChecks[`${g.id}_${t.name}`]);
     return `<div class="bc-card">
       <div class="bc-header">
         <div>
           <div class="bc-name">🚀 Bootcamp — ${g.bootcampDate}</div>
           <div class="bc-date">Techs: ${g.techs.join(', ')}</div>
-          <div class="bc-date" style="margin-top:2px;color:#7c3aed">Prep week: Mon ${monDate} → Fri ${friDate}</div>
+          <div class="bc-date" style="color:#7c3aed;margin-top:2px">Prep: Mon ${monDate} → Fri ${friDate}</div>
         </div>
         <div style="display:flex;gap:6px;align-items:center">
-          ${allDone ? '<span style="font-size:11px;background:#d1fae5;color:#065f46;padding:3px 8px;border-radius:4px;font-weight:500">✓ All done</span>' : ''}
+          ${allDone?'<span style="font-size:11px;background:#d1fae5;color:#065f46;padding:3px 8px;border-radius:4px;font-weight:500">✓ All done</span>':''}
+          <button class="btn-sm" onclick="openBootcampModal('${g.id}')" style="background:#e0e7ff;color:#4f46e5;border:none">Edit</button>
           <button class="btn-sm danger" onclick="deleteBootcampGroup('${g.id}')">Delete</button>
         </div>
       </div>
-      ${monDate ? `<div style="font-size:11px;font-weight:600;color:#7c3aed;text-transform:uppercase;letter-spacing:.04em;padding:8px 0 4px;border-top:1px solid #f1f5f9;margin-top:6px">Monday ${monDate}</div>` : ''}
-      ${monTasks.map(t => {
-        const key = `${g.id}_${t.name}`;
-        const checked = !!bcChecks[key];
-        return `<div class="bc-task-row">
-          <input type="checkbox" class="bc-check" ${checked?'checked':''} onchange="toggleBcCheck('${key}',this)">
-          <span class="bc-task-text ${checked?'checked':''}" id="bc-t-${key}">${t.name}</span>
-        </div>`;
-      }).join('')}
-      ${friDate ? `<div style="font-size:11px;font-weight:600;color:#0369a1;text-transform:uppercase;letter-spacing:.04em;padding:8px 0 4px;border-top:1px solid #f1f5f9;margin-top:4px">Friday ${friDate}</div>` : ''}
-      ${friTasks.map(t => {
-        const key = `${g.id}_${t.name}`;
-        const checked = !!bcChecks[key];
-        return `<div class="bc-task-row">
-          <input type="checkbox" class="bc-check" ${checked?'checked':''} onchange="toggleBcCheck('${key}',this)">
-          <span class="bc-task-text ${checked?'checked':''}" id="bc-t-${key}">${t.name}</span>
-        </div>`;
-      }).join('')}
+      ${monDate?`<div style="font-size:11px;font-weight:600;color:#7c3aed;text-transform:uppercase;letter-spacing:.04em;padding:8px 0 4px;border-top:1px solid #f1f5f9;margin-top:6px">Monday ${monDate}</div>`:''}
+      ${monTasks.map(t=>{const key=`${g.id}_${t.name}`;const checked=!!bcChecks[key];return`<div class="bc-task-row"><input type="checkbox" class="bc-check" ${checked?'checked':''} onchange="toggleBcCheck('${key}',this)"><span class="bc-task-text ${checked?'checked':''}" id="bc-t-${key}">${t.name}</span></div>`;}).join('')}
+      ${friDate?`<div style="font-size:11px;font-weight:600;color:#0369a1;text-transform:uppercase;letter-spacing:.04em;padding:8px 0 4px;border-top:1px solid #f1f5f9;margin-top:4px">Friday ${friDate}</div>`:''}
+      ${friTasks.map(t=>{const key=`${g.id}_${t.name}`;const checked=!!bcChecks[key];return`<div class="bc-task-row"><input type="checkbox" class="bc-check" ${checked?'checked':''} onchange="toggleBcCheck('${key}',this)"><span class="bc-task-text ${checked?'checked':''}" id="bc-t-${key}">${t.name}</span></div>`;}).join('')}
     </div>`;
   }).join('');
 }
 
-// ─── WEEKLY TASKS ───
+function switchSubTab(id, btn) {
+  document.querySelectorAll('.sub-section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.sub-tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id==='bootcamp-sub') { bcCalMonth=new Date().getMonth(); document.getElementById('bc-month-select').value=bcCalMonth; renderBcCalendar(); renderBootcampGroups(); }
+  if (id==='orientation-sub') { renderOrientCalendar(); renderOrientGroups(); }
+}
+
+// ═══════════════════════════════════════════════
+// WEEKLY TASKS
+// ═══════════════════════════════════════════════
 const WD = ['Mon','Tue','Wed','Thu','Fri'];
 const WDF = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
 const WM = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 let weekOffset = 0;
+let wtFilter = 'all';
 const SC = ['pending','progress','done','blocked'];
 const SL = {pending:'pending',progress:'in progress',done:'done',blocked:'blocked'};
 
@@ -1014,6 +1370,7 @@ function cycleStatus(id,offset,day,isRec) {
   renderWeekly();
 }
 function deleteTask(id) { if(!confirm('Delete this task?'))return; tasks=tasks.filter(x=>x.id!==id); saveTasks(); renderWeekly(); }
+
 function getWkDates(o) {
   const today=new Date(); const dow=today.getDay();
   const mon=new Date(today); mon.setDate(today.getDate()-(dow===0?6:dow-1)+o*7);
@@ -1022,115 +1379,278 @@ function getWkDates(o) {
 function fD(d){return WM[d.getMonth()]+' '+d.getDate();}
 function isTdy(d){const t=new Date();return d.getDate()===t.getDate()&&d.getMonth()===t.getMonth()&&d.getFullYear()===t.getFullYear();}
 
-// ─── TASK NOTES ───
+// ── Task notes ──
 let taskNotes = JSON.parse(localStorage.getItem('task_notes') || '{}');
 let activeTaskNoteId = null;
 function saveTaskNotes() { localStorage.setItem('task_notes', JSON.stringify(taskNotes)); }
 function openTaskNoteModal(taskId, taskName) {
   activeTaskNoteId = taskId;
-  document.getElementById('task-note-modal-title').textContent = taskName.length > 40 ? taskName.substring(0,40)+'…' : taskName;
+  document.getElementById('task-note-modal-title').textContent = taskName.length>40 ? taskName.substring(0,40)+'…' : taskName;
   document.getElementById('task-note-input').value = taskNotes[taskId] || '';
   document.getElementById('task-note-modal').classList.add('open');
-  setTimeout(() => document.getElementById('task-note-input').focus(), 50);
+  setTimeout(()=>document.getElementById('task-note-input').focus(),50);
 }
-function closeTaskNoteModal() { document.getElementById('task-note-modal').classList.remove('open'); activeTaskNoteId = null; }
+function closeTaskNoteModal() { document.getElementById('task-note-modal').classList.remove('open'); activeTaskNoteId=null; }
 function saveTaskNote() {
-  if (!activeTaskNoteId) return;
+  if(!activeTaskNoteId) return;
   const val = document.getElementById('task-note-input').value.trim();
-  if (val) taskNotes[activeTaskNoteId] = val; else delete taskNotes[activeTaskNoteId];
+  if (val) taskNotes[activeTaskNoteId]=val; else delete taskNotes[activeTaskNoteId];
   saveTaskNotes(); closeTaskNoteModal(); renderWeekly();
 }
-function clearTaskNote() {
-  if (!activeTaskNoteId) return;
-  delete taskNotes[activeTaskNoteId];
-  saveTaskNotes(); closeTaskNoteModal(); renderWeekly();
+function clearTaskNote() { if(!activeTaskNoteId) return; delete taskNotes[activeTaskNoteId]; saveTaskNotes(); closeTaskNoteModal(); renderWeekly(); }
+
+function setWtFilter(f, btn) {
+  wtFilter = f;
+  document.querySelectorAll('.wt-filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderWeekly();
+}
+
+// ── Link event tasks to weekly ──
+function dateToWeekOffset(dateStr) {
+  const parts = dateStr.split('-');
+  const d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+  const today = new Date();
+  const todayDow = today.getDay();
+  const todayMon = new Date(today); todayMon.setDate(today.getDate()-(todayDow===0?6:todayDow-1)); todayMon.setHours(0,0,0,0);
+  const dDow = d.getDay();
+  const dMon = new Date(d); dMon.setDate(d.getDate()-(dDow===0?6:dDow-1)); dMon.setHours(0,0,0,0);
+  return Math.round((dMon-todayMon)/(7*24*60*60*1000));
+}
+function dateStrToDayIdx(dateStr) {
+  const parts = dateStr.split('-');
+  const d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+  const dow = d.getDay(); return dow===0?6:dow-1;
+}
+function addEventTasksToWeekly(eventTasks, groupLabel, cat, sourceId) {
+  tasks = tasks.filter(t => t.sourceId !== sourceId);
+  eventTasks.forEach(t => {
+    const wo = dateToWeekOffset(t.date);
+    const dayIdx = dateStrToDayIdx(t.date);
+    if (dayIdx<0||dayIdx>4) return;
+    tasks.push({id:genId(),name:t.name,owner:'Paula',day:dayIdx,status:'pending',cat,notes:groupLabel,recurring:false,weekOffset:wo,sourceId,eventTag:cat});
+  });
+  saveTasks();
+}
+
+// ── Popover state ──
+let popoverTask = null;
+let popoverDay = null;
+let popoverIsRecurring = false;
+
+function openPopover(taskId, day, evt) {
+  const t = tasks.find(x => x.id === taskId);
+  if (!t) return;
+  popoverTask = t;
+  popoverDay = day;
+  popoverIsRecurring = !!t.recurring;
+
+  const status = t.recurring ? getRSt(t, weekOffset, day) : (t.status||'pending');
+  const name = t.name.replace(/^[🎓🚀]\s*/,'');
+
+  document.getElementById('ep-title').textContent = name;
+  document.getElementById('ep-owner').textContent = t.owner || '—';
+  document.getElementById('ep-cat').textContent = t.eventTag || t.cat || '—';
+  const notesEl = document.getElementById('ep-notes-row');
+  const noteKey = t.recurring ? `${t.id}_r` : t.id;
+  const note = taskNotes[noteKey];
+  if (note) { notesEl.style.display='flex'; document.getElementById('ep-notes').textContent=note; }
+  else { notesEl.style.display='none'; }
+  const timeEl = document.getElementById('ep-time-row');
+  if (t.timeStart) { timeEl.style.display='flex'; document.getElementById('ep-time').textContent=`${t.timeStart}${t.timeEnd?' – '+t.timeEnd:''}${t.timezone?' '+t.timezone:''}`; }
+  else { timeEl.style.display='none'; }
+
+  const SL2 = {pending:'Pending',progress:'In Progress',done:'Done',blocked:'Blocked'};
+  document.getElementById('ep-status-label').textContent = SL2[status]||status;
+
+  const pop = document.getElementById('ev-popover');
+  pop.style.display = 'block';
+  const rect = evt.target.closest('.cal-event').getBoundingClientRect();
+  const pw = 280, ph = 200;
+  let left = rect.right + 8;
+  let top = rect.top;
+  if (left + pw > window.innerWidth - 10) left = rect.left - pw - 8;
+  if (top + ph > window.innerHeight - 10) top = window.innerHeight - ph - 10;
+  pop.style.left = Math.max(8, left) + 'px';
+  pop.style.top = Math.max(8, top) + 'px';
+  evt.stopPropagation();
+}
+
+function closePopover() {
+  document.getElementById('ev-popover').style.display = 'none';
+  popoverTask = null;
+}
+
+function popoverCycleStatus() {
+  if (!popoverTask) return;
+  cycleStatus(popoverTask.id, weekOffset, popoverDay, popoverIsRecurring);
+  // refresh label
+  const t = tasks.find(x => x.id === popoverTask.id);
+  if (!t) return;
+  const status = t.recurring ? getRSt(t, weekOffset, popoverDay) : (t.status||'pending');
+  const SL2 = {pending:'Pending',progress:'In Progress',done:'Done',blocked:'Blocked'};
+  document.getElementById('ep-status-label').textContent = SL2[status]||status;
+}
+
+function popoverNote() {
+  if (!popoverTask) return;
+  const noteKey = popoverTask.recurring ? `${popoverTask.id}_r` : popoverTask.id;
+  openTaskNoteModal(noteKey, popoverTask.name.replace(/^[🎓🚀]\s*/,''));
+  closePopover();
+}
+
+function popoverDelete() {
+  if (!popoverTask) return;
+  deleteTask(popoverTask.id);
+  closePopover();
+}
+
+document.addEventListener('click', e => {
+  const pop = document.getElementById('ev-popover');
+  if (pop && pop.style.display !== 'none' && !pop.contains(e.target) && !e.target.closest('.cal-event')) closePopover();
+});
+
+// ── Outlook-style render ──
+const HOURS = ['8 AM','9 AM','10 AM','11 AM','12 PM','1 PM','2 PM','3 PM','4 PM','5 PM','6 PM'];
+const CAT_CLASS = { Hiring:'ev-hiring', Training:'ev-training', Orientation:'ev-orientation', Meetings:'ev-meetings', Onboarding:'ev-onboarding', Bootcamp:'ev-bootcamp' };
+
+function getEvClass(t) {
+  if (t.eventTag === 'Bootcamp') return 'ev-bootcamp';
+  if (t.eventTag === 'Orientation') return 'ev-orientation';
+  return CAT_CLASS[t.cat] || 'ev-default';
 }
 
 function renderWeekly() {
-  const dates=getWkDates(weekOffset);
-  document.getElementById('week-label').textContent='Week of '+fD(dates[0])+' – '+fD(dates[4]);
+  const dates = getWkDates(weekOffset);
+  document.getElementById('week-label').textContent = fD(dates[0]) + ' – ' + fD(dates[4]) + ', ' + dates[0].getFullYear();
+  const searchVal = (document.getElementById('wt-search')?.value||'').toLowerCase().trim();
+  const now = new Date();
+  const todayDow = now.getDay(); // 0=Sun
+  const todayMon = new Date(now); todayMon.setDate(now.getDate()-(todayDow===0?6:todayDow-1)); todayMon.setHours(0,0,0,0);
 
-  // Build ISO date strings for this week's 5 days for matching event tasks
-  const weekISODates = dates.map(d => `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`);
+  // Collect all visible slots
+  let total=0, doneC=0, pendingC=0, blockedC=0;
+  // slots[dayIdx] = [{task, status, isPast}]
+  const allDaySlots = [[],[],[],[],[]]; // recurring/allday
+  const timedSlots  = [[],[],[],[],[]]; // tasks with time
+  const noTimeSlots = [[],[],[],[],[]]; // tasks without time (not allday)
 
-  let total=0,done=0,pending=0,blocked=0;
-  const slots=[];
-  tasks.forEach(t=>{
-    if(t.recurring){
-      (t.recurringDays||[t.day]).forEach(day=>{
-        const st=getRSt(t,weekOffset,day); slots.push({task:t,day,status:st});
-        total++;if(st==='done')done++;else if(st==='blocked')blocked++;else pending++;
+  tasks.forEach(t => {
+    const isMatch = (() => {
+      if (wtFilter !== 'all' && (t.cat !== wtFilter && t.eventTag !== wtFilter)) return false;
+      if (searchVal && !t.name.toLowerCase().includes(searchVal)) return false;
+      return true;
+    })();
+    if (!isMatch) return;
+
+    if (t.recurring) {
+      (t.recurringDays||[t.day]).forEach(day => {
+        const status = getRSt(t, weekOffset, day);
+        // isPast: current week AND day index < today's weekday (0=Mon)
+        const dayDate = dates[day];
+        const isPast = dayDate < now && !isTdy(dayDate);
+        allDaySlots[day].push({task:t, day, status, isPast});
+        total++; if(status==='done')doneC++; else if(status==='blocked')blockedC++; else pendingC++;
       });
-    } else {
-      // Event tasks (orientation/bootcamp) — match by absolute ISO date
-      if (t.sourceId) {
-        // Find which day column this date falls in this week
-        const dayIdx = weekISODates.indexOf(`${t.weekOffset !== undefined ? '' : ''}${t.notes ? '' : ''}${t.day !== undefined ? '' : ''}`);
-        // Re-derive day from the stored weekOffset + day combo
-        // Actually we store day (0-4) and weekOffset, so show when weekOffset matches
-        if((t.weekOffset??0)===weekOffset){
-          const st=t.status||'pending'; slots.push({task:t,day:t.day,status:st});
-          total++;if(st==='done')done++;else if(st==='blocked')blocked++;else pending++;
-        }
-      } else {
-        if((t.weekOffset??0)===weekOffset){
-          const st=t.status||'pending'; slots.push({task:t,day:t.day,status:st});
-          total++;if(st==='done')done++;else if(st==='blocked')blocked++;else pending++;
-        }
-      }
+    } else if ((t.weekOffset??0) === weekOffset) {
+      const day = t.day;
+      if (day < 0 || day > 4) return;
+      const status = t.status||'pending';
+      const dayDate = dates[day];
+      const isPast = dayDate < now && !isTdy(dayDate);
+      if (t.timeStart) timedSlots[day].push({task:t, day, status, isPast});
+      else noTimeSlots[day].push({task:t, day, status, isPast});
+      total++; if(status==='done')doneC++; else if(status==='blocked')blockedC++; else pendingC++;
     }
   });
-  document.getElementById('s-total').textContent=total;
-  document.getElementById('s-done').textContent=done;
-  document.getElementById('s-pending').textContent=pending;
-  document.getElementById('s-blocked').textContent=blocked;
-  const grid=document.getElementById('days-grid'); grid.innerHTML='';
-  dates.forEach((d,di)=>{
-    const col=document.createElement('div');col.className='day-col';
-    const head=document.createElement('div');head.className='day-head'+(isTdy(d)?' today-col':'');
-    head.innerHTML=`<span class="day-name">${WD[di]}</span><span class="day-date">${d.toLocaleString('en-US',{month:'short',day:'numeric'}).toUpperCase()}</span>`;
-    col.appendChild(head);
-    const body=document.createElement('div');body.className='day-body';
-    const ds=slots.filter(s=>s.day===di);
-    if(!ds.length){body.innerHTML='<div class="no-tasks">No tasks</div>';}
-    else{ds.forEach(({task:t,day,status})=>{
-      const card=document.createElement('div');card.className='task-card';
-      // Event tag (Orientation / Bootcamp) takes priority over recurring tag
-      let tag='';
-      if(t.eventTag==='Orientation'){
-        tag='<span class="task-tag" style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa">🎓 Orientation</span>';
-      } else if(t.eventTag==='Bootcamp'){
-        tag='<span class="task-tag" style="background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe">🚀 Bootcamp</span>';
-      } else if(t.allDay){
-        tag='<span class="task-tag tag-allday">All days</span>';
-      } else if(t.recurring){
-        const rd=t.recurringDays||[t.day];
-        tag=rd.length>1?`<span class="task-tag tag-recurring">↻ ${rd.map(x=>WD[x]).join(', ')}</span>`:`<span class="task-tag tag-recurring">↻ Every ${WDF[day]}</span>`;
+
+  document.getElementById('s-total').textContent = total;
+  document.getElementById('s-done').textContent = doneC;
+  document.getElementById('s-pending').textContent = pendingC;
+  document.getElementById('s-blocked').textContent = blockedC;
+
+  // ── Day headers ──
+  const hdContainer = document.getElementById('cal-day-headers');
+  hdContainer.innerHTML = '<div class="cal-header-gutter"></div>' + dates.map((d, i) => {
+    const isToday = isTdy(d);
+    return `<div class="cal-day-hd ${isToday?'today-hd':''}">
+      <div class="cal-day-hd-name">${['MON','TUE','WED','THU','FRI'][i]}</div>
+      <div class="cal-day-hd-num ${isToday?'today-num':''}">${d.getDate()}</div>
+    </div>`;
+  }).join('');
+
+  // ── All-day row ──
+  const alContainer = document.getElementById('cal-allday-row');
+  alContainer.innerHTML = '<div class="cal-allday-label">All day /<br>Recurring</div>' + dates.map((d, di) => {
+    const slots = allDaySlots[di];
+    if (!slots.length) return '<div class="cal-allday-cell"></div>';
+    return `<div class="cal-allday-cell">${slots.map(s => {
+      const cls = `cal-event ${getEvClass(s.task)} ${s.status==='done'?'ev-done':''} ${s.status==='blocked'?'ev-blocked':''} ${s.isPast?'ev-past':''}`;
+      const name = s.task.name.replace(/^[🎓🚀]\s*/,'');
+      return `<div class="${cls}" onclick="openPopover('${s.task.id}',${di},event)" title="${name}">
+        <div class="cal-event-name">↻ ${name}</div>
+      </div>`;
+    }).join('')}</div>`;
+  }).join('');
+
+  // ── Timed body ──
+  const body = document.getElementById('cal-body');
+  // Build time-col
+  let timeHtml = '<div class="cal-time-col">';
+  HOURS.forEach(h => { timeHtml += `<div class="cal-time-slot">${h}</div>`; });
+  timeHtml += '</div>';
+
+  // Build each day column
+  const dayColsHtml = dates.map((d, di) => {
+    const isToday = isTdy(d);
+    let html = `<div class="cal-day-col ${isToday?'today-col-bg':''}">`;
+    // background rows
+    HOURS.forEach(() => { html += '<div class="cal-hour-row"></div>'; });
+
+    // No-time tasks rendered as full-width pills at top of column
+    const ntSlots = noTimeSlots[di];
+    if (ntSlots.length) {
+      html += `<div style="padding:4px 3px 2px;border-bottom:1px solid #f1f5f9">`;
+      ntSlots.forEach(s => {
+        const cls = `cal-event ${getEvClass(s.task)} ${s.status==='done'?'ev-done':''} ${s.status==='blocked'?'ev-blocked':''} ${s.isPast?'ev-past':''}`;
+        const name = s.task.name.replace(/^[🎓🚀]\s*/,'');
+        html += `<div class="${cls}" onclick="openPopover('${s.task.id}',${di},event)" title="${name}" style="margin-bottom:2px">
+          <div class="cal-event-name">${name}</div>
+          <div class="cal-event-meta">${s.task.owner||''}</div>
+        </div>`;
+      });
+      html += '</div>';
+    }
+
+    // Timed tasks – positioned by hour
+    const tSlots = timedSlots[di];
+    tSlots.forEach(s => {
+      const [hh,mm] = (s.task.timeStart||'08:00').split(':').map(Number);
+      const startH = Math.max(8, Math.min(hh, 18));
+      const topPx = (startH - 8) * 52 + (mm/60)*52 + (ntSlots.length ? ntSlots.length*32+12 : 0);
+      let durH = 1;
+      if (s.task.timeEnd) {
+        const [eh,em] = s.task.timeEnd.split(':').map(Number);
+        durH = Math.max(0.5, (eh + em/60) - (hh + mm/60));
       }
-      let tH='';
-      if(t.timeStart){const f=h=>{const[hh,mm]=h.split(':');const n=parseInt(hh);return(n%12||12)+':'+mm+(n<12?'am':'pm');};tH=`<div class="task-time">🕐 ${f(t.timeStart)}${t.timeEnd?' – '+f(t.timeEnd):''}${t.timezone?' '+getTzAbbr(t.timezone):''}</div>`;}
-      const nc='task-name'+(status==='done'?' done':'');
-      // Strip emoji prefix from name for display (already shown in tag)
-      const displayName = t.name.replace(/^[🎓🚀]\s*/,'');
-      card.innerHTML=`${tag}${tH}<div class="${nc}">${displayName}</div>`;
-      const footer=document.createElement('div');footer.className='task-footer';
-      const sb=document.createElement('button');sb.className=`status-btn ${status}`;sb.textContent=SL[status]||status;sb.title='Click to change';sb.onclick=()=>cycleStatus(t.id,weekOffset,day,t.recurring);
-      footer.appendChild(sb);
-      if(t.owner){const ob=document.createElement('span');ob.className='badge-owner';ob.textContent=t.owner;footer.appendChild(ob);}
-      // Note button
-      const noteKey = t.recurring ? `${t.id}_r` : t.id;
-      const hasNote = !!taskNotes[noteKey];
-      const nb=document.createElement('button');nb.className='btn-note'+(hasNote?' has-note':'');nb.title=hasNote?'Edit note':'Add note';nb.textContent='📝';nb.onclick=()=>openTaskNoteModal(noteKey, t.name.replace(/^[🎓🚀]\s*/,''));
-      footer.appendChild(nb);
-      const db=document.createElement('button');db.className='btn-del';db.textContent='×';db.onclick=()=>deleteTask(t.id);footer.appendChild(db);
-      card.appendChild(footer);
-      // Note preview below footer
-      if(hasNote){const np=document.createElement('div');np.className='task-note-preview';np.textContent=taskNotes[noteKey];card.appendChild(np);}
-      body.appendChild(card);
-    });}
-    col.appendChild(body);grid.appendChild(col);
-  });
+      const heightPx = Math.max(26, durH * 52 - 2);
+      const cls = `cal-event ${getEvClass(s.task)} ${s.status==='done'?'ev-done':''} ${s.status==='blocked'?'ev-blocked':''} ${s.isPast?'ev-past':''}`;
+      const name = s.task.name.replace(/^[🎓🚀]\s*/,'');
+      html += `<div class="${cls}" style="position:absolute;top:${topPx}px;left:3px;right:3px;height:${heightPx}px" onclick="openPopover('${s.task.id}',${di},event)" title="${name}">
+        <div class="cal-event-name">${name}</div>
+        <div class="cal-event-meta">${s.task.timeStart}${s.task.timeEnd?' – '+s.task.timeEnd:''} · ${s.task.owner||''}</div>
+      </div>`;
+    });
+
+    html += '</div>';
+    return html;
+  }).join('');
+
+  body.innerHTML = timeHtml + dayColsHtml;
+
+  // Scroll to 8am (top already)
 }
+
 function changeWeek(dir){weekOffset+=dir;renderWeekly();}
 function goToday(){weekOffset=0;renderWeekly();}
 
@@ -1153,6 +1673,7 @@ function toggleRecurring(c){
 }
 function toggleDay(el){el.classList.toggle('selected');}
 function genId(){return 't'+Date.now()+Math.random().toString(36).slice(2,6);}
+
 function saveTask(){
   const name=document.getElementById('f-task').value.trim();
   if(!name){document.getElementById('f-task').classList.add('error');document.getElementById('f-task').focus();return;}
@@ -1168,78 +1689,29 @@ function saveTask(){
     tasks.push({id:genId(),name,owner:document.getElementById('f-owner').value,day:parseInt(document.getElementById('f-day').value),status:document.getElementById('f-status').value,cat:document.getElementById('f-cat').value,notes:document.getElementById('f-notes').value,timeStart:ts,timeEnd:te,timezone:tz,recurring:false,weekOffset});
   }
   saveTasks();
-  const log=document.getElementById('activity-log');const e=document.createElement('div');e.className='log-item';
-  const now=new Date();e.innerHTML=`<strong>+ ${name}</strong> added<div class="log-date">${now.toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</div>`;
-  log.insertBefore(e,log.firstChild);while(log.children.length>10)log.removeChild(log.lastChild);
   closeTaskModal();renderWeekly();
 }
 
-const TZ_MAP={ET:{std:'EST',dst:'EDT',stdOff:'UTC−5',dstOff:'UTC−4'},CT:{std:'CST',dst:'CDT',stdOff:'UTC−6',dstOff:'UTC−5'},MT:{std:'MST',dst:'MDT',stdOff:'UTC−7',dstOff:'UTC−6'},PT:{std:'PST',dst:'PDT',stdOff:'UTC−8',dstOff:'UTC−7'},AKT:{std:'AKST',dst:'AKDT',stdOff:'UTC−9',dstOff:'UTC−8'},HT:{std:'HST',dst:'HST',stdOff:'UTC−10',dstOff:'UTC−10'}};
+const TZ_MAP={ET:{std:'EST',dst:'EDT',stdOff:'UTC−5',dstOff:'UTC−4'},CT:{std:'CST',dst:'CDT',stdOff:'UTC−6',dstOff:'UTC−5'},MT:{std:'MST',dst:'MDT',stdOff:'UTC−7',dstOff:'UTC−6'},PT:{std:'PST',dst:'PDT',stdOff:'UTC−8',dstOff:'UTC−7'}};
 function isDST(){const d=new Date();const j=new Date(d.getFullYear(),0,1);const jl=new Date(d.getFullYear(),6,1);return d.getTimezoneOffset()<Math.max(j.getTimezoneOffset(),jl.getTimezoneOffset());}
 function getTzAbbr(tz){const i=TZ_MAP[tz];return i?(isDST()?i.dst:i.std):tz;}
-function updateTzPreview(){
-  const s=document.getElementById('f-time-start').value;const e=document.getElementById('f-time-end').value;const tz=document.getElementById('f-timezone').value;
-  const p=document.getElementById('tz-preview');if(!s){p.textContent='';return;}
-  const f=h=>{const[hh,mm]=h.split(':');const n=parseInt(hh);return(n%12||12)+':'+mm+(n<12?'am':'pm');};
-  const i=TZ_MAP[tz]||{};p.textContent=`🕐 ${f(s)}${e?' – '+f(e):''} ${getTzAbbr(tz)} (${isDST()?i.dstOff:i.stdOff})`;
-}
-setTimeout(()=>{ ['f-time-start','f-time-end','f-timezone'].forEach(id=>{document.getElementById(id)?.addEventListener('change',updateTzPreview);document.getElementById(id)?.addEventListener('input',updateTzPreview);}); },100);
+function updateTzPreview(){const s=document.getElementById('f-time-start').value;const e=document.getElementById('f-time-end').value;const tz=document.getElementById('f-timezone').value;const p=document.getElementById('tz-preview');if(!s){p.textContent='';return;}const f=h=>{const[hh,mm]=h.split(':');const n=parseInt(hh);return(n%12||12)+':'+mm+(n<12?'am':'pm');};const i=TZ_MAP[tz]||{};p.textContent=`🕐 ${f(s)}${e?' – '+f(e):''} ${getTzAbbr(tz)} (${isDST()?i.dstOff:i.stdOff})`;}
+setTimeout(()=>{['f-time-start','f-time-end','f-timezone'].forEach(id=>{const el=document.getElementById(id);if(el){el.addEventListener('change',updateTzPreview);el.addEventListener('input',updateTzPreview);}});},100);
 
-// ─── NEW HIRE CHECKLIST ───
-const CL_SECTIONS=[
-  {title:'Pre-Orientation Documentation',items:['Digital onboarding complete (New Hire Spreadsheet)','OSHA 10 or OSHA 30 Construction certificate on file','High school diploma, transcript, or GED on file','OSHA card uploaded to SharePoint (by region)','Education doc uploaded to SharePoint (Last, First format)','Cell phone number confirmed (Indeed messaging)','Mailing address confirmed (Indeed messaging)']},
-  {title:'ATA / Training Setup',items:['Airadigm Technical Academy account created (Airadigm email)','Enrolled in: Basics','Enrolled in: ATA Getting Started','Enrolled in: Safety','Digital ATA Scores spreadsheet created (Last, First – Digital ATA Scores.xlsx)','ATA Scores spreadsheet saved to SharePoint: Digital ATA Scores folder']},
-  {title:'Systems & Access',items:['QAD user account created (coordinate with Lisa)','WEX account/access set up','USA Balancing access set up','RC account active — confirmed by Brenda in Onboarding thread','Added to: Company Social RC Thread','Added to: Field Tech Resources RC Thread','Added to: Training Touch Base / BZ Info Thread','Added to: Competition GROUP RC Thread','RC TEAM created: PM + Lead Tech (Brenda) + new tech']},
-  {title:'Recurring Meetings',items:['Added to New Tech Update (Wednesdays) — skip if Survey tech','Added to Training Touch Base – TTB (Thursdays)','Tech confirmed attendance for scheduled meetings']},
-  {title:'Office Admin',items:['Added to Office Calendar (Outlook)','Added to Anniversary / Birthday Tracker spreadsheet','Added to AirSolutions & Balancing Employee Location Map (Google My Maps)']},
-];
+// ═══════════════════════════════════════════════
+// GLOBAL EVENTS & INIT
+// ═══════════════════════════════════════════════
+function closeAllModals(){closeResModal();closeRespModal();closeTaskModal();closeNoteModal();closeOrientModal();closeBootcampModal();closeTaskNoteModal();}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAllModals();});
+['res-modal','resp-modal','task-modal','note-modal','orient-modal','bootcamp-modal','task-note-modal'].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el)el.addEventListener('click',function(e){if(e.target===this)closeAllModals();});
+});
 
-let hires = JSON.parse(localStorage.getItem('airadigm_hires')||'[]');
-let hireChecks = JSON.parse(localStorage.getItem('airadigm_hire_checks')||'{}');
-let activeHireIdx = 0;
-
-function renderHireChecklist(){
-  const tabsEl=document.getElementById('hire-tabs');
-  const contentEl=document.getElementById('hire-content');
-  if(!hires.length){tabsEl.innerHTML='';contentEl.innerHTML='<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px">No hires yet. Click "+ Add hire" to get started.</div>';return;}
-  tabsEl.innerHTML=hires.map((h,i)=>`<button class="hire-tab ${i===activeHireIdx?'active':''}" onclick="switchHire(${i})">${h.name}</button>`).join('');
-  const hire=hires[activeHireIdx];const ck=hire.id;
-  const all=CL_SECTIONS.flatMap(s=>s.items);const doneC=all.filter((_,i)=>hireChecks[`${ck}_${i}`]).length;
-  const pct=Math.round(doneC/all.length*100);
-  let html=`<div style="margin-bottom:16px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:13px;font-weight:600;color:#1e293b">${hire.name}</span><span style="font-size:12px;color:#64748b">${hire.startDate||''} ${hire.region?'· '+hire.region:''}</span></div><div class="hire-progress-label">${doneC} of ${all.length} completed (${pct}%)</div><div class="hire-progress"><div class="hire-progress-bar" style="width:${pct}%"></div></div></div>`;
-  let gi=0;
-  CL_SECTIONS.forEach(sec=>{
-    html+=`<div class="hire-section"><div class="hire-section-title">${sec.title}</div>`;
-    sec.items.forEach(item=>{
-      const key=`${ck}_${gi}`;const checked=!!hireChecks[key];
-      html+=`<div class="hire-item"><input type="checkbox" class="hire-check" ${checked?'checked':''} onchange="toggleHireCheck('${key}',this)"><span class="hire-text ${checked?'checked':''}" id="hi-${key}">${item}</span></div>`;
-      gi++;
-    });
-    html+=`</div>`;
-  });
-  html+=`<div style="margin-top:20px;padding-top:16px;border-top:1px solid #f1f5f9"><button class="btn-secondary" onclick="deleteHire(${activeHireIdx})" style="font-size:12px;color:#dc2626;border-color:#fca5a5">Remove ${hire.name}</button></div>`;
-  contentEl.innerHTML=html;
-}
-function switchHire(i){activeHireIdx=i;renderHireChecklist();}
-function toggleHireCheck(key,el){hireChecks[key]=el.checked;localStorage.setItem('airadigm_hire_checks',JSON.stringify(hireChecks));const sp=document.getElementById('hi-'+key);if(sp)sp.classList.toggle('checked',el.checked);renderHireChecklist();}
-function deleteHire(i){if(!confirm(`Remove ${hires[i].name}?`))return;hires.splice(i,1);localStorage.setItem('airadigm_hires',JSON.stringify(hires));activeHireIdx=Math.max(0,i-1);renderHireChecklist();}
-function openHireModal(){document.getElementById('hire-modal').classList.add('open');document.getElementById('h-name').focus();}
-function closeHireModal(){document.getElementById('hire-modal').classList.remove('open');document.getElementById('h-name').value='';document.getElementById('h-start').value='';document.getElementById('h-region').value='';document.getElementById('h-name').classList.remove('error');}
-function saveHire(){
-  const name=document.getElementById('h-name').value.trim();
-  if(!name){document.getElementById('h-name').classList.add('error');return;}
-  hires.push({id:'hire'+Date.now(),name,startDate:document.getElementById('h-start').value,region:document.getElementById('h-region').value});
-  localStorage.setItem('airadigm_hires',JSON.stringify(hires));activeHireIdx=hires.length-1;closeHireModal();renderHireChecklist();
-}
-
-// ─── GLOBAL EVENTS ───
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeTaskModal();closeNoteModal();closeOrientModal();closeHireModal();closeBootcampModal();closeTaskNoteModal();}});
-['task-modal','note-modal','orient-modal','hire-modal','bootcamp-modal','task-note-modal'].forEach(id=>{document.getElementById(id).addEventListener('click',function(e){if(e.target===this){closeTaskModal();closeNoteModal();closeOrientModal();closeHireModal();closeBootcampModal();closeTaskNoteModal();}});});
-
-// ─── INIT ───
-renderWeekly();
-calMonth=new Date().getMonth();
-document.getElementById('cal-month-select').value=calMonth;
+// Init
+renderResources();
+calMonth = new Date().getMonth();
+document.getElementById('cal-month-select').value = calMonth;
 </script>
 </body>
 </html>
