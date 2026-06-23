@@ -28,8 +28,7 @@ A web app to manage company onboarding procedures, built as an interactive to-do
 
 ### Step 2 — GitHub (Code Hosting)
 
-1. Go to [github.com](https://github.com) and create a **New Repository** (e.g. `onboarding-hub`).
-2. Upload all 5 files to the repository (drag & drop works).
+1. Go to [github.com/Air-Solutions-Balancing-LLC/onboarding.hub](https://github.com/Air-Solutions-Balancing-LLC/onboarding.hub) (org repo).
 
 ### Step 3 — Netlify (Publishing)
 
