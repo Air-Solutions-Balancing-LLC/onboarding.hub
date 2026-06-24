@@ -240,10 +240,41 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   .nav-links { display: none; }
   .stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
+
+/* ── AUTH ── */
+.auth-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #1a2540; padding: 24px; }
+.auth-card { background: #fff; border-radius: 12px; padding: 40px 36px; max-width: 400px; width: 100%; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+.auth-logo { font-size: 36px; margin-bottom: 12px; }
+.auth-card h1 { font-size: 20px; color: #1e293b; margin-bottom: 8px; font-weight: 600; }
+.auth-card p { font-size: 13px; color: #64748b; margin-bottom: 24px; line-height: 1.5; }
+.btn-microsoft { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 12px 16px; background: #2f2f2f; color: #fff; border: none; border-radius: 7px; font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit; }
+.btn-microsoft:hover { background: #1a1a1a; }
+.auth-error { font-size: 12px; color: #dc2626; margin-top: 14px; }
+.nav-user { display: flex; align-items: center; gap: 8px; margin-left: 8px; flex-shrink: 0; }
+.nav-user-email { font-size: 11px; color: #94a3b8; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btn-signout { font-size: 11px; padding: 5px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,.2); background: transparent; color: #94a3b8; cursor: pointer; font-family: inherit; white-space: nowrap; }
+.btn-signout:hover { color: #fff; border-color: rgba(255,255,255,.4); }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="hub-auth.js"></script>
 </head>
 <body>
 
+<div id="auth-screen" class="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">🏢</div>
+    <h1>Airadigm Onboarding Hub</h1>
+    <p>Sign in with your Air Solutions Microsoft account to continue.</p>
+    <button class="btn-microsoft" type="button" onclick="HubAuth.signInWithMicrosoft()">
+      <svg width="20" height="20" viewBox="0 0 21 21" fill="none" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
+      Sign in with Microsoft
+    </button>
+    <p id="auth-error" class="auth-error" hidden></p>
+  </div>
+</div>
+
+<div id="app-shell" hidden>
 <nav class="nav">
   <div class="nav-logo">
     <div class="nav-icon">🏢</div>
@@ -257,6 +288,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <button class="nav-link nav-resp" onclick="showPage('responsibilities',this)">Responsibilities</button>
     <button class="nav-link nav-orient" onclick="showPage('orientation',this)">Orientation &amp; Bootcamp 2026</button>
     <button class="nav-link nav-weekly" onclick="showPage('weekly',this)">Weekly Tasks</button>
+    <div class="nav-user">
+      <span id="nav-user-email" class="nav-user-email"></span>
+      <button class="btn-signout" type="button" onclick="HubAuth.signOut()">Sign out</button>
+    </div>
   </div>
 </nav>
 
@@ -598,6 +633,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   </div>
 </div>
 
+</div><!-- /app-shell -->
+
 <script>
 // ═══════════════════════════════════════════════
 // NAVIGATION
@@ -664,8 +701,8 @@ const DEFAULT_RESOURCES = [
     links:['Digital ATA Scores (SharePoint)'] },
 ];
 
-let resources = JSON.parse(localStorage.getItem('airadigm_resources') || 'null') || JSON.parse(JSON.stringify(DEFAULT_RESOURCES));
-function saveResources() { localStorage.setItem('airadigm_resources', JSON.stringify(resources)); }
+let resources = JSON.parse(JSON.stringify(DEFAULT_RESOURCES));
+function saveResources() { HubAuth.save('airadigm_resources', resources); }
 
 let resFilter = 'all';
 let editingResId = null;
@@ -808,9 +845,9 @@ const DEFAULT_RESPONSIBILITIES = [
     steps:['Add to: Company Social RC Thread','Add to: Field Tech Resources RC Thread','Add to: Training Touch Base / BZ Info Thread','Add to: Competition GROUP RC Thread','Create TEAM: assigned PM + Lead Tech (Brenda) + new tech','Add to recurring meetings: New Tech Update (Wed) and TTB (Thu)','⚠ SURVEY tech → do NOT add to Wednesday New Tech Update meeting','Post confirmation in Orientation thread','Ask tech to confirm attendance for scheduled meetings'] },
 ];
 
-let responsibilities = JSON.parse(localStorage.getItem('airadigm_responsibilities') || 'null') || JSON.parse(JSON.stringify(DEFAULT_RESPONSIBILITIES));
-function saveResponsibilities() { localStorage.setItem('airadigm_responsibilities', JSON.stringify(responsibilities)); }
-let respChecks = JSON.parse(localStorage.getItem('resp_checks') || '{}');
+let responsibilities = JSON.parse(JSON.stringify(DEFAULT_RESPONSIBILITIES));
+function saveResponsibilities() { HubAuth.save('airadigm_responsibilities', responsibilities); }
+let respChecks = {};
 
 let editingRespId = null;
 
@@ -856,7 +893,7 @@ function toggleResp(id) {
 }
 function toggleRespCheck(key, el, id, si) {
   respChecks[key] = el.checked;
-  localStorage.setItem('resp_checks', JSON.stringify(respChecks));
+  HubAuth.save('resp_checks', respChecks);
   const el2 = document.getElementById(`rs-${id}-${si}`);
   if (el2) el2.classList.toggle('checked', el.checked);
 }
@@ -940,14 +977,14 @@ function closeRespModal() {
 // ORIENTATION CALENDAR
 // ═══════════════════════════════════════════════
 let calYear = 2026, calMonth = new Date().getMonth();
-let calNotes = JSON.parse(localStorage.getItem('orient_notes') || '{}');
-let orientGroups = JSON.parse(localStorage.getItem('orient_groups') || '[]');
+let calNotes = {};
+let orientGroups = [];
 let editingOrientGroupId = null;
 let noteDay = null;
 
 // Extra tasks templates (persisted per event type)
-let orientExtraTemplates = JSON.parse(localStorage.getItem('orient_extra_templates') || '[]');
-let bcExtraTemplates = JSON.parse(localStorage.getItem('bc_extra_templates') || '[]');
+let orientExtraTemplates = [];
+let bcExtraTemplates = [];
 
 document.getElementById('cal-month-select').value = calMonth;
 
@@ -1007,7 +1044,7 @@ function saveNote() {
   const dk = `${calYear}-${calMonth+1}-${noteDay}`;
   const val = document.getElementById('note-input').value.trim();
   if (val) calNotes[dk]=val; else delete calNotes[dk];
-  localStorage.setItem('orient_notes', JSON.stringify(calNotes));
+  HubAuth.save('orient_notes', calNotes);
   closeNoteModal(); renderOrientCalendar();
 }
 
@@ -1092,7 +1129,7 @@ function saveOrientGroup() {
   }
   // Save as new template (replaces old)
   orientExtraTemplates = newExtras;
-  localStorage.setItem('orient_extra_templates', JSON.stringify(orientExtraTemplates));
+  HubAuth.save('orient_extra_templates', orientExtraTemplates);
 
   const BASE_TASKS = [
     {name:"Reply ALL to Brenda's email — Onboarding checklists", dayRef:'monBefore'},
@@ -1120,7 +1157,7 @@ function saveOrientGroup() {
   } else {
     orientGroups.push(groupData);
   }
-  localStorage.setItem('orient_groups', JSON.stringify(orientGroups));
+  HubAuth.save('orient_groups', orientGroups);
   const tagged = eventTasks.map(t => ({...t, name:'🎓 '+t.name}));
   addEventTasksToWeekly(tagged, 'Orientation '+toDateKey(oDate)+' — '+techs.join(', '), 'Orientation', groupId);
   closeOrientModal(); renderOrientCalendar(); renderOrientGroups();
@@ -1130,7 +1167,7 @@ function deleteOrientGroup(id) {
   if (!confirm('Delete this orientation group and its Weekly Tasks?')) return;
   orientGroups = orientGroups.filter(g=>g.id!==id);
   tasks = tasks.filter(t => t.sourceId !== id);
-  localStorage.setItem('orient_groups', JSON.stringify(orientGroups));
+  HubAuth.save('orient_groups', orientGroups);
   saveTasks(); renderOrientCalendar(); renderOrientGroups();
 }
 
@@ -1154,8 +1191,8 @@ function renderOrientGroups() {
 // BOOTCAMP CALENDAR
 // ═══════════════════════════════════════════════
 let bcCalYear = 2026, bcCalMonth = new Date().getMonth();
-let bootcampGroups = JSON.parse(localStorage.getItem('bootcamp_groups') || '[]');
-let bcChecks = JSON.parse(localStorage.getItem('bootcamp_checks') || '{}');
+let bootcampGroups = [];
+let bcChecks = {};
 let editingBcGroupId = null;
 
 function bcCalChangeMonth() { bcCalMonth = parseInt(document.getElementById('bc-month-select').value); renderBcCalendar(); }
@@ -1255,7 +1292,7 @@ function saveBootcampGroup() {
     if (nameEl && dayEl && nameEl.value.trim()) newExtras.push({ name: nameEl.value.trim(), dayRef: dayEl.value });
   }
   bcExtraTemplates = newExtras;
-  localStorage.setItem('bc_extra_templates', JSON.stringify(bcExtraTemplates));
+  HubAuth.save('bc_extra_templates', bcExtraTemplates);
 
   const BASE_TASKS = [
     { name:'Hotel reservation requested', dayRef:'monBefore', day:'Mon' },
@@ -1285,7 +1322,7 @@ function saveBootcampGroup() {
   } else {
     bootcampGroups.push(group);
   }
-  localStorage.setItem('bootcamp_groups', JSON.stringify(bootcampGroups));
+  HubAuth.save('bootcamp_groups', bootcampGroups);
   addEventTasksToWeekly(eventTasks, `Bootcamp ${toDateKey(bcDate)} — ${techs.join(', ')}`, 'Bootcamp', groupId);
   closeBootcampModal(); renderBcCalendar(); renderBootcampGroups();
 }
@@ -1295,14 +1332,14 @@ function deleteBootcampGroup(id) {
   bootcampGroups = bootcampGroups.filter(g=>g.id!==id);
   tasks = tasks.filter(t => t.sourceId !== id);
   Object.keys(bcChecks).filter(k=>k.startsWith(id)).forEach(k=>delete bcChecks[k]);
-  localStorage.setItem('bootcamp_groups', JSON.stringify(bootcampGroups));
-  localStorage.setItem('bootcamp_checks', JSON.stringify(bcChecks));
+  HubAuth.save('bootcamp_groups', bootcampGroups);
+  HubAuth.save('bootcamp_checks', bcChecks);
   saveTasks(); renderBcCalendar(); renderBootcampGroups();
 }
 
 function toggleBcCheck(key, el) {
   bcChecks[key] = el.checked;
-  localStorage.setItem('bootcamp_checks', JSON.stringify(bcChecks));
+  HubAuth.save('bootcamp_checks', bcChecks);
   const sp = document.getElementById('bc-t-'+key);
   if (sp) sp.classList.toggle('checked', el.checked);
 }
@@ -1362,8 +1399,8 @@ const INIT_TASKS = [
   {id:'t3',name:'ATA Progress – Report',owner:'Paula',cat:'Training',notes:'',recurring:true,recurringDays:[4],weekStatus:{}},
 ];
 
-let tasks = JSON.parse(localStorage.getItem('airadigm_tasks_v2')||'null') || JSON.parse(JSON.stringify(INIT_TASKS));
-function saveTasks() { try{localStorage.setItem('airadigm_tasks_v2',JSON.stringify(tasks));}catch(e){} }
+let tasks = JSON.parse(JSON.stringify(INIT_TASKS));
+function saveTasks() { try { HubAuth.save('airadigm_tasks_v2', tasks); } catch(e) {} }
 function wk(o) { return 'w'+o; }
 function getRSt(task,offset,day) { const k=wk(offset)+'_d'+day; return (task.weekStatus&&task.weekStatus[k])||'pending'; }
 function setRSt(id,offset,day,st) { const t=tasks.find(x=>x.id===id); if(!t)return; if(!t.weekStatus)t.weekStatus={}; t.weekStatus[wk(offset)+'_d'+day]=st; saveTasks(); }
@@ -1383,9 +1420,9 @@ function fD(d){return WM[d.getMonth()]+' '+d.getDate();}
 function isTdy(d){const t=new Date();return d.getDate()===t.getDate()&&d.getMonth()===t.getMonth()&&d.getFullYear()===t.getFullYear();}
 
 // ── Task notes ──
-let taskNotes = JSON.parse(localStorage.getItem('task_notes') || '{}');
+let taskNotes = {};
 let activeTaskNoteId = null;
-function saveTaskNotes() { localStorage.setItem('task_notes', JSON.stringify(taskNotes)); }
+function saveTaskNotes() { HubAuth.save('task_notes', taskNotes); }
 function openTaskNoteModal(taskId, taskName) {
   activeTaskNoteId = taskId;
   document.getElementById('task-note-modal-title').textContent = taskName.length>40 ? taskName.substring(0,40)+'…' : taskName;
@@ -1711,10 +1748,30 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAllModals();});
   if(el)el.addEventListener('click',function(e){if(e.target===this)closeAllModals();});
 });
 
-// Init
-renderResources();
-calMonth = new Date().getMonth();
-document.getElementById('cal-month-select').value = calMonth;
+// Init — wait for Microsoft auth, then load shared data from Supabase
+window.applyHubData = function(data) {
+  if (!data) return;
+  if (data.airadigm_resources) resources = data.airadigm_resources;
+  if (data.airadigm_responsibilities) responsibilities = data.airadigm_responsibilities;
+  if (data.resp_checks) respChecks = data.resp_checks;
+  if (data.orient_notes) calNotes = data.orient_notes;
+  if (data.orient_groups) orientGroups = data.orient_groups;
+  if (data.orient_extra_templates) orientExtraTemplates = data.orient_extra_templates;
+  if (data.bc_extra_templates) bcExtraTemplates = data.bc_extra_templates;
+  if (data.bootcamp_groups) bootcampGroups = data.bootcamp_groups;
+  if (data.bootcamp_checks) bcChecks = data.bootcamp_checks;
+  if (data.airadigm_tasks_v2) tasks = data.airadigm_tasks_v2;
+  if (data.task_notes) taskNotes = data.task_notes;
+};
+
+window.startHubApp = function() {
+  renderResources();
+  calMonth = new Date().getMonth();
+  const calSel = document.getElementById('cal-month-select');
+  if (calSel) calSel.value = calMonth;
+};
+
+HubAuth.init();
 </script>
 </body>
 </html>

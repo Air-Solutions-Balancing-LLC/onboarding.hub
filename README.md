@@ -8,23 +8,33 @@ A web app to manage company onboarding procedures, built as an interactive to-do
 
 | File | Purpose |
 |------|---------|
-| `index.html` | Main app HTML |
-| `styles.css`  | All styles + branding (Navy #1A5276, Gold #F4D03F) |
-| `app.js`      | App logic, Supabase integration, rendering |
-| `supabase-schema.sql` | Run this in Supabase SQL Editor first |
+| `index.html` | Main app (UI + logic) |
+| `config.js` | Supabase URL + anon key |
+| `hub-auth.js` | Microsoft sign-in + shared data sync |
+| `supabase-schema.sql` | Run in Supabase SQL Editor |
 | `netlify.toml` | Netlify routing config |
 
 ---
 
 ## Deployment Steps
 
-### Step 1 — Supabase (Database)
+### Step 1 — Supabase (Database + Auth)
 
-1. Go to [app.supabase.com](https://app.supabase.com) and create a **New Project**.
-2. Once created, go to **SQL Editor** and paste the contents of `supabase-schema.sql`. Click **Run**.
-3. Go to **Settings → API** and copy:
-   - **Project URL** (e.g. `https://xxxx.supabase.co`)
-   - **anon public** key
+1. Go to [app.supabase.com](https://app.supabase.com) and open your project.
+2. **SQL Editor** → paste `supabase-schema.sql` → **Run**.
+3. **Settings → API** → copy the **anon public** key into `config.js` (replace `REPLACE_WITH_YOUR_ANON_KEY`).
+4. **Authentication → Providers → Azure** → enable and enter your Azure app credentials (client ID, secret, tenant URL).
+5. **Authentication → URL Configuration**:
+   - **Site URL:** `https://airadigmonboarding.netlify.app`
+   - **Redirect URLs:** add `https://airadigmonboarding.netlify.app` and `http://localhost:3000`
+
+### Step 1b — Azure App Registration
+
+In [Azure Portal](https://portal.azure.com) → **App registrations** → your app → **Authentication**:
+
+- Add redirect URI (Web): `https://skranbwtgsoqjiwhnxak.supabase.co/auth/v1/callback`
+
+Only users in your Air Solutions Azure tenant can sign in (configured via the tenant URL in Supabase).
 
 ### Step 2 — GitHub (Code Hosting)
 
@@ -38,12 +48,22 @@ A web app to manage company onboarding procedures, built as an interactive to-do
 4. Click **Deploy site**.
 5. Your app will be live at a URL like `https://your-app.netlify.app`.
 
-### Step 4 — Connect Supabase in the App
+### Step 4 — Sign in
 
-1. Open your live app URL.
-2. The setup screen will appear. Enter your Supabase **Project URL** and **anon key**.
-3. Click **Connect & Initialize** — the app will create initial data automatically.
-4. Share the URL with your team. Everyone uses the same link!
+1. Open the live app URL.
+2. Click **Sign in with Microsoft** using your Air Solutions account.
+3. On first sign-in, any data in your browser's local storage is migrated to Supabase so the team shares one database.
+
+---
+
+## Local development
+
+```bash
+npm install
+npm run dev
+```
+
+Open http://localhost:3000 and sign in with Microsoft (add `http://localhost:3000` to Supabase redirect URLs).
 
 ---
 
@@ -57,11 +77,9 @@ A web app to manage company onboarding procedures, built as an interactive to-do
 
 ## Sharing
 
-Since the app uses Supabase's public anon key, **all users see the same data** — checkboxes, task status updates, and new tasks are shared across everyone who opens the link. This is ideal for a small team.
+Signed-in users share the same Supabase data — tasks, resources, checkboxes, and orientation plans stay in sync for the whole team.
 
 ## Customization
 
-- **Colors**: Edit CSS variables at the top of `styles.css` (currently Navy `#1A5276` + Gold `#F4D03F`)
-- **Procedures**: Edit the `RESPONSIBILITIES` array in `app.js`
-- **Orientation tasks**: Edit `ORIENTATION_PHASES` in `app.js`
-- **Resources**: Edit `LINKS_DATA` in `app.js`
+- **Nav tab colors**: Edit CSS in `index.html` (`.nav-link.active` rules)
+- **Default data**: Edit `DEFAULT_RESOURCES`, `DEFAULT_RESPONSIBILITIES`, and `INIT_TASKS` in `index.html`
