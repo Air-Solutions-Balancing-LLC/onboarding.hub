@@ -205,3 +205,236 @@ CREATE POLICY app_users_admin_delete
 GRANT SELECT ON public.app_users TO authenticated;
 GRANT INSERT, UPDATE, DELETE ON public.app_users TO authenticated;
 GRANT USAGE ON TYPE public.hub_role TO authenticated;
+
+-- ============================================================
+--  New Hire Checklist — employees (+ related tables)
+--  Migrated from project wsijpjjbaggclnlnfklw into this hub DB
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.employees (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_number INTEGER,
+  employee_type TEXT DEFAULT 'technician',
+  status TEXT DEFAULT 'active',
+  status_note TEXT,
+  full_name TEXT NOT NULL,
+  preferred_name TEXT,
+  region TEXT,
+  referred_by TEXT,
+  home_address_line1 TEXT,
+  home_address_line2 TEXT,
+  home_address_line3 TEXT,
+  address_confirmed BOOLEAN,
+  cell_phone TEXT,
+  personal_email TEXT,
+  full_name_on_license TEXT,
+  license_state TEXT,
+  gender TEXT,
+  ssn_last4 TEXT,
+  birth_month_day TEXT,
+  preferred_airport TEXT,
+  airplane_preference TEXT,
+  start_date DATE,
+  bootcamp_start_date DATE,
+  assigned_pm TEXT,
+  assigned_lead_tech TEXT,
+  contract_type TEXT DEFAULT 'full_time',
+  resume_link TEXT,
+  date_application_received DATE,
+  mechanical_test_score TEXT,
+  communication_questionnaire TEXT,
+  date_verbal_offer DATE,
+  date_written_offer DATE,
+  date_written_offer_accepted DATE,
+  date_background_requested DATE,
+  date_background_clean DATE,
+  background_notes TEXT,
+  shirt_size TEXT,
+  work_glove_size TEXT,
+  boot_size TEXT,
+  osha10_prior BOOLEAN,
+  date_osha10_sent DATE,
+  hs_diploma_received TEXT,
+  tool_kit_purchase TEXT,
+  date_handbook_signed DATE,
+  date_w4_received DATE,
+  date_i9_received DATE,
+  date_cgi_login TEXT,
+  date_direct_deposit DATE,
+  date_noncompete_signed DATE,
+  date_lunch_waiver_signed DATE,
+  hr_onboarding_complete DATE,
+  date_headshot_requested DATE,
+  date_osha10_uploaded DATE,
+  date_harassment_training DATE,
+  ringcentral_created BOOLEAN,
+  date_email_setup DATE,
+  company_email TEXT,
+  microsoft_password TEXT,
+  alias_email_confirmed BOOLEAN,
+  date_laptop_ordered DATE,
+  ipad_needed BOOLEAN,
+  date_ipad_ordered TEXT,
+  national_rental_profile TEXT,
+  usabalancer_username TEXT,
+  usabalancer_password TEXT,
+  adobe_status TEXT,
+  bluebeam_status TEXT,
+  hotel_engine_status TEXT,
+  grainger_status TEXT,
+  ipromo_status TEXT,
+  geotab_status TEXT,
+  ata_setup BOOLEAN,
+  date_it_prep_complete DATE,
+  date_sage_setup DATE,
+  date_bill_card_ordered DATE,
+  date_bill_card_received TEXT,
+  date_vehicle_assigned DATE,
+  vehicle_number TEXT,
+  license_plate_state TEXT,
+  license_plate_number TEXT,
+  date_geotab_updated TEXT,
+  date_aaa_added TEXT,
+  aaa_membership_number TEXT,
+  date_wex_card_ordered TEXT,
+  wex_driver_number TEXT,
+  date_vehicle_docs_complete TEXT,
+  tool_inventory_complete TEXT,
+  final_van_inventory TEXT,
+  van_ready TEXT,
+  date_backpack_ready DATE,
+  backpack_ship_date DATE,
+  date_hardhat_shipped DATE,
+  date_vehicle_fully_equipped DATE,
+  date_ipad_onsite TEXT,
+  zagg_case_needed BOOLEAN,
+  date_zagg_ordered TEXT,
+  date_zagg_received TEXT,
+  date_ipad_chargers_ready TEXT,
+  date_mosyle_setup DATE,
+  date_ipad_credentials_form DATE,
+  date_ipad_setup_complete DATE,
+  date_pm_informed_orient DATE,
+  date_orientation_email DATE,
+  date_payroll_deduction DATE,
+  date_safety_manual_signed DATE,
+  tool_list_usabalancer BOOLEAN,
+  enrolled_ata_safety BOOLEAN,
+  added_company_news_rc BOOLEAN,
+  added_company_social_rc BOOLEAN,
+  added_field_tech_rc BOOLEAN,
+  added_training_touchbase_rc BOOLEAN,
+  added_division_rc BOOLEAN,
+  date_photos_sharepoint DATE,
+  date_id_badge_ordered DATE,
+  date_id_badge_received DATE,
+  date_schedule_announced DATE,
+  date_pm_informed_bootcamp DATE,
+  date_bootcamp_email_sent DATE,
+  date_usabalancer_bootcamp TEXT,
+  date_hotel_requested DATE,
+  date_hotel_confirmed DATE,
+  date_hotel_forwarded DATE,
+  date_flights_purchased DATE,
+  date_health_insurance DATE,
+  date_401k_reminder DATE,
+  date_work_anniversary_added DATE,
+  ipromo_250_added BOOLEAN,
+  auburn_office_code BOOLEAN,
+  notes TEXT,
+  created_by UUID,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.employee_notes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id UUID,
+  user_id UUID,
+  author_name TEXT,
+  content TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.activity_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id UUID,
+  user_id UUID,
+  user_name TEXT,
+  action TEXT,
+  field_changed TEXT,
+  old_value TEXT,
+  new_value TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.upcoming_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_type TEXT NOT NULL,
+  event_name TEXT,
+  start_date DATE NOT NULL,
+  end_date DATE,
+  location TEXT,
+  region TEXT,
+  notes TEXT,
+  created_by UUID,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.event_employees (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id UUID,
+  employee_id UUID,
+  confirmed BOOLEAN DEFAULT FALSE,
+  notes TEXT
+);
+
+CREATE TABLE IF NOT EXISTS public.user_roles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID,
+  role TEXT NOT NULL,
+  full_name TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+
+CREATE OR REPLACE VIEW public.employee_progress AS
+SELECT
+  id,
+  full_name,
+  employee_number,
+  employee_type,
+  status,
+  region,
+  start_date,
+  NULL::numeric AS pct_complete
+FROM public.employees;
+
+CREATE INDEX IF NOT EXISTS employees_employee_number_idx ON public.employees (employee_number);
+CREATE INDEX IF NOT EXISTS employees_status_idx ON public.employees (status);
+CREATE INDEX IF NOT EXISTS employees_full_name_idx ON public.employees (full_name);
+
+ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.employee_notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.activity_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.upcoming_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.event_employees ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+
+DO $$
+DECLARE t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY[
+    'employees','employee_notes','activity_log','upcoming_events','event_employees','user_roles'
+  ] LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I_auth_all ON public.%I', t, t);
+    EXECUTE format(
+      'CREATE POLICY %I_auth_all ON public.%I FOR ALL TO authenticated USING (true) WITH CHECK (true)',
+      t, t
+    );
+    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO authenticated', t);
+  END LOOP;
+END $$;
+
+GRANT SELECT ON public.employee_progress TO authenticated;
