@@ -11,6 +11,7 @@ A web app to manage company onboarding procedures, built as an interactive to-do
 | `index.html` | Main app (UI + logic) |
 | `config.js` | Supabase URL + anon key |
 | `hub-auth.js` | Microsoft sign-in + shared data sync |
+| `hub-admin.js` | Atlas-style Admin / User Management |
 | `supabase-schema.sql` | Run in Supabase SQL Editor |
 | `netlify.toml` | Netlify routing config |
 
@@ -73,6 +74,7 @@ Open http://localhost:3000 and sign in with Microsoft (add `http://localhost:300
 - **Weekly Tasks** — Kanban board (Not Started / In Progress / Completed) with category filters and add task
 - **May 2026 Orientation** — 6-phase prep plan with progress bar and checkable steps
 - **Responsibilities** — Expandable procedures with step-by-step checklists
+- **Admin** — Atlas-style User Management (regions + roles: Admin, PM, Technician, Accounting, HR, Logistics, Training). Visible only to Admin role.
 - **Resources** — All links and documents from the Excel spreadsheet
 
 ## Sharing

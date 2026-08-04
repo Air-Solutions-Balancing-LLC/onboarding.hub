@@ -85,6 +85,35 @@
     if (emailEl && session?.user?.email) emailEl.textContent = session.user.email;
   }
 
+  function setAdminNavVisible(isAdmin) {
+    const btn = document.getElementById('nav-admin');
+    if (btn) btn.style.display = isAdmin ? '' : 'none';
+  }
+
+  async function loadAppUser(session) {
+    window.hubCurrentUser = null;
+    setAdminNavVisible(false);
+    const email = (session?.user?.email || '').trim().toLowerCase();
+    if (!email) return null;
+
+    const { data, error } = await supabase
+      .from('app_users')
+      .select('*')
+      .eq('email', email)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (error) {
+      // Table may not exist yet — fail soft so the rest of the hub still works.
+      console.warn('app_users lookup skipped:', error.message);
+      return null;
+    }
+
+    window.hubCurrentUser = data || null;
+    setAdminNavVisible(!!data && data.role === 'admin');
+    return data;
+  }
+
   async function signInWithMicrosoft() {
     const err = document.getElementById('auth-error');
     if (err) { err.hidden = true; err.textContent = ''; }
@@ -103,11 +132,14 @@
 
   async function signOut() {
     await supabase.auth.signOut();
+    window.hubCurrentUser = null;
+    setAdminNavVisible(false);
     showAuthScreen();
   }
 
   async function onAuthenticated(session) {
     showAppShell(session);
+    await loadAppUser(session);
     const data = await loadAllHubData();
     if (typeof window.applyHubData === 'function') window.applyHubData(data);
     if (typeof window.startHubApp === 'function') window.startHubApp();
@@ -115,7 +147,6 @@
 
   async function initHub() {
     const cfg = getConfig();
-    const errEl = document.getElementById('auth-error');
     if (!cfg) {
       showAuthScreen('Supabase is not configured. Add your anon key to config.js.');
       return;
@@ -134,7 +165,11 @@
 
     supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) await onAuthenticated(session);
-      if (event === 'SIGNED_OUT') showAuthScreen();
+      if (event === 'SIGNED_OUT') {
+        window.hubCurrentUser = null;
+        setAdminNavVisible(false);
+        showAuthScreen();
+      }
     });
   }
 
@@ -142,6 +177,8 @@
     init: initHub,
     save: hubSave,
     signInWithMicrosoft,
-    signOut
+    signOut,
+    getClient: () => supabase,
+    isAdmin: () => !!(window.hubCurrentUser && window.hubCurrentUser.role === 'admin'),
   };
 })();

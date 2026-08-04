@@ -18,6 +18,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .nav-link:hover { background: rgba(255,255,255,.1); color: #fff; }
 .nav-link.active { background: #f59e0b; color: #1a2540; font-weight: 500; }
 .nav-link.active.nav-resp { background: #22c55e; color: #fff; }
+.nav-link.active.nav-admin { background: #2f74a5; color: #fff; }
 .nav-link.active.nav-orient { background: #c4b5fd; color: #1a2540; }
 .nav-link.active.nav-weekly { background: #93c5fd; color: #1a2540; }
 .page { display: none; }
@@ -255,10 +256,182 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .nav-user-email { font-size: 11px; color: #94a3b8; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .btn-signout { font-size: 11px; padding: 5px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,.2); background: transparent; color: #94a3b8; cursor: pointer; font-family: inherit; white-space: nowrap; }
 .btn-signout:hover { color: #fff; border-color: rgba(255,255,255,.4); }
+
+/* ── ADMIN (Atlas-style user management) ── */
+.page-admin { background: #eef0f3; min-height: calc(100vh - 56px); }
+.page-admin .main { max-width: 960px; padding: 1.5rem 1rem 2.5rem; }
+.user-mgmt-shell {
+  --color-bg: #eef0f3;
+  --color-surface: #ffffff;
+  --color-steel: #c8d0da;
+  --color-accent: #2f74a5;
+  --color-accent-dim: #245f88;
+  --color-text: #1b2430;
+  --color-text-dim: #677484;
+  --color-danger: #b42318;
+  --color-success: #067647;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.user-mgmt-shell .admin-page-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.85rem;
+  font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: 0.02em;
+}
+.user-mgmt-shell .admin-page-sub {
+  margin-top: 0.25rem;
+  font-size: 0.9rem;
+  color: var(--color-text-dim);
+}
+.user-mgmt-shell .btn {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  border: none;
+}
+.user-mgmt-shell .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.user-mgmt-shell .btn-primary { background: var(--color-accent); color: #fff; }
+.user-mgmt-shell .btn-primary:hover:not(:disabled) { background: var(--color-accent-dim); }
+.user-mgmt-shell .btn-secondary { border: 1px solid var(--color-steel); background: #fff; color: var(--color-text); }
+.user-mgmt-shell .btn-secondary:hover:not(:disabled) { background: #f2f4f7; }
+.user-mgmt-shell .btn-danger { color: var(--color-danger); border-color: color-mix(in srgb, var(--color-danger) 50%, var(--color-steel)); }
+.user-mgmt-shell .btn-success { color: var(--color-success); border-color: color-mix(in srgb, var(--color-success) 50%, var(--color-steel)); }
+.user-mgmt-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-steel);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 12px 40px rgba(27, 36, 48, 0.08);
+}
+.user-mgmt-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.user-mgmt-header-actions { display: flex; flex-wrap: wrap; gap: 8px; flex-shrink: 0; }
+.user-mgmt-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+.user-mgmt-subtitle { margin-top: 0.35rem; font-size: 0.85rem; color: var(--color-text-dim); }
+.user-import-hint {
+  margin: 0 0 1rem;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f2f5f8;
+  border: 1px solid var(--color-steel);
+  font-size: 0.8rem;
+  color: var(--color-text-dim);
+  line-height: 1.45;
+}
+.import-summary-box { margin-top: 1rem; font-size: 13px; line-height: 1.45; }
+.import-summary-box .ok { background: #D1FAE5; color: #065F46; padding: 12px 14px; border-radius: 8px; margin-bottom: 10px; }
+.import-summary-box .warn { background: #FEF3C7; color: #92400E; padding: 12px 14px; border-radius: 8px; margin-bottom: 10px; }
+.import-summary-box .err { background: #FEE2E2; color: #991B1B; padding: 12px 14px; border-radius: 8px; margin-bottom: 10px; }
+.import-summary-box ul { margin: 6px 0 0 18px; }
+.import-summary-box li { margin-bottom: 2px; }
+.user-mgmt-section { margin-bottom: 1.75rem; }
+.user-mgmt-section-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+.user-mgmt-section-head h2 {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+.user-mgmt-section-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+.user-mgmt-section-toggle h2 {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+.user-mgmt-section-toggle .user-mgmt-section-chevron { margin-left: auto; font-size: 0.8rem; color: var(--color-text-dim); }
+.user-mgmt-section-toggle[aria-expanded='false'] { margin-bottom: 0; }
+.user-mgmt-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4rem;
+  height: 1.4rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: rgba(0, 119, 170, 0.12);
+  color: var(--color-accent);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+.user-mgmt-list { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem; }
+.user-mgmt-row,
+.user-mgmt-add-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-steel);
+  border-radius: 8px;
+  background: var(--color-bg);
+}
+.user-mgmt-row-edit { flex-wrap: wrap; }
+.user-mgmt-add-row { background: transparent; flex-wrap: wrap; }
+.user-mgmt-person { flex: 1; min-width: 0; }
+.user-mgmt-name { font-size: 0.85rem; font-weight: 700; color: var(--color-text); }
+.user-mgmt-email { font-size: 0.72rem; color: var(--color-text-dim); }
+.user-mgmt-region { font-size: 0.68rem; color: var(--color-text-dim); margin-top: 0.15rem; }
+.user-mgmt-input {
+  flex: 1;
+  min-width: 140px;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--color-steel);
+  border-radius: 6px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 0.8rem;
+  font-family: inherit;
+}
+.user-mgmt-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+.user-mgmt-footnote { margin-top: 0.5rem; font-size: 0.72rem; color: var(--color-text-dim); font-style: italic; }
+.login-status { font-size: 0.85rem; color: var(--color-text-dim); }
+@media (max-width: 700px) {
+  .user-mgmt-row, .user-mgmt-add-row { flex-wrap: wrap; }
+}
 </style>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="hub-auth.js"></script>
+<script src="hub-admin.js"></script>
 </head>
 <body>
 
@@ -287,6 +460,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="nav-links">
     <button class="nav-link active" onclick="showPage('resources',this)">Resources</button>
     <button class="nav-link nav-resp" onclick="showPage('responsibilities',this)">Responsibilities</button>
+    <button class="nav-link nav-admin" id="nav-admin" style="display:none" onclick="showPage('admin',this)">Admin</button>
     <button class="nav-link nav-orient" onclick="showPage('orientation',this)">Orientation &amp; Bootcamp 2026</button>
     <button class="nav-link nav-weekly" onclick="showPage('weekly',this)">Weekly Tasks</button>
     <div class="nav-user">
@@ -528,6 +702,50 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   </div>
 </div>
 
+<!-- PAGE: ADMIN -->
+<div id="page-admin" class="page page-admin">
+  <div class="main">
+    <div class="user-mgmt-shell">
+      <div>
+        <h1 class="admin-page-title">Admin</h1>
+        <p class="admin-page-sub">Manage Onboarding Hub users by region and role.</p>
+      </div>
+      <div class="user-mgmt-card">
+        <div class="user-mgmt-header">
+          <div>
+            <h2 class="user-mgmt-title">User Management</h2>
+            <p class="user-mgmt-subtitle">
+              Add, edit, or remove Admins, PMs, Technicians, Accounting, HR, Logistics, and Training.
+            </p>
+          </div>
+          <div class="user-mgmt-header-actions">
+            <button type="button" class="btn btn-secondary" onclick="HubAdmin.downloadUserImportTemplate()">📄 Download template</button>
+            <button type="button" class="btn btn-primary" id="userImportBtn" onclick="document.getElementById('userImportInput').click()">
+              📥 Import users
+            </button>
+            <input
+              type="file"
+              id="userImportInput"
+              accept=".csv,.xls,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              style="display:none"
+              onchange="HubAdmin.handleUserImportFile(event)"
+            />
+          </div>
+        </div>
+        <p class="user-import-hint">
+          Template columns: <strong>Full Name</strong>, <strong>Email</strong>, <strong>Position</strong>
+          (Admin / PM / Technician / Accounting / HR / Logistics / Training), <strong>Region</strong>
+          (e.g. Southwest, Intermountain). Existing emails are skipped.
+        </p>
+        <div id="userImportSummary" class="import-summary-box" hidden></div>
+        <div id="userMgmtRoot">
+          <p class="login-status">Loading users…</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- PAGE: ORIENTATION & BOOTCAMP -->
 <div id="page-orientation" class="page">
   <div class="main">
@@ -641,6 +859,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 // NAVIGATION
 // ═══════════════════════════════════════════════
 function showPage(id, btn) {
+  if (id === 'admin' && !(window.HubAuth && HubAuth.isAdmin())) {
+    alert('Admin access is limited to users with the Admin role.');
+    return;
+  }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-link').forEach(b => b.classList.remove('active'));
   document.getElementById('page-' + id).classList.add('active');
@@ -649,6 +871,7 @@ function showPage(id, btn) {
   if (id === 'responsibilities') renderResponsibilities();
   if (id === 'orientation') { renderOrientCalendar(); renderOrientGroups(); }
   if (id === 'weekly') renderWeekly();
+  if (id === 'admin' && window.HubAdmin) HubAdmin.mount();
 }
 
 // ═══════════════════════════════════════════════
