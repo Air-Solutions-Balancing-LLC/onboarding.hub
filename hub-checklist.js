@@ -11,12 +11,13 @@
   let view = 'todo'; // todo | roster | detail | template
   let selectedHireId = null;
   let openSections = {};
-  let filters = { q: '', status: 'all', role: 'HR', person: 'all', todoScope: 'open' };
+  let filters = { q: '', status: 'all', role: 'HR', person: 'all', todoScope: 'week', hireWindow: 'onboarding' };
   let revealSensitive = false;
   let saveTimer = null;
   let loading = true;
   let loadError = null;
-  let bound = false;
+  let mounted = false;
+  let todoLimit = 80;
 
   function client() {
     return window.HubAuth && HubAuth.getClient ? HubAuth.getClient() : null;
@@ -237,33 +238,48 @@
     return (h.status || '').toLowerCase() === 'active';
   }
 
+  function inOnboardingWindow(hire, today) {
+    const start = parseDate(hire.startDate);
+    if (!start) return true; // keep undated hires visible so they can be cleaned up
+    const from = addDays(today, -120);
+    const to = addDays(today, 60);
+    return start >= from && start <= to;
+  }
+
   function todoEntries() {
     ensureData();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const week = addDays(today, 7);
     const out = [];
-    hires().filter(isActiveHire).forEach((hire) => {
-      data.items.forEach((item) => {
-        if (filters.role !== 'all' && item.role !== filters.role) return;
-        const who = assigneeOf(hire, item);
-        if (filters.person !== 'all' && who !== filters.person) return;
-        const done = isFilled(item, hire.values?.[item.id]);
-        if (filters.todoScope === 'open' && done) return;
-        if (filters.todoScope === 'done' && !done) return;
-        const due = dueDateFor(hire, item);
-        let bucket = 'nodate';
-        if (due) {
-          if (due < today && !done) bucket = 'overdue';
-          else if (due <= week) bucket = 'week';
-          else bucket = 'later';
-        }
-        if (filters.todoScope === 'overdue' && bucket !== 'overdue') return;
-        if (filters.todoScope === 'week' && bucket !== 'week' && bucket !== 'overdue') return;
-        out.push({ hire, item, who, due, done, bucket });
+    hires()
+      .filter(isActiveHire)
+      .filter((h) => filters.hireWindow === 'all' || inOnboardingWindow(h, today))
+      .forEach((hire) => {
+        data.items.forEach((item) => {
+          if (filters.role !== 'all' && item.role !== filters.role) return;
+          const who = assigneeOf(hire, item);
+          if (filters.person !== 'all' && who !== filters.person) return;
+          const done = isFilled(item, hire.values?.[item.id]);
+          if (filters.todoScope === 'open' && done) return;
+          if (filters.todoScope === 'done' && !done) return;
+          const due = dueDateFor(hire, item);
+          let bucket = 'nodate';
+          if (due) {
+            if (due < today && !done) bucket = 'overdue';
+            else if (due <= week) bucket = 'week';
+            else bucket = 'later';
+          }
+          if (filters.todoScope === 'overdue' && bucket !== 'overdue') return;
+          if (filters.todoScope === 'week' && bucket !== 'week' && bucket !== 'overdue') return;
+          out.push({ hire, item, who, due, done, bucket });
+        });
       });
-    });
     out.sort((a, b) => {
+      const order = { overdue: 0, week: 1, later: 2, nodate: 3 };
+      const ao = order[a.bucket] ?? 9;
+      const bo = order[b.bucket] ?? 9;
+      if (ao !== bo) return ao - bo;
       const ad = a.due ? a.due.getTime() : Infinity;
       const bd = b.due ? b.due.getTime() : Infinity;
       if (ad !== bd) return ad - bd;
@@ -405,11 +421,12 @@
   }
 
   function renderTodo(root) {
-    setPageSub('Pick your role (HR / Admin / PM / Logistics / Training). Due dates are based on each hire’s start date (bootcamp tasks use bootcamp date).');
+    setPageSub('Pick your role (HR / Admin / PM / Logistics / Training). Due dates use each hire’s start date (bootcamp tasks use bootcamp date).');
     const entries = todoEntries();
     const overdue = entries.filter((e) => e.bucket === 'overdue').length;
     const week = entries.filter((e) => e.bucket === 'week' || e.bucket === 'overdue').length;
     const open = entries.filter((e) => !e.done).length;
+    const shown = entries.slice(0, todoLimit);
 
     root.innerHTML = `
       ${roleBar()}
@@ -421,24 +438,39 @@
       </div>
       <div class="nh-toolbar nh-toolbar-plain">
         <div class="nh-toolbar-left">
-          <button class="wt-filter-btn ${filters.todoScope === 'open' ? 'active' : ''}" data-scope="open">Open</button>
-          <button class="wt-filter-btn ${filters.todoScope === 'overdue' ? 'active' : ''}" data-scope="overdue">Overdue</button>
           <button class="wt-filter-btn ${filters.todoScope === 'week' ? 'active' : ''}" data-scope="week">This week</button>
+          <button class="wt-filter-btn ${filters.todoScope === 'overdue' ? 'active' : ''}" data-scope="overdue">Overdue</button>
+          <button class="wt-filter-btn ${filters.todoScope === 'open' ? 'active' : ''}" data-scope="open">Open</button>
           <button class="wt-filter-btn ${filters.todoScope === 'all' ? 'active' : ''}" data-scope="all">All</button>
           <button class="wt-filter-btn ${filters.todoScope === 'done' ? 'active' : ''}" data-scope="done">Done</button>
+          <button class="wt-filter-btn ${filters.hireWindow === 'onboarding' ? 'active' : ''}" data-hire-window="onboarding" title="Start date within last 120 days or next 60 days">Onboarding window</button>
+          <button class="wt-filter-btn ${filters.hireWindow === 'all' ? 'active' : ''}" data-hire-window="all">All active hires</button>
         </div>
-        <div class="nh-muted">Uses Brian’s employee roster · task values sync for the whole team</div>
+        <div class="nh-muted">Roster from employees · showing ${Math.min(shown.length, entries.length)} of ${entries.length}</div>
       </div>
       <div class="nh-todo-list">
-        ${entries.length ? entries.map(todoRow).join('') : '<div class="nh-empty-block">No tasks for this role filter. Pick another role or open the Roster.</div>'}
-      </div>`;
+        ${shown.length ? shown.map(todoRow).join('') : '<div class="nh-empty-block">No tasks for this filter. Try Open, another role, or Roster.</div>'}
+      </div>
+      ${entries.length > todoLimit ? `<div style="margin-top:12px;text-align:center"><button class="btn-secondary" type="button" id="nh-todo-more">Show more (${entries.length - todoLimit} left)</button></div>` : ''}`;
 
     bindRoleBar(root);
     root.querySelectorAll('[data-scope]').forEach((btn) => {
       btn.addEventListener('click', () => {
         filters.todoScope = btn.getAttribute('data-scope');
+        todoLimit = 80;
         render();
       });
+    });
+    root.querySelectorAll('[data-hire-window]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        filters.hireWindow = btn.getAttribute('data-hire-window');
+        todoLimit = 80;
+        render();
+      });
+    });
+    root.querySelector('#nh-todo-more')?.addEventListener('click', () => {
+      todoLimit += 80;
+      render();
     });
     root.querySelectorAll('[data-open-hire]').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -1043,13 +1075,21 @@
     });
   }
 
-  async function mount() {
+  async function mount(opts) {
+    const forceReload = !!(opts && opts.forceReload);
     ensureData();
     if (!data || !data.items?.length) data = seed();
     const role = localStorage.getItem(ROLE_PREF_KEY);
     const person = localStorage.getItem(PERSON_PREF_KEY);
     if (role) filters.role = role;
     if (person) filters.person = person;
+
+    // Avoid reloading/re-rendering a huge todo list every time the nav tab is clicked
+    if (mounted && !forceReload && !loading) {
+      render();
+      return;
+    }
+    mounted = true;
     await loadEmployees();
   }
 
