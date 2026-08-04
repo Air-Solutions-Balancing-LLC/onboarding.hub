@@ -8,20 +8,45 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 [hidden] { display: none !important; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f1f5f9; min-height: 100vh; }
-.nav { background: #1a2540; padding: 10px 24px; display: flex; align-items: center; gap: 32px; position: sticky; top: 0; z-index: 100; }
+.nav { background: #1a2540; padding: 10px 24px; display: flex; align-items: center; gap: 16px; position: sticky; top: 0; z-index: 100; flex-wrap: wrap; }
 .nav-logo { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .nav-icon { width: 36px; height: 36px; background: #f59e0b; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
 .nav-title { color: #fff; font-size: 14px; font-weight: 500; line-height: 1.2; }
 .nav-sub { color: #94a3b8; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
-.nav-links { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+.nav-links { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; align-items: center; max-width: 100%; }
 .nav-link { color: #94a3b8; font-size: 12px; padding: 6px 12px; border-radius: 6px; cursor: pointer; background: transparent; border: none; white-space: nowrap; transition: background .15s, color .15s; }
 .nav-link:hover { background: rgba(255,255,255,.1); color: #fff; }
 .nav-link.active { background: #f59e0b; color: #1a2540; font-weight: 500; }
 .nav-link.active.nav-resp { background: #22c55e; color: #fff; }
 .nav-link.active.nav-admin { background: #2f74a5; color: #fff; }
-.nav-link.active.nav-checklist { background: #1E3A5F; color: #fff; }
 .nav-link.active.nav-orient { background: #c4b5fd; color: #1a2540; }
 .nav-link.active.nav-weekly { background: #93c5fd; color: #1a2540; }
+.nav-link.nav-nh { color: #0f172a; background: #38bdf8; border: 1px solid #38bdf8; font-weight: 600; }
+.nav-link.nav-nh:hover { background: #7dd3fc; color: #0f172a; }
+.nav-link.active.nav-nh { background: #0ea5e9; color: #fff; }
+.nav-search-wrap { position: relative; margin-left: 8px; }
+.nav-search { width: 200px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.2); border-radius: 7px; padding: 6px 10px; font-size: 12px; color: #fff; outline: none; font-family: inherit; }
+.nav-search::placeholder { color: #94a3b8; }
+.nav-search:focus { border-color: #38bdf8; background: rgba(255,255,255,.12); }
+.nav-search-results { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.18); z-index: 120; overflow: hidden; display: none; }
+.nav-search-results.open { display: block; }
+.nav-search-item { display: block; width: 100%; text-align: left; border: none; background: #fff; padding: 10px 12px; font-size: 12px; color: #1e293b; cursor: pointer; font-family: inherit; }
+.nav-search-item:hover, .nav-search-item:focus { background: #f0f9ff; }
+.nav-search-item strong { display: block; font-weight: 600; }
+.nav-search-item span { display: block; color: #64748b; margin-top: 2px; font-size: 11px; }
+.nh-fab { position: fixed; right: 20px; bottom: 20px; z-index: 150; background: #0ea5e9; color: #fff; border: none; border-radius: 999px; padding: 12px 18px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; box-shadow: 0 8px 24px rgba(14,165,233,.35); }
+.nh-fab:hover { background: #0284c7; }
+.nh-subnav { background: #0c4a6e; padding: 10px 24px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid #075985; }
+.nh-subnav-copy { color: #e0f2fe; font-size: 13px; line-height: 1.4; }
+.nh-subnav-copy strong { color: #fff; font-weight: 700; }
+.nh-subnav-btn { background: #38bdf8; color: #0f172a; border: none; border-radius: 7px; padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap; }
+.nh-subnav-btn:hover { background: #7dd3fc; }
+.nh-subnav.hidden-on-page { display: none; }
+.nh-hero { background: linear-gradient(135deg, #0c4a6e 0%, #1a2540 100%); color: #fff; border-radius: 12px; padding: 18px 20px; margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.nh-hero h2 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+.nh-hero p { font-size: 13px; color: #bae6fd; line-height: 1.45; max-width: 560px; }
+.nh-hero .btn-primary { background: #38bdf8; color: #0f172a; }
+.nh-hero .btn-primary:hover { background: #7dd3fc; }
 .page { display: none; }
 .page.active { display: block; }
 .main { padding: 28px 24px; max-width: 1400px; margin: 0 auto; }
@@ -240,7 +265,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 }
 @media (max-width: 600px) {
   .days { grid-template-columns: repeat(2, minmax(0,1fr)); }
-  .nav-links { display: none; }
+  .nav { padding: 10px 12px; }
+  .nav-links { margin-left: 0; width: 100%; }
   .stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
 
@@ -257,7 +283,85 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .nav-user-email { font-size: 11px; color: #94a3b8; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .btn-signout { font-size: 11px; padding: 5px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,.2); background: transparent; color: #94a3b8; cursor: pointer; font-family: inherit; white-space: nowrap; }
 .btn-signout:hover { color: #fff; border-color: rgba(255,255,255,.4); }
+.nav-link.active.nav-nh { background: #38bdf8; color: #0f172a; }
 
+/* ── NEW HIRE ONBOARDING (hire-centric tab) ── */
+.nh-stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 18px; }
+.nh-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.nh-toolbar-left, .nh-toolbar-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.nh-banner { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; font-size: 12px; padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; line-height: 1.45; }
+.nh-hire-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.nh-hire-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.nh-hire-card-top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.nh-hire-card-name { font-size: 15px; font-weight: 600; color: #1e293b; }
+.nh-hire-card-meta { font-size: 12px; color: #64748b; margin-top: 3px; }
+.nh-hire-card-note { font-size: 11px; color: #b45309; margin-top: 4px; font-weight: 500; }
+.nh-hire-card-actions { display: flex; gap: 6px; padding-top: 4px; border-top: 1px solid #f1f5f9; }
+.nh-empty { text-align: center; color: #94a3b8; padding: 28px 12px; font-size: 13px; grid-column: 1 / -1; background: #fff; border: 1px dashed #e2e8f0; border-radius: 10px; }
+.nh-badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 999px; flex-shrink: 0; }
+.nh-badge.ok { background: #dcfce7; color: #166534; }
+.nh-badge.off { background: #f1f5f9; color: #64748b; }
+.nh-prog { min-width: 0; }
+.nh-prog.big { min-width: 160px; margin-top: 8px; }
+.nh-prog-bar { height: 7px; background: #e2e8f0; border-radius: 99px; overflow: hidden; }
+.nh-prog-bar span { display: block; height: 100%; background: #1a2540; border-radius: 99px; }
+.nh-prog-label { font-size: 11px; color: #64748b; margin-top: 4px; }
+.nh-prog-mine { font-size: 11px; color: #0369a1; margin-top: 2px; font-weight: 600; }
+.nh-detail-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.nh-detail-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.nh-check-label { font-size: 12px; color: #475569; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.nh-profile { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 20px; display: flex; justify-content: space-between; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+.nh-profile-name { font-size: 22px; font-weight: 600; color: #1e293b; }
+.nh-profile-meta { font-size: 13px; color: #64748b; margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
+.nh-profile-right { text-align: right; }
+.nh-muted { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+.nh-section { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
+.nh-section-head { width: 100%; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 14px 16px; background: #f8fafc; border: none; border-bottom: 1px solid transparent; cursor: pointer; text-align: left; font-family: inherit; }
+.nh-section.open .nh-section-head { border-bottom-color: #e2e8f0; }
+.nh-section-head.static { cursor: default; border-bottom-color: #e2e8f0; }
+.nh-section-head:hover:not(.static) { background: #f1f5f9; }
+.nh-section-title { font-size: 14px; font-weight: 600; color: #1e293b; }
+.nh-section-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.nh-section-pct { font-size: 12px; font-weight: 600; color: #475569; }
+.nh-chevron { color: #94a3b8; font-size: 14px; }
+.nh-section-body { padding: 10px 12px 14px; display: grid; gap: 8px; }
+.nh-field { display: grid; grid-template-columns: minmax(180px, 1.2fr) minmax(180px, 1.4fr) 72px; gap: 10px; align-items: center; padding: 10px 8px; border-radius: 8px; border: 1px solid transparent; }
+.nh-field.mine { background: #f0f9ff; border-color: #bae6fd; }
+.nh-field.filled .nh-field-status { color: #166534; }
+.nh-field.open .nh-field-status { color: #b45309; }
+.nh-field-meta { min-width: 0; }
+.nh-field-label { font-size: 12px; font-weight: 500; color: #1e293b; line-height: 1.35; }
+.nh-owner-chip { display: inline-block; margin-top: 4px; font-size: 10px; font-weight: 600; color: #475569; background: #f1f5f9; border-radius: 4px; padding: 2px 7px; }
+.nh-role-chip { display: inline-block; font-size: 10px; font-weight: 700; color: #0c4a6e; background: #e0f2fe; border-radius: 4px; padding: 2px 7px; }
+.nh-field-status { font-size: 11px; font-weight: 600; text-align: right; }
+.nh-lock { font-size: 10px; color: #b45309; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.nh-template-list { display: grid; gap: 0; }
+.nh-template-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 10px 8px; border-bottom: 1px solid #f1f5f9; }
+.nh-template-row:last-child { border-bottom: none; }
+.nh-template-actions { display: flex; gap: 6px; }
+.nh-rolebar { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; }
+.nh-rolebar-left, .nh-rolebar-right { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.nh-tab-on { background: #1a2540 !important; color: #fff !important; border-color: #1a2540 !important; }
+.nh-todo-list { display: grid; gap: 8px; }
+.nh-todo-row { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
+.nh-todo-row.due-over { border-color: #fca5a5; background: #fff7f7; }
+.nh-todo-row.due-soon { border-color: #fcd34d; }
+.nh-todo-row.done { opacity: .65; }
+.nh-todo-hire { font-size: 13px; font-weight: 600; color: #1e293b; }
+.nh-todo-task { font-size: 13px; color: #334155; margin-top: 3px; }
+.nh-todo-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; align-items: center; }
+.nh-todo-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+.nh-due { font-size: 11px; font-weight: 600; color: #475569; }
+.nh-due.due-over { color: #b91c1c; }
+.nh-due.due-soon { color: #b45309; }
+.nh-type { font-size: 10px; color: #64748b; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 2px 6px; text-transform: uppercase; }
+.nh-assignee { margin-top: 6px; font-size: 12px; padding: 5px 8px; }
+.stat-num.red { color: #dc2626; border-left: 3px solid #dc2626; padding-left: 10px; }
+@media (max-width: 900px) {
+  .nh-stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .nh-field { grid-template-columns: 1fr; }
+  .nh-field-status { text-align: left; }
+}
 /* ── ADMIN (Atlas-style user management) ── */
 .page-admin { background: #eef0f3; min-height: calc(100vh - 56px); }
 .page-admin .main { max-width: 960px; padding: 1.5rem 1rem 2.5rem; }
@@ -427,53 +531,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   .user-mgmt-row, .user-mgmt-add-row { flex-wrap: wrap; }
 }
 
-/* ── NEW HIRE CHECKLIST ── */
-.page-checklist { background: #f8fafc; min-height: calc(100vh - 56px); }
-.page-checklist .main { max-width: 1200px; }
-.nh-stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 18px; }
-.nh-stat { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
-.nh-stat-label { font-size: 11px; color: #64748b; font-weight: 500; margin-bottom: 4px; }
-.nh-stat-num { font-size: 26px; font-weight: 700; color: #1E3A5F; line-height: 1.1; }
-.nh-stat-green { color: #16a34a; }
-.nh-stat-red { color: #dc2626; }
-.nh-stat-amber { color: #ea580c; }
-.nh-toolbar { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
-.nh-search { flex: 1; min-width: 220px; max-width: 320px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; font-size: 13px; font-family: inherit; outline: none; }
-.nh-search:focus { border-color: #1E3A5F; box-shadow: 0 0 0 3px rgba(30,58,95,.12); }
-.nh-filters { display: flex; flex-wrap: wrap; gap: 6px; }
-.nh-filter-btn { padding: 6px 12px; border-radius: 8px; border: none; background: #f1f5f9; color: #475569; font-size: 12px; font-weight: 600; text-transform: capitalize; cursor: pointer; font-family: inherit; }
-.nh-filter-btn:hover { background: #e2e8f0; }
-.nh-filter-btn.active { background: #1E3A5F; color: #fff; }
-.nh-table-wrap { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
-.nh-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.nh-table th { text-align: left; padding: 12px 14px; color: #64748b; font-weight: 600; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
-.nh-table td { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: middle; }
-.nh-table tr:hover td { background: #f8fafc; }
-.nh-name { font-weight: 600; color: #1E3A5F; }
-.nh-muted { color: #94a3b8; }
-.nh-empty { text-align: center; color: #94a3b8; padding: 28px 14px !important; }
-.nh-footnote { font-size: 12px; color: #94a3b8; margin-top: 8px; }
-.nh-status { font-size: 14px; color: #64748b; padding: 24px 0; }
-.nh-error { color: #b91c1c; }
-.nh-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; text-transform: capitalize; }
-.nh-badge-active { background: #dcfce7; color: #15803d; }
-.nh-badge-danger { background: #fee2e2; color: #b91c1c; }
-.nh-badge-warn { background: #ffedd5; color: #c2410c; }
-.nh-badge-muted { background: #f1f5f9; color: #475569; }
-.nh-badge-tech { background: #dbeafe; color: #1d4ed8; }
-.nh-badge-office { background: #f3e8ff; color: #7e22ce; }
-.nh-badge-intl { background: #e0e7ff; color: #4338ca; }
-@media (max-width: 800px) {
-  .nh-stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
-}
+
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="config.js"></script>
-<script src="hub-auth.js"></script>
-<script src="hub-admin.js"></script>
-<script src="hub-checklist.js"></script>
+<script src="config.js?v=20260804i"></script>
+<script src="hub-auth.js?v=20260804i"></script>
+<script src="hub-admin.js?v=20260804i"></script>
+<script src="new-hire-seed.js?v=20260804i"></script>
+<script src="new-hire-checklist.js?v=20260804i"></script>
 </head>
 <body>
 
@@ -500,18 +567,30 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     </div>
   </div>
   <div class="nav-links">
-    <button class="nav-link active" onclick="showPage('resources',this)">Resources</button>
-    <button class="nav-link nav-checklist" onclick="showPage('checklist',this)">New Hire Checklist</button>
+    <button class="nav-link" id="nav-resources" onclick="showPage('resources',this)">Resources</button>
+    <button class="nav-link nav-nh active" id="nav-newhire" onclick="showPage('newhire',this)">★ New Hire Checklist</button>
     <button class="nav-link nav-resp" onclick="showPage('responsibilities',this)">Responsibilities</button>
     <button class="nav-link nav-admin" id="nav-admin" style="display:none" onclick="showPage('admin',this)">Admin</button>
     <button class="nav-link nav-orient" onclick="showPage('orientation',this)">Orientation &amp; Bootcamp 2026</button>
     <button class="nav-link nav-weekly" onclick="showPage('weekly',this)">Weekly Tasks</button>
+    <div class="nav-search-wrap">
+      <input id="hub-search" class="nav-search" type="search" placeholder="Search hub… e.g. new hire" autocomplete="off" aria-label="Search hub">
+      <div id="hub-search-results" class="nav-search-results"></div>
+    </div>
     <div class="nav-user">
       <span id="nav-user-email" class="nav-user-email"></span>
       <button class="btn-signout" type="button" onclick="HubAuth.signOut()">Sign out</button>
     </div>
   </div>
 </nav>
+<div class="nh-subnav" id="nh-subnav">
+  <div class="nh-subnav-copy">
+    <strong>New Hire Checklist</strong> is its own tab (next to Resources) — not the Excel card below.
+    Team workspace for Lisa, Joe, Ana, Paula, Brenda and everyone else.
+  </div>
+  <button type="button" class="nh-subnav-btn" onclick="goToNewHireChecklist()">Open New Hire Checklist tab →</button>
+</div>
+<button type="button" class="nh-fab" id="nh-fab" onclick="goToNewHireChecklist()">★ New Hire Checklist</button>
 
 <!-- ═══════════════════ MODALS ═══════════════════ -->
 
@@ -718,11 +797,27 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
 <!-- ═══════════════════ PAGES ═══════════════════ -->
 
+<!-- PAGE: NEW HIRE CHECKLIST (default landing) -->
+<div id="page-newhire" class="page active">
+  <div class="main">
+    <div class="page-title">New Hire Checklist</div>
+    <div class="page-sub">Pick your role (HR, Admin, PM, Logistics, Training) to see your to-do list with due dates based on each hire’s start date. Typed fields match the spreadsheet tasks.</div>
+    <div id="nh-root"></div>
+  </div>
+</div>
+
 <!-- PAGE: RESOURCES -->
-<div id="page-resources" class="page active">
+<div id="page-resources" class="page">
   <div class="main">
     <div class="page-title">Onboarding Resources</div>
     <div class="page-sub">Key files, platforms, and links used in the onboarding process.</div>
+    <div class="nh-hero">
+      <div>
+        <h2>New Hire Checklist lives here in the Hub</h2>
+        <p>Do not use the Excel spreadsheet for day-to-day updates. Open the shared New Hire Checklist tab so Lisa, Joe, Ana, Paula, Brenda and the whole team work in one place.</p>
+      </div>
+      <button class="btn-primary" type="button" onclick="goToNewHireChecklist()">Go to New Hire Checklist</button>
+    </div>
     <div class="res-toolbar">
       <button class="res-filter-btn active" onclick="setResFilter('all',this)">All</button>
       <button class="res-filter-btn" onclick="setResFilter('Hiring / Onboarding',this)">Hiring / Onboarding</button>
@@ -730,17 +825,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       <button class="btn-primary" onclick="openResModal()" style="margin-left:auto">+ Add Resource</button>
     </div>
     <div class="resources-grid" id="resources-grid"></div>
-  </div>
-</div>
-
-<!-- PAGE: NEW HIRE CHECKLIST -->
-<div id="page-checklist" class="page page-checklist">
-  <div class="main">
-    <div class="page-title">New Hire Checklist</div>
-    <div class="page-sub">Employee roster — search, filter by status, and review onboarding records.</div>
-    <div id="nh-checklist-root">
-      <p class="nh-status">Loading employees…</p>
-    </div>
   </div>
 </div>
 
@@ -799,6 +883,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     </div>
   </div>
 </div>
+
 
 <!-- PAGE: ORIENTATION & BOOTCAMP -->
 <div id="page-orientation" class="page">
@@ -919,14 +1004,101 @@ function showPage(id, btn) {
   }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-link').forEach(b => b.classList.remove('active'));
-  document.getElementById('page-' + id).classList.add('active');
+  const page = document.getElementById('page-' + id);
+  if (!page) return;
+  page.classList.add('active');
   if (btn) btn.classList.add('active');
+  else {
+    const map = { newhire: 'nav-newhire' };
+    const el = map[id] ? document.getElementById(map[id]) : null;
+    if (el) el.classList.add('active');
+    else {
+      // fallback: match by onclick page id
+      document.querySelectorAll('.nav-link').forEach(b => {
+        const oc = b.getAttribute('onclick') || '';
+        if (oc.includes("'" + id + "'") || oc.includes('"' + id + '"')) b.classList.add('active');
+      });
+    }
+  }
   if (id === 'resources') renderResources();
+  if (id === 'newhire' && window.NewHireChecklist) NewHireChecklist.render();
+  if (id === 'admin' && window.HubAdmin) HubAdmin.mount();
   if (id === 'responsibilities') renderResponsibilities();
   if (id === 'orientation') { renderOrientCalendar(); renderOrientGroups(); }
   if (id === 'weekly') renderWeekly();
-  if (id === 'admin' && window.HubAdmin) HubAdmin.mount();
-  if (id === 'checklist' && window.HubChecklist) HubChecklist.mount();
+  if (id === 'newhire') location.hash = 'newhire';
+  const fab = document.getElementById('nh-fab');
+  if (fab) fab.style.display = id === 'newhire' ? 'none' : 'inline-flex';
+  const sub = document.getElementById('nh-subnav');
+  if (sub) sub.classList.toggle('hidden-on-page', id === 'newhire');
+}
+
+function goToNewHireChecklist() {
+  const btn = document.getElementById('nav-newhire');
+  showPage('newhire', btn);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+const HUB_SEARCH_ITEMS = [
+  { q: 'new hire checklist onboarding excel spreadsheet lisa joe ana paula brenda', title: 'New Hire Checklist', sub: 'Shared hire tracker — replaces the Excel file', page: 'newhire' },
+  { q: 'resources links files sharepoint', title: 'Resources', sub: 'Files, platforms, and links', page: 'resources' },
+  { q: 'responsibilities sop procedures steps', title: 'Responsibilities', sub: 'Trigger-based SOPs and checklists', page: 'responsibilities' },
+  { q: 'orientation bootcamp calendar groups', title: 'Orientation & Bootcamp 2026', sub: 'Calendar and group planning', page: 'orientation' },
+  { q: 'weekly tasks calendar outlook', title: 'Weekly Tasks', sub: 'Week calendar and task status', page: 'weekly' }
+];
+
+function setupHubSearch() {
+  const input = document.getElementById('hub-search');
+  const box = document.getElementById('hub-search-results');
+  if (!input || !box) return;
+
+  function renderResults(q) {
+    const term = q.trim().toLowerCase();
+    if (!term) { box.classList.remove('open'); box.innerHTML = ''; return; }
+    const hits = HUB_SEARCH_ITEMS.filter(i =>
+      i.title.toLowerCase().includes(term) || i.sub.toLowerCase().includes(term) || i.q.includes(term)
+    );
+    // Always surface New Hire Checklist when query mentions hire/checklist/excel
+    if (/hire|checklist|excel|onboard/.test(term) && !hits.some(h => h.page === 'newhire')) {
+      hits.unshift(HUB_SEARCH_ITEMS[0]);
+    }
+    if (!hits.length) {
+      box.innerHTML = '<button type="button" class="nav-search-item" disabled><strong>No matches</strong><span>Try “new hire”</span></button>';
+      box.classList.add('open');
+      return;
+    }
+    box.innerHTML = hits.map(h =>
+      `<button type="button" class="nav-search-item" data-page="${h.page}"><strong>${h.title}</strong><span>${h.sub}</span></button>`
+    ).join('');
+    box.classList.add('open');
+    box.querySelectorAll('[data-page]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const page = btn.getAttribute('data-page');
+        if (page === 'newhire') goToNewHireChecklist();
+        else {
+          const navBtn = [...document.querySelectorAll('.nav-link')].find(b => (b.getAttribute('onclick') || '').includes("'" + page + "'"));
+          showPage(page, navBtn);
+        }
+        input.value = '';
+        box.classList.remove('open');
+      });
+    });
+  }
+
+  input.addEventListener('input', () => renderResults(input.value));
+  input.addEventListener('focus', () => renderResults(input.value || 'new hire'));
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const first = box.querySelector('[data-page]');
+      if (first) first.click();
+      else goToNewHireChecklist();
+    }
+    if (e.key === 'Escape') { box.classList.remove('open'); input.blur(); }
+  });
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.nav-search-wrap')) box.classList.remove('open');
+  });
 }
 
 // ═══════════════════════════════════════════════
@@ -934,10 +1106,11 @@ function showPage(id, btn) {
 // ═══════════════════════════════════════════════
 const DEFAULT_RESOURCES = [
   { id:'r1', cat:'Hiring / Onboarding', name:'New Hire Checklist',
-    what:'Centralized checklist containing detailed information for each new hire, including office and field staff.',
+    what:'Live team workspace in this Hub (replaces day-to-day use of the Excel file). Open the New Hire Checklist tab to update fields by owner and keep history.',
     when:'Used during the hiring and onboarding process, and as an ongoing reference for team information.',
     why:'Used to track onboarding completion and quickly access any required information for team members.',
-    links:['New hire checklist - Updated File Sept. 2025.xlsx'] },
+    links:['Open in Hub → New Hire Checklist tab'],
+    openPage: 'newhire' },
   { id:'r2', cat:'Hiring / Onboarding', name:'Diploma / GED / OSHA List',
     what:'Confirms whether each technician has submitted required documents: OSHA 10/30 certification and a Diploma or GED.',
     when:'Requested immediately after the offer letter is sent. Documents collected via Indeed messages.',
@@ -1007,6 +1180,9 @@ function renderResources() {
         ? `<a class="resource-link" href="${l}" target="_blank">🔗 ${l}</a>`
         : `<span class="resource-link" style="color:#64748b">📄 ${l}</span>`
     ).join('');
+    const openBtn = r.openPage === 'newhire'
+      ? `<button class="btn-xs primary" type="button" onclick="goToNewHireChecklist()">Open New Hire Checklist</button>`
+      : '';
     return `<div class="resource-card">
       <span class="resource-cat-badge ${catClass}">${r.cat}</span>
       <div class="resource-name">${r.name}</div>
@@ -1015,6 +1191,7 @@ function renderResources() {
       ${r.why ? `<div class="resource-section"><div class="resource-section-label">Why</div><div class="resource-section-text">${r.why}</div></div>` : ''}
       <div class="resource-links">${linksHtml}</div>
       <div class="resource-card-actions">
+        ${openBtn}
         <button class="btn-xs primary" onclick="openResModal('${r.id}')">Edit</button>
         <button class="btn-xs danger" onclick="deleteResource('${r.id}')">Delete</button>
       </div>
@@ -2028,9 +2205,27 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAllModals();});
 });
 
 // Init — wait for Microsoft auth, then load shared data from Supabase
+function syncNewHireResourceCard() {
+  // Old Supabase data still has the Excel card — retarget it to the new TAB
+  const target = {
+    id: 'r1',
+    cat: 'Hiring / Onboarding',
+    name: 'New Hire Checklist',
+    what: 'This is no longer the Excel file. Use the ★ New Hire Checklist TAB next to Resources — shared live for the whole team.',
+    when: 'During hiring/onboarding. Click “Open New Hire Checklist tab” below.',
+    why: 'Replace the spreadsheet so everyone updates one shared checklist.',
+    links: ['Use the top nav tab: ★ New Hire Checklist'],
+    openPage: 'newhire'
+  };
+  const idx = resources.findIndex(r => r.id === 'r1' || /new hire checklist/i.test(r.name || ''));
+  if (idx >= 0) resources[idx] = Object.assign({}, resources[idx], target);
+  else resources.unshift(target);
+}
+
 window.applyHubData = function(data) {
   if (!data) return;
   if (data.airadigm_resources) resources = data.airadigm_resources;
+  syncNewHireResourceCard();
   if (data.airadigm_responsibilities) responsibilities = data.airadigm_responsibilities;
   if (data.resp_checks) respChecks = data.resp_checks;
   if (data.orient_notes) calNotes = data.orient_notes;
@@ -2041,13 +2236,21 @@ window.applyHubData = function(data) {
   if (data.bootcamp_checks) bcChecks = data.bootcamp_checks;
   if (data.airadigm_tasks_v2) tasks = data.airadigm_tasks_v2;
   if (data.task_notes) taskNotes = data.task_notes;
+  if (window.NewHireChecklist) {
+    NewHireChecklist.applyRemote(data.new_hire_checklist);
+  }
 };
 
 window.startHubApp = function() {
+  setupHubSearch();
+  syncNewHireResourceCard();
   renderResources();
   calMonth = new Date().getMonth();
   const calSel = document.getElementById('cal-month-select');
   if (calSel) calSel.value = calMonth;
+  if (window.NewHireChecklist) NewHireChecklist.render();
+  // Default landing = New Hire Checklist TAB (not Resources card)
+  goToNewHireChecklist();
 };
 
 HubAuth.init();

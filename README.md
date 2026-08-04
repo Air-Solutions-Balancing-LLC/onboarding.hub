@@ -12,7 +12,8 @@ A web app to manage company onboarding procedures, built as an interactive to-do
 | `config.js` | Supabase URL + anon key |
 | `hub-auth.js` | Microsoft sign-in + shared data sync |
 | `hub-admin.js` | Atlas-style Admin / User Management |
-| `hub-checklist.js` | New Hire Checklist employee list |
+| `new-hire-checklist.js` | Paula’s role-based New Hire Checklist + My To-Do |
+| `new-hire-seed.js` | Spreadsheet-derived checklist seed data |
 | `supabase-schema.sql` | Run in Supabase SQL Editor |
 | `netlify.toml` | Netlify routing config |
 
@@ -76,7 +77,7 @@ Open http://localhost:3000 and sign in with Microsoft (add `http://localhost:300
 - **May 2026 Orientation** — 6-phase prep plan with progress bar and checkable steps
 - **Responsibilities** — Expandable procedures with step-by-step checklists
 - **Admin** — Atlas-style User Management (regions + roles: Admin, PM, Technician, Accounting, HR, Logistics, Training). Visible only to Admin role.
-- **New Hire Checklist** — Employee roster with search, status filters, and stats (migrated from airadigm-nhchecklist).
+- **New Hire Checklist** — Role-based My To-Do, hire tracker, and typed spreadsheet fields (Paula).
 - **Resources** — All links and documents from the Excel spreadsheet
 
 ## Sharing
