@@ -463,8 +463,70 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .nh-badge-tech { background: #dbeafe; color: #1d4ed8; }
 .nh-badge-office { background: #f3e8ff; color: #7e22ce; }
 .nh-badge-intl { background: #e0e7ff; color: #4338ca; }
+.nh-toolbar-plain { background: transparent; border: none; padding: 0; box-shadow: none; }
+.nh-toolbar-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.nh-stats-todo { grid-template-columns: repeat(4, minmax(0,1fr)); }
+.nh-stats-todo .stat { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; }
+.nh-stats-todo .stat-label { font-size: 11px; color: #64748b; margin-top: 4px; }
+.nh-rolebar { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; }
+.nh-rolebar-left, .nh-rolebar-right { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.nh-tab-on { background: #1a2540 !important; color: #fff !important; border-color: #1a2540 !important; }
+.nh-todo-list { display: grid; gap: 8px; }
+.nh-todo-row { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
+.nh-todo-row.due-over { border-color: #fca5a5; background: #fff7f7; }
+.nh-todo-row.due-soon { border-color: #fcd34d; }
+.nh-todo-row.done { opacity: .65; }
+.nh-todo-hire { font-size: 13px; font-weight: 600; color: #1e293b; }
+.nh-todo-task { font-size: 13px; color: #334155; margin-top: 3px; }
+.nh-todo-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; align-items: center; }
+.nh-todo-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+.nh-due { font-size: 11px; font-weight: 600; color: #475569; }
+.nh-due.due-over { color: #b91c1c; }
+.nh-due.due-soon { color: #b45309; }
+.nh-type { font-size: 10px; color: #64748b; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 2px 6px; text-transform: uppercase; }
+.nh-owner-chip { display: inline-block; font-size: 10px; font-weight: 600; color: #475569; background: #f1f5f9; border-radius: 4px; padding: 2px 7px; }
+.nh-role-chip { display: inline-block; font-size: 10px; font-weight: 700; color: #0c4a6e; background: #e0f2fe; border-radius: 4px; padding: 2px 7px; }
+.nh-check-label { font-size: 12px; color: #475569; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.nh-muted-inline { font-size: 12px; color: #94a3b8; font-weight: 400; }
+.nh-empty-block { text-align: center; color: #94a3b8; padding: 28px 12px; font-size: 13px; background: #fff; border: 1px dashed #e2e8f0; border-radius: 10px; }
+.nh-detail-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.nh-detail-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.nh-profile { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 20px; display: flex; justify-content: space-between; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+.nh-profile-name { font-size: 22px; font-weight: 600; color: #1e293b; }
+.nh-profile-meta { font-size: 13px; color: #64748b; margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
+.nh-profile-right { text-align: right; }
+.nh-prog { min-width: 0; }
+.nh-prog.big { min-width: 160px; margin-top: 8px; }
+.nh-prog-bar { height: 7px; background: #e2e8f0; border-radius: 99px; overflow: hidden; }
+.nh-prog-bar span { display: block; height: 100%; background: #1a2540; border-radius: 99px; }
+.nh-prog-label { font-size: 11px; color: #64748b; margin-top: 4px; }
+.nh-section { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
+.nh-section-head { width: 100%; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 14px 16px; background: #f8fafc; border: none; border-bottom: 1px solid transparent; cursor: pointer; text-align: left; font-family: inherit; }
+.nh-section.open .nh-section-head { border-bottom-color: #e2e8f0; }
+.nh-section-head.static { cursor: default; border-bottom-color: #e2e8f0; }
+.nh-section-head:hover:not(.static) { background: #f1f5f9; }
+.nh-section-title { font-size: 14px; font-weight: 600; color: #1e293b; }
+.nh-section-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.nh-section-pct { font-size: 12px; font-weight: 600; color: #475569; }
+.nh-chevron { color: #94a3b8; font-size: 14px; }
+.nh-section-body { padding: 10px 12px 14px; display: grid; gap: 8px; }
+.nh-field { display: grid; grid-template-columns: minmax(180px, 1.2fr) minmax(180px, 1.4fr) 72px; gap: 10px; align-items: center; padding: 10px 8px; border-radius: 8px; border: 1px solid transparent; }
+.nh-field.mine { background: #f0f9ff; border-color: #bae6fd; }
+.nh-field.filled .nh-field-status { color: #166534; }
+.nh-field.open .nh-field-status { color: #b45309; }
+.nh-field-meta { min-width: 0; }
+.nh-field-label { font-size: 12px; font-weight: 500; color: #1e293b; line-height: 1.35; }
+.nh-field-status { font-size: 11px; font-weight: 600; text-align: right; }
+.nh-lock { font-size: 10px; color: #b45309; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.nh-assignee { margin-top: 6px; font-size: 12px; padding: 5px 8px; }
+.nh-template-list { display: grid; gap: 0; }
+.nh-template-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 10px 8px; border-bottom: 1px solid #f1f5f9; }
+.nh-template-row:last-child { border-bottom: none; }
+.nh-template-actions { display: flex; gap: 6px; }
 @media (max-width: 800px) {
-  .nh-stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .nh-stats, .nh-stats-todo { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .nh-field { grid-template-columns: 1fr; }
+  .nh-field-status { text-align: left; }
 }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
@@ -473,6 +535,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <script src="config.js"></script>
 <script src="hub-auth.js"></script>
 <script src="hub-admin.js"></script>
+<script src="new-hire-seed.js"></script>
 <script src="hub-checklist.js"></script>
 </head>
 <body>
@@ -737,7 +800,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <div id="page-checklist" class="page page-checklist">
   <div class="main">
     <div class="page-title">New Hire Checklist</div>
-    <div class="page-sub">Employee roster — search, filter by status, and review onboarding records.</div>
+    <div class="page-sub">My To-Do by role (HR / Admin / PM / Logistics / Training) with due dates from start date — plus Brian’s employee roster.</div>
     <div id="nh-checklist-root">
       <p class="nh-status">Loading employees…</p>
     </div>
@@ -934,10 +997,10 @@ function showPage(id, btn) {
 // ═══════════════════════════════════════════════
 const DEFAULT_RESOURCES = [
   { id:'r1', cat:'Hiring / Onboarding', name:'New Hire Checklist',
-    what:'Centralized checklist containing detailed information for each new hire, including office and field staff.',
+    what:'Live Hub tab: My To-Do by role (HR / Admin / PM / Logistics / Training) on the employee roster, with due dates from start date.',
     when:'Used during the hiring and onboarding process, and as an ongoing reference for team information.',
     why:'Used to track onboarding completion and quickly access any required information for team members.',
-    links:['New hire checklist - Updated File Sept. 2025.xlsx'] },
+    links:['Open the New Hire Checklist tab in this Hub'] },
   { id:'r2', cat:'Hiring / Onboarding', name:'Diploma / GED / OSHA List',
     what:'Confirms whether each technician has submitted required documents: OSHA 10/30 certification and a Diploma or GED.',
     when:'Requested immediately after the offer letter is sent. Documents collected via Indeed messages.',
@@ -2041,6 +2104,9 @@ window.applyHubData = function(data) {
   if (data.bootcamp_checks) bcChecks = data.bootcamp_checks;
   if (data.airadigm_tasks_v2) tasks = data.airadigm_tasks_v2;
   if (data.task_notes) taskNotes = data.task_notes;
+  if (window.HubChecklist && HubChecklist.applyRemote) {
+    HubChecklist.applyRemote(data.new_hire_checklist || null);
+  }
 };
 
 window.startHubApp = function() {
@@ -2048,6 +2114,7 @@ window.startHubApp = function() {
   calMonth = new Date().getMonth();
   const calSel = document.getElementById('cal-month-select');
   if (calSel) calSel.value = calMonth;
+  if (window.HubChecklist) HubChecklist.mount();
 };
 
 HubAuth.init();
