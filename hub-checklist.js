@@ -56,6 +56,7 @@
         dependsOnPrior: !!(old.dependsOnPrior || old.dependsOnTaskId || bi.dependsOnPrior || bi.dependsOnTaskId),
         dependsOnTaskId: old.dependsOnTaskId || bi.dependsOnTaskId || null,
         checklistSteps: Array.isArray(old.checklistSteps) ? old.checklistSteps : (bi.checklistSteps || []),
+        link: (old.link != null && String(old.link).trim()) ? String(old.link).trim() : (bi.link || ''),
         order: old.order != null ? old.order : bi.order,
         sectionId: old.sectionId || bi.sectionId
       });
@@ -65,7 +66,7 @@
         items.push(Object.assign({
           role: 'HR', assignee: 'Lisa', inputType: 'text', options: [],
           dueOffsetDays: -7, dueAnchor: 'start', sensitive: false,
-          dependsOnPrior: false, dependsOnTaskId: null, checklistSteps: [],
+          dependsOnPrior: false, dependsOnTaskId: null, checklistSteps: [], link: '',
           order: items.length + 1
         }, oi));
       }
@@ -77,6 +78,7 @@
       }
       it.dependsOnPrior = !!it.dependsOnTaskId || !!it.dependsOnPrior;
       if (!it.dependsOnPrior) it.dependsOnTaskId = null;
+      it.link = (it.link && String(it.link).trim()) || '';
     });
 
     // progress: prefer progress map; migrate legacy hires[].values if present
@@ -174,6 +176,20 @@
         label: String(s.label || '').trim()
       };
     }).filter((s) => s.label);
+  }
+
+  function taskLinkUrl(item) {
+    const raw = item && item.link != null ? String(item.link).trim() : '';
+    if (!raw) return '';
+    if (/^https?:\/\//i.test(raw)) return raw;
+    if (/^mailto:/i.test(raw)) return raw;
+    return 'https://' + raw;
+  }
+
+  function taskLinkHtml(item, label) {
+    const href = taskLinkUrl(item);
+    if (!href) return '';
+    return `<a class="nh-task-link" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(label || 'Open link')}</a>`;
   }
 
   function checklistProgress(hire, item) {
@@ -589,11 +605,12 @@
 
   function todoRow(e) {
     const dueCls = e.bucket === 'overdue' ? 'due-over' : e.bucket === 'week' ? 'due-soon' : '';
+    const linkHtml = taskLinkHtml(e.item);
     return `
       <div class="nh-todo-row ${e.done ? 'done' : ''} ${dueCls}">
         <div class="nh-todo-main">
           <div class="nh-todo-hire">${esc(e.hire.name)} <span class="nh-muted-inline">· ${esc(e.hire.division || '')}</span></div>
-          <div class="nh-todo-task">${esc(e.item.label)}</div>
+          <div class="nh-todo-task">${esc(e.item.label)}${linkHtml ? ' · ' + linkHtml : ''}</div>
           <div class="nh-todo-meta">
             <span class="nh-person-role"><span class="nh-owner-chip">${esc(e.who || 'Unassigned')}</span><span class="nh-role-chip">${esc(e.item.role)}</span></span>
             <span class="nh-due ${dueCls}">Due ${esc(fmtDate(e.due))}</span>
@@ -911,6 +928,7 @@
     const who = assigneeOf(hire, it);
     const people = [...new Set([...peopleForRole(it.role), who].filter(Boolean))];
     const stepProg = checklistProgress(hire, it);
+    const linkHtml = taskLinkHtml(it);
     let control = '';
     if (stepProg) {
       control = `<button type="button" class="btn-secondary nh-checklist-btn" data-open-checklist="${esc(it.id)}">
@@ -943,6 +961,7 @@
             : esc(it.label)}
           ${it.sensitive ? ' <span class="nh-lock">sensitive</span>' : ''}
           ${stepProg ? ` <span class="nh-steps-chip">${stepProg.total} steps</span>` : ''}
+          ${linkHtml ? ` <span class="nh-task-link-wrap">${linkHtml}</span>` : ''}
         </div>
         <div class="nh-task-due ${overdue ? 'is-overdue' : ''}">${esc(fmtDate(due))}</div>
         <div class="nh-task-value">${control}</div>
@@ -1005,7 +1024,8 @@
     }
 
     document.getElementById('nh-cl-title').textContent = item.label;
-    document.getElementById('nh-cl-sub').textContent = `${hire.name} · ${item.assignee || item.role} · check off each step`;
+    const linkHtml = taskLinkHtml(item);
+    document.getElementById('nh-cl-sub').innerHTML = `${esc(hire.name)} · ${esc(item.assignee || item.role)} · check off each step${linkHtml ? ' · ' + linkHtml : ''}`;
     document.getElementById('nh-cl-count').textContent = `${done} of ${steps.length} complete`;
     document.getElementById('nh-cl-steps').innerHTML = steps.map((s) => `
       <label class="nh-cl-step">
@@ -1212,6 +1232,7 @@
                       <span class="nh-type">${esc(it.inputType)}</span>
                       <span class="nh-due">${esc(it.dueAnchor)} ${it.dueOffsetDays >= 0 ? '+' : ''}${it.dueOffsetDays}d</span>
                       ${normalizeSteps(it).length ? `<span class="nh-steps-chip">${normalizeSteps(it).length}-step check-off</span>` : ''}
+                      ${taskLinkHtml(it) || ''}
                       ${depOn && adminMode ? `<span class="nh-dep-badge">${depLabel ? 'Depends on: ' + esc(depLabel) : 'Pick prerequisite…'}</span>` : ''}
                     </div>
                   </div>
@@ -1469,6 +1490,11 @@
             </div>
             <div><label class="form-label">Dropdown options (comma-sep)</label><input id="nh-item-options" class="form-input" type="text" placeholder="Yes, No, N/A"></div>
           </div>
+          <div class="form-row">
+            <label class="form-label">Link (optional)</label>
+            <input id="nh-item-link" class="form-input" type="url" placeholder="https://…">
+            <p class="nh-muted" style="margin:6px 0 0">Only shown on the task when a URL is saved. Leave blank for no link.</p>
+          </div>
           <div class="form-row nh-item-steps-block">
             <label class="form-label">Check-off list (optional)</label>
             <p class="nh-muted" style="margin:0 0 8px">Add steps only when this task needs a multi-item check-off (e.g. RingCentral). On the hire, clicking the task opens this list.</p>
@@ -1510,6 +1536,7 @@
     document.getElementById('nh-item-offset').value = it?.dueOffsetDays != null ? it.dueOffsetDays : -7;
     document.getElementById('nh-item-anchor').value = it?.dueAnchor || 'start';
     document.getElementById('nh-item-options').value = (it?.options || []).join(', ');
+    document.getElementById('nh-item-link').value = it?.link || '';
     const steps = normalizeSteps(it || {});
     renderItemStepsEditor(steps.length ? steps : []);
     // preserve step ids in DOM
@@ -1533,6 +1560,7 @@
     const dueOffsetDays = parseInt(document.getElementById('nh-item-offset').value, 10) || 0;
     const dueAnchor = document.getElementById('nh-item-anchor').value;
     const options = document.getElementById('nh-item-options').value.split(',').map((s) => s.trim()).filter(Boolean);
+    const link = document.getElementById('nh-item-link').value.trim();
     const checklistSteps = collectItemStepsFromEditor().map((s, i) => ({
       id: s.id || ('s' + i),
       label: s.label
@@ -1542,7 +1570,7 @@
       const it = data.items.find((i) => i.id === id);
       Object.assign(it, {
         sectionId, label, role, assignee, owner: assignee, inputType, options,
-        dueOffsetDays, dueAnchor, checklistSteps
+        dueOffsetDays, dueAnchor, checklistSteps, link
       });
     } else {
       const maxOrder = data.items.reduce((m, i) => Math.max(m, i.order || 0), 0);
@@ -1550,7 +1578,7 @@
         id: uid('t'), sectionId, label, role, assignee, owner: assignee,
         inputType, options, dueOffsetDays, dueAnchor, order: maxOrder + 1,
         sensitive: false, dependsOnPrior: false, dependsOnTaskId: null,
-        checklistSteps
+        checklistSteps, link
       });
       processAdminOpen[sectionId] = true;
     }

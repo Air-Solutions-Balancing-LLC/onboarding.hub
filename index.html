@@ -620,6 +620,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .nh-pct-zero { background: #f1f5f9; color: #64748b; }
 .nh-linkish { background: none; border: none; padding: 0; font: inherit; font-weight: 600; color: #1E3A5F; cursor: pointer; text-align: left; }
 .nh-linkish:hover { text-decoration: underline; }
+.nh-task-link { font-size: 11px; font-weight: 600; color: #2563eb; text-decoration: none; white-space: nowrap; }
+.nh-task-link:hover { text-decoration: underline; }
+.nh-task-link-wrap { display: inline-block; margin-left: 4px; }
 @media (max-width: 900px) {
   .nh-stats, .nh-stats-todo { grid-template-columns: repeat(2, minmax(0,1fr)); }
   .nh-task-head { display: none; }
@@ -662,12 +665,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     </div>
   </div>
   <div class="nav-links">
-    <button class="nav-link active" onclick="showPage('resources',this)">Resources</button>
-    <button class="nav-link nav-checklist" onclick="showPage('checklist',this)">New Hire Checklist</button>
+    <button class="nav-link nav-checklist active" onclick="showPage('checklist',this)">New Hire Checklist</button>
     <button class="nav-link nav-resp" onclick="showPage('responsibilities',this)">Responsibilities</button>
     <button class="nav-link nav-admin" id="nav-admin" style="display:none" onclick="showPage('admin',this)">Admin</button>
     <button class="nav-link nav-orient" onclick="showPage('orientation',this)">Orientation &amp; Bootcamp 2026</button>
     <button class="nav-link nav-weekly" onclick="showPage('weekly',this)">Weekly Tasks</button>
+    <button class="nav-link" onclick="showPage('resources',this)">Resources</button>
     <div class="nav-user">
       <span id="nav-user-email" class="nav-user-email"></span>
       <button class="btn-signout" type="button" onclick="HubAuth.signOut()">Sign out</button>
@@ -881,7 +884,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <!-- ═══════════════════ PAGES ═══════════════════ -->
 
 <!-- PAGE: RESOURCES -->
-<div id="page-resources" class="page active">
+<div id="page-resources" class="page">
   <div class="main">
     <div class="page-title">Onboarding Resources</div>
     <div class="page-sub">Key files, platforms, and links used in the onboarding process.</div>
@@ -896,7 +899,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 </div>
 
 <!-- PAGE: NEW HIRE CHECKLIST -->
-<div id="page-checklist" class="page page-checklist">
+<div id="page-checklist" class="page page-checklist active">
   <div class="main">
     <div class="page-title">New Hire Checklist</div>
     <div class="page-sub">Shared dashboard like the NH Checklist spreadsheet — full team visibility, editable status, My To-Do by role, and roster.</div>
@@ -2239,7 +2242,8 @@ window.startHubApp = function() {
   calMonth = new Date().getMonth();
   const calSel = document.getElementById('cal-month-select');
   if (calSel) calSel.value = calMonth;
-  // Checklist mounts when its nav tab is opened (avoids freezing the whole hub on login)
+  const checklistBtn = document.querySelector('.nav-link.nav-checklist');
+  showPage('checklist', checklistBtn);
 };
 
 HubAuth.init();
