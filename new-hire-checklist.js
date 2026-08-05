@@ -228,6 +228,7 @@
       if (!root) return;
       if (view === 'detail' && selectedHireId) renderDetail(root);
       else if (view === 'template') renderTemplate(root);
+      else if (view === 'archive') renderArchive(root);
       else if (view === 'list') renderList(root);
       else renderTodo(root);
     }
@@ -255,6 +256,7 @@
         <div class="nh-rolebar-right">
           <button class="btn-secondary ${view === 'todo' ? 'nh-tab-on' : ''}" type="button" data-view="todo">My To-Do</button>
           <button class="btn-secondary ${view === 'list' ? 'nh-tab-on' : ''}" type="button" data-view="list">All hires</button>
+          <button class="btn-secondary ${view === 'archive' ? 'nh-tab-on' : ''}" type="button" data-view="archive">Archive</button>
           <button class="btn-secondary" type="button" id="nh-btn-template">Manage process</button>
           <button class="btn-primary" type="button" id="nh-btn-add">+ Add new hire</button>
         </div>
@@ -368,8 +370,10 @@
     const q = filters.q.trim().toLowerCase();
     const hires = data.hires
       .filter((h) => {
-        if (filters.status === 'active' && h.status !== 'active') return false;
-        if (filters.status === 'inactive' && h.status === 'active') return false;
+        const st = h.status || 'active';
+        if (st === 'archived') return false; // Archive tab only
+        if (filters.status === 'active' && st !== 'active') return false;
+        if (filters.status === 'inactive' && st !== 'inactive') return false;
         if (!q) return true;
         return [h.name, h.division, h.role, h.statusNote].join(' ').toLowerCase().includes(q);
       })
@@ -383,7 +387,7 @@
           <select id="nh-status" class="form-input" style="width:130px">
             <option value="active" ${filters.status === 'active' ? 'selected' : ''}>Active</option>
             <option value="inactive" ${filters.status === 'inactive' ? 'selected' : ''}>History</option>
-            <option value="all" ${filters.status === 'all' ? 'selected' : ''}>All</option>
+            <option value="all" ${filters.status === 'all' ? 'selected' : ''}>All (not archived)</option>
           </select>
         </div>
       </div>
@@ -391,13 +395,14 @@
         ${hires.length ? hires.map((h) => {
           const p = hireProgress(h);
           const pr = filters.role !== 'all' ? hireProgress(h, filters.role) : null;
+          const st = h.status || 'active';
           return `<article class="nh-hire-card">
             <div class="nh-hire-card-top">
               <div>
                 <div class="nh-hire-card-name">${esc(h.name)}</div>
                 <div class="nh-hire-card-meta">${esc(h.division || '—')} · Start ${esc(h.startDate || 'TBD')}</div>
               </div>
-              <span class="nh-badge ${h.status === 'active' ? 'ok' : 'off'}">${h.status === 'active' ? 'Active' : 'History'}</span>
+              <span class="nh-badge ${st === 'active' ? 'ok' : 'off'}">${st === 'active' ? 'Active' : (st === 'archived' ? 'Archived' : 'History')}</span>
             </div>
             <div class="nh-prog">
               <div class="nh-prog-bar"><span style="width:${p.pct}%"></span></div>
@@ -406,6 +411,7 @@
             </div>
             <div class="nh-hire-card-actions">
               <button class="btn-xs primary" type="button" data-open-hire="${esc(h.id)}">Open checklist</button>
+              ${st === 'active' || st === 'inactive' ? `<button class="btn-xs" type="button" data-archive-hire="${esc(h.id)}">Archive</button>` : ''}
             </div>
           </article>`;
         }).join('') : '<div class="nh-empty">No hires match.</div>'}
@@ -421,6 +427,103 @@
         NewHireChecklist.render();
       });
     });
+    root.querySelectorAll('[data-archive-hire]').forEach((btn) => {
+      btn.addEventListener('click', () => archiveHire(btn.getAttribute('data-archive-hire')));
+    });
+  }
+
+  function renderArchive(root) {
+    const q = filters.q.trim().toLowerCase();
+    const hires = data.hires
+      .filter((h) => (h.status || '') === 'archived')
+      .filter((h) => {
+        if (!q) return true;
+        return [h.name, h.division, h.role, h.statusNote].join(' ').toLowerCase().includes(q);
+      })
+      .sort((a, b) => String(b.archivedAt || b.startDate || '').localeCompare(String(a.archivedAt || a.startDate || '')) || a.name.localeCompare(b.name));
+
+    root.innerHTML = `
+      ${roleBar()}
+      <div class="nh-toolbar">
+        <div class="nh-toolbar-left">
+          <input class="wt-search" id="nh-search" type="search" placeholder="Search archived hires..." value="${esc(filters.q)}" style="width:260px">
+        </div>
+        <div class="nh-muted" style="font-size:12px">Archived people are hidden from My To-Do. Delete permanently from here.</div>
+      </div>
+      <div class="nh-hire-grid">
+        ${hires.length ? hires.map((h) => {
+          const p = hireProgress(h);
+          return `<article class="nh-hire-card nh-hire-card-archived">
+            <div class="nh-hire-card-top">
+              <div>
+                <div class="nh-hire-card-name">${esc(h.name)}</div>
+                <div class="nh-hire-card-meta">${esc(h.division || '—')} · Start ${esc(h.startDate || 'TBD')}${h.archivedAt ? ` · Archived ${esc(String(h.archivedAt).slice(0, 10))}` : ''}</div>
+              </div>
+              <span class="nh-badge off">Archived</span>
+            </div>
+            <div class="nh-prog">
+              <div class="nh-prog-bar"><span style="width:${p.pct}%"></span></div>
+              <div class="nh-prog-label">${p.done}/${p.total} · ${p.pct}%</div>
+            </div>
+            <div class="nh-hire-card-actions">
+              <button class="btn-xs primary" type="button" data-open-hire="${esc(h.id)}">Open</button>
+              <button class="btn-xs" type="button" data-restore-hire="${esc(h.id)}">Restore</button>
+              <button class="btn-xs danger" type="button" data-delete-hire="${esc(h.id)}">Delete</button>
+            </div>
+          </article>`;
+        }).join('') : '<div class="nh-empty">No archived hires.</div>'}
+      </div>`;
+
+    bindRoleBar(root);
+    root.querySelector('#nh-search')?.addEventListener('input', (e) => { filters.q = e.target.value; NewHireChecklist.render(); });
+    root.querySelectorAll('[data-open-hire]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        selectedHireId = btn.getAttribute('data-open-hire');
+        view = 'detail';
+        NewHireChecklist.render();
+      });
+    });
+    root.querySelectorAll('[data-restore-hire]').forEach((btn) => {
+      btn.addEventListener('click', () => restoreHire(btn.getAttribute('data-restore-hire')));
+    });
+    root.querySelectorAll('[data-delete-hire]').forEach((btn) => {
+      btn.addEventListener('click', () => deleteHirePermanently(btn.getAttribute('data-delete-hire')));
+    });
+  }
+
+  function archiveHire(id) {
+    const h = data.hires.find((x) => x.id === id);
+    if (!h) return;
+    if (!confirm(`Archive ${h.name}? They will move to the Archive section and leave My To-Do.`)) return;
+    h.status = 'archived';
+    h.archivedAt = new Date().toISOString();
+    persist();
+    if (selectedHireId === id) selectedHireId = null;
+    view = 'list';
+    NewHireChecklist.render();
+  }
+
+  function restoreHire(id) {
+    const h = data.hires.find((x) => x.id === id);
+    if (!h) return;
+    h.status = 'active';
+    delete h.archivedAt;
+    persist();
+    NewHireChecklist.render();
+  }
+
+  function deleteHirePermanently(id) {
+    const h = data.hires.find((x) => x.id === id);
+    if (!h) return;
+    if ((h.status || '') !== 'archived') {
+      alert('Only archived people can be deleted. Archive them first.');
+      return;
+    }
+    if (!confirm(`Permanently delete ${h.name}? This cannot be undone.`)) return;
+    data.hires = data.hires.filter((x) => x.id !== id);
+    if (selectedHireId === id) { selectedHireId = null; view = 'archive'; }
+    persist();
+    NewHireChecklist.render();
   }
 
   // ── DETAIL ─────────────────────────────────────────────────
@@ -430,6 +533,7 @@
     if (!hire.values) hire.values = {};
     if (!hire.assignees) hire.assignees = {};
     const p = hireProgress(hire);
+    const st = hire.status || 'active';
 
     const sectionsHtml = data.sections.map((sec) => {
       let items = itemsForSection(sec.id);
@@ -457,7 +561,7 @@
 
     root.innerHTML = `
       <div class="nh-detail-top">
-        <button class="btn-secondary" type="button" id="nh-back">← My To-Do</button>
+        <button class="btn-secondary" type="button" id="nh-back">← ${st === 'archived' ? 'Archive' : 'My To-Do'}</button>
         <div class="nh-detail-actions">
           <label class="nh-check-label"><input type="checkbox" id="nh-reveal" ${revealSensitive ? 'checked' : ''}> Show sensitive</label>
           <select id="nh-role-d" class="form-input" style="width:140px">
@@ -465,6 +569,10 @@
             <option value="all" ${filters.role === 'all' ? 'selected' : ''}>All roles</option>
           </select>
           <button class="btn-secondary" type="button" id="nh-edit-hire">Edit profile</button>
+          ${st === 'archived'
+            ? `<button class="btn-secondary" type="button" id="nh-restore-hire">Restore</button>
+               <button class="btn-secondary" type="button" id="nh-delete-hire" style="color:#b91c1c;border-color:#fca5a5">Delete</button>`
+            : `<button class="btn-secondary" type="button" id="nh-archive-hire">Archive</button>`}
         </div>
       </div>
       <div class="nh-profile">
@@ -477,7 +585,7 @@
           </div>
         </div>
         <div class="nh-profile-right">
-          <span class="nh-badge ${hire.status === 'active' ? 'ok' : 'off'}">${hire.status === 'active' ? 'Active' : 'History'}</span>
+          <span class="nh-badge ${st === 'active' ? 'ok' : 'off'}">${st === 'active' ? 'Active' : (st === 'archived' ? 'Archived' : 'History')}</span>
           <div class="nh-prog big">
             <div class="nh-prog-bar"><span style="width:${p.pct}%"></span></div>
             <div class="nh-prog-label">${p.done} of ${p.total} · ${p.pct}%</div>
@@ -486,8 +594,15 @@
       </div>
       ${sectionsHtml}`;
 
-    root.querySelector('#nh-back').addEventListener('click', () => { view = 'todo'; selectedHireId = null; NewHireChecklist.render(); });
+    root.querySelector('#nh-back').addEventListener('click', () => {
+      view = st === 'archived' ? 'archive' : 'todo';
+      selectedHireId = null;
+      NewHireChecklist.render();
+    });
     root.querySelector('#nh-edit-hire').addEventListener('click', () => openHireModal(hire.id));
+    root.querySelector('#nh-archive-hire')?.addEventListener('click', () => archiveHire(hire.id));
+    root.querySelector('#nh-restore-hire')?.addEventListener('click', () => restoreHire(hire.id));
+    root.querySelector('#nh-delete-hire')?.addEventListener('click', () => deleteHirePermanently(hire.id));
     root.querySelector('#nh-role-d').addEventListener('change', (e) => {
       filters.role = e.target.value;
       localStorage.setItem(ROLE_PREF_KEY, filters.role);
@@ -513,8 +628,8 @@
           const filled = isFilled(item, val);
           row.classList.toggle('filled', filled);
           row.classList.toggle('open', !filled);
-          const st = row.querySelector('.nh-field-status');
-          if (st) st.textContent = filled ? 'Complete' : 'Open';
+          const stEl = row.querySelector('.nh-field-status');
+          if (stEl) stEl.textContent = filled ? 'Complete' : 'Open';
         }
       };
       el.addEventListener('change', save);
@@ -675,7 +790,6 @@
             </div>
           </div>
           <div class="modal-footer">
-            <button class="btn-secondary" type="button" id="nh-hire-del" style="margin-right:auto;display:none">Delete</button>
             <button class="btn-secondary" type="button" id="nh-hire-cancel">Cancel</button>
             <button class="btn-primary" type="button" id="nh-hire-save">Save</button>
           </div>
@@ -685,16 +799,6 @@
       document.getElementById('nh-hire-x').addEventListener('click', closeHireModal);
       document.getElementById('nh-hire-cancel').addEventListener('click', closeHireModal);
       document.getElementById('nh-hire-save').addEventListener('click', saveHireModal);
-      document.getElementById('nh-hire-del').addEventListener('click', () => {
-        const hid = document.getElementById('nh-hire-id').value;
-        const h = data.hires.find((x) => x.id === hid);
-        if (!h || !confirm(`Delete ${h.name}?`)) return;
-        data.hires = data.hires.filter((x) => x.id !== hid);
-        if (selectedHireId === hid) { selectedHireId = null; view = 'todo'; }
-        persist();
-        closeHireModal();
-        NewHireChecklist.render();
-      });
     }
     const hire = id ? data.hires.find((h) => h.id === id) : null;
     document.getElementById('nh-hire-title').textContent = hire ? 'Edit hire' : 'Add new hire';
@@ -704,9 +808,10 @@
     document.getElementById('nh-hire-role').value = hire?.role || '';
     document.getElementById('nh-hire-start').value = (hire?.startDate || '').slice(0, 10);
     document.getElementById('nh-hire-boot').value = (hire?.bootcampDate || '').slice(0, 10);
-    document.getElementById('nh-hire-status').value = hire?.status || 'active';
+    // Archived is managed via Archive tab — don't overwrite via this select
+    const st = hire?.status === 'archived' ? 'inactive' : (hire?.status || 'active');
+    document.getElementById('nh-hire-status').value = st === 'inactive' ? 'inactive' : 'active';
     document.getElementById('nh-hire-note').value = hire?.statusNote || '';
-    document.getElementById('nh-hire-del').style.display = hire ? 'inline-block' : 'none';
     modal.classList.add('open');
   }
 
@@ -732,7 +837,9 @@
     const bootItem = data.items.find((i) => /First Day of BOOTCAMP/i.test(i.label));
     if (id) {
       const h = data.hires.find((x) => x.id === id);
-      Object.assign(h, { name, division, role: role || division, startDate, bootcampDate, status, statusNote });
+      // Keep archived status unless restored from Archive tab
+      const nextStatus = h.status === 'archived' ? 'archived' : status;
+      Object.assign(h, { name, division, role: role || division, startDate, bootcampDate, status: nextStatus, statusNote });
       if (!h.values) h.values = {};
       if (regionItem) h.values[regionItem.id] = division;
       if (startItem) h.values[startItem.id] = startDate;
