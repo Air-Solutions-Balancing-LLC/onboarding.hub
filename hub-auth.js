@@ -16,6 +16,8 @@
   ];
 
   let supabase = null;
+  let accessDenyMessage = '';
+  let authGateInProgress = false;
 
   function getConfig() {
     const cfg = window.HUB_CONFIG || {};
@@ -95,7 +97,7 @@
     window.hubCurrentUser = null;
     setAdminNavVisible(false);
     const email = (session?.user?.email || '').trim().toLowerCase();
-    if (!email) return null;
+    if (!email) return { ok: false, reason: 'missing_email' };
 
     const { data, error } = await supabase
       .from('app_users')
@@ -105,17 +107,36 @@
       .maybeSingle();
 
     if (error) {
-      // Table may not exist yet — fail soft so the rest of the hub still works.
-      console.warn('app_users lookup skipped:', error.message);
-      return null;
+      // Fail closed: do not allow Hub access if we cannot verify the allowlist.
+      console.error('app_users lookup failed:', error.message);
+      return { ok: false, reason: 'lookup_failed', message: error.message };
     }
 
-    window.hubCurrentUser = data || null;
-    setAdminNavVisible(!!data && data.role === 'admin');
-    return data;
+    if (!data) {
+      return { ok: false, reason: 'not_allowlisted' };
+    }
+
+    window.hubCurrentUser = data;
+    setAdminNavVisible(data.role === 'admin');
+    return { ok: true, user: data };
+  }
+
+  async function denyAccess(message) {
+    window.hubCurrentUser = null;
+    setAdminNavVisible(false);
+    accessDenyMessage = message || accessDenyMessage;
+    showAuthScreen(accessDenyMessage);
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.warn('signOut after deny failed', e);
+    }
+    // Keep the denial message after SIGNED_OUT handler runs
+    showAuthScreen(accessDenyMessage);
   }
 
   async function signInWithMicrosoft() {
+    accessDenyMessage = '';
     const err = document.getElementById('auth-error');
     if (err) { err.hidden = true; err.textContent = ''; }
     const { error } = await supabase.auth.signInWithOAuth({
@@ -139,11 +160,34 @@
   }
 
   async function onAuthenticated(session) {
-    showAppShell(session);
-    await loadAppUser(session);
-    const data = await loadAllHubData();
-    if (typeof window.applyHubData === 'function') window.applyHubData(data);
-    if (typeof window.startHubApp === 'function') window.startHubApp();
+    if (authGateInProgress) return;
+    authGateInProgress = true;
+    try {
+      // Keep shell hidden until the user is confirmed on the Admin User Management list.
+      showAuthScreen('Checking access…');
+
+      const access = await loadAppUser(session);
+      if (!access.ok) {
+        let message =
+          'Access denied. Your Microsoft account is not on the approved Hub user list. Ask an Admin to add you under Admin → User Management.';
+        if (access.reason === 'missing_email') {
+          message = 'Access denied. Your Microsoft sign-in did not return an email address.';
+        } else if (access.reason === 'lookup_failed') {
+          message =
+            'Access denied. Could not verify your account against the approved user list. Try again or contact an Admin.';
+        }
+        await denyAccess(message);
+        return;
+      }
+
+      accessDenyMessage = '';
+      showAppShell(session);
+      const data = await loadAllHubData();
+      if (typeof window.applyHubData === 'function') window.applyHubData(data);
+      if (typeof window.startHubApp === 'function') window.startHubApp();
+    } finally {
+      authGateInProgress = false;
+    }
   }
 
   async function initHub() {
@@ -161,7 +205,7 @@
     if (session) {
       await onAuthenticated(session);
     } else {
-      showAuthScreen();
+      showAuthScreen(accessDenyMessage);
     }
 
     supabase.auth.onAuthStateChange(async (event, session) => {
@@ -169,7 +213,7 @@
       if (event === 'SIGNED_OUT') {
         window.hubCurrentUser = null;
         setAdminNavVisible(false);
-        showAuthScreen();
+        showAuthScreen(accessDenyMessage);
       }
     });
   }
