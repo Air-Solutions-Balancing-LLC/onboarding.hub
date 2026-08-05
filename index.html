@@ -267,6 +267,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .nh-process-cat-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 12px; border-bottom: 1px solid #f1f5f9; background: #fafbfc; }
 .nh-process-admin .nh-template-row { padding: 10px 12px; align-items: flex-start; }
 .nh-process-admin .nh-template-actions { flex-wrap: wrap; justify-content: flex-end; max-width: 280px; }
+.nh-dep-block { display: flex; flex-direction: column; gap: 6px; min-width: 220px; max-width: 280px; }
 .nh-dep-check {
   display: flex; align-items: flex-start; gap: 6px;
   font-size: 11px; font-weight: 600; color: #475569;
@@ -274,9 +275,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   padding: 5px 8px; cursor: pointer; line-height: 1.3; text-align: left;
 }
 .nh-dep-check input { margin-top: 1px; }
+.nh-dep-select {
+  font-size: 12px !important; padding: 6px 8px !important;
+  border-color: #fdba74 !important; background: #fff;
+  width: 100%;
+}
 .nh-dep-badge {
   display: inline-block; font-size: 10px; font-weight: 700;
   color: #9a3412; background: #ffedd5; border-radius: 4px; padding: 2px 7px;
+  max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .nh-template-row.nh-has-dependency { background: #fffbeb; }
 .user-mgmt-shell {

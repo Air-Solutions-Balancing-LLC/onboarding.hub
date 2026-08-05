@@ -53,7 +53,8 @@
         dueOffsetDays: old.dueOffsetDays != null ? old.dueOffsetDays : bi.dueOffsetDays,
         dueAnchor: old.dueAnchor || bi.dueAnchor,
         sensitive: old.sensitive != null ? old.sensitive : bi.sensitive,
-        dependsOnPrior: old.dependsOnPrior != null ? !!old.dependsOnPrior : !!bi.dependsOnPrior,
+        dependsOnPrior: !!(old.dependsOnPrior || old.dependsOnTaskId || bi.dependsOnPrior || bi.dependsOnTaskId),
+        dependsOnTaskId: old.dependsOnTaskId || bi.dependsOnTaskId || null,
         order: old.order != null ? old.order : bi.order,
         sectionId: old.sectionId || bi.sectionId
       });
@@ -62,9 +63,18 @@
       if (oi.id && String(oi.id).startsWith('t') && oi.label && oi.role && !items.find((i) => i.id === oi.id)) {
         items.push(Object.assign({
           role: 'HR', assignee: 'Lisa', inputType: 'text', options: [],
-          dueOffsetDays: -7, dueAnchor: 'start', sensitive: false, dependsOnPrior: false, order: items.length + 1
+          dueOffsetDays: -7, dueAnchor: 'start', sensitive: false,
+          dependsOnPrior: false, dependsOnTaskId: null, order: items.length + 1
         }, oi));
       }
+    });
+    // Normalize dependency flags
+    items.forEach((it) => {
+      if (it.dependsOnTaskId && !items.find((x) => x.id === it.dependsOnTaskId)) {
+        it.dependsOnTaskId = null;
+      }
+      it.dependsOnPrior = !!it.dependsOnTaskId || !!it.dependsOnPrior;
+      if (!it.dependsOnPrior) it.dependsOnTaskId = null;
     });
 
     // progress: prefer progress map; migrate legacy hires[].values if present
@@ -940,12 +950,37 @@
     const it = data.items.find((i) => i.id === id);
     if (!it || !confirm(`Delete "${it.label}" from the shared process?`)) return false;
     data.items = data.items.filter((i) => i.id !== id);
+    data.items.forEach((item) => {
+      if (item.dependsOnTaskId === id) {
+        item.dependsOnTaskId = null;
+        item.dependsOnPrior = false;
+      }
+    });
     Object.values(data.progress || {}).forEach((p) => {
       if (p.values) delete p.values[id];
       if (p.assignees) delete p.assignees[id];
     });
     persist();
     return true;
+  }
+
+  function taskLabelById(id) {
+    const t = (data.items || []).find((i) => i.id === id);
+    if (!t) return '';
+    return `${t.sectionId}. ${t.label}`;
+  }
+
+  function dependencyOptionsHtml(currentId, selectedId) {
+    ensureData();
+    const groups = (data.sections || []).map((sec) => {
+      const opts = itemsForSection(sec.id)
+        .filter((i) => i.id !== currentId)
+        .map((i) => `<option value="${esc(i.id)}" ${i.id === selectedId ? 'selected' : ''}>${esc(i.label)} (${esc(i.assignee || i.role)})</option>`)
+        .join('');
+      if (!opts) return '';
+      return `<optgroup label="${esc(sec.id)}. ${esc(sec.title)}">${opts}</optgroup>`;
+    }).join('');
+    return `<option value="">Select prerequisite task…</option>${groups}`;
   }
 
   function bindProcessEditor(root, opts) {
@@ -976,13 +1011,31 @@
           const it = data.items.find((i) => i.id === id);
           if (!it) return;
           it.dependsOnPrior = !!cb.checked;
+          if (!cb.checked) it.dependsOnTaskId = null;
           persist();
-          // Keep category open and refresh so the badge stays in sync
+          processAdminOpen[it.sectionId] = true;
+          if (onRefresh) onRefresh();
+          // Focus the prerequisite picker after enabling dependency
+          if (cb.checked) {
+            setTimeout(() => {
+              document.querySelector(`[data-depends-select="${id}"]`)?.focus();
+            }, 0);
+          }
+        });
+        cb.addEventListener('click', (e) => e.stopPropagation());
+      });
+      root.querySelectorAll('[data-depends-select]').forEach((sel) => {
+        sel.addEventListener('change', () => {
+          const id = sel.getAttribute('data-depends-select');
+          const it = data.items.find((i) => i.id === id);
+          if (!it) return;
+          it.dependsOnTaskId = sel.value || null;
+          it.dependsOnPrior = !!it.dependsOnTaskId;
+          persist();
           processAdminOpen[it.sectionId] = true;
           if (onRefresh) onRefresh();
         });
-        // Don't toggle the category when clicking the checkbox
-        cb.addEventListener('click', (e) => e.stopPropagation());
+        sel.addEventListener('click', (e) => e.stopPropagation());
       });
     }
   }
@@ -1008,32 +1061,43 @@
             <div class="nh-process-cat-actions">
               <button class="btn-primary" type="button" data-add-section="${esc(sec.id)}">+ Add task to ${esc(sec.id)}</button>
               <span class="nh-muted">${adminMode
-                ? 'Use the dependency checkbox when a task must wait for another task to be done first.'
+                ? 'Check “Depends on another task first”, then pick the prerequisite task from the list.'
                 : 'Assignee, role, field type, and due offset from start/bootcamp date'}</span>
             </div>
             <div class="nh-template-list">
-              ${items.length ? items.map((it) => `
-                <div class="nh-template-row${it.dependsOnPrior ? ' nh-has-dependency' : ''}">
+              ${items.length ? items.map((it) => {
+                const depOn = !!(it.dependsOnPrior || it.dependsOnTaskId);
+                const depLabel = it.dependsOnTaskId ? taskLabelById(it.dependsOnTaskId) : '';
+                return `
+                <div class="nh-template-row${depOn ? ' nh-has-dependency' : ''}">
                   <div>
                     <div class="nh-field-label" style="font-size:13px;font-weight:600;color:#1e293b">${esc(it.label)}</div>
                     <div class="nh-todo-meta">
                       <span class="nh-person-role"><span class="nh-owner-chip">${esc(it.assignee)}</span><span class="nh-role-chip">${esc(it.role)}</span></span>
                       <span class="nh-type">${esc(it.inputType)}</span>
                       <span class="nh-due">${esc(it.dueAnchor)} ${it.dueOffsetDays >= 0 ? '+' : ''}${it.dueOffsetDays}d</span>
-                      ${it.dependsOnPrior && adminMode ? '<span class="nh-dep-badge">Depends on prior task</span>' : ''}
+                      ${depOn && adminMode ? `<span class="nh-dep-badge">${depLabel ? 'Depends on: ' + esc(depLabel) : 'Pick prerequisite…'}</span>` : ''}
                     </div>
                   </div>
                   <div class="nh-template-actions">
                     ${adminMode ? `
-                      <label class="nh-dep-check" title="Check if this task depends on another task being done first">
-                        <input type="checkbox" data-depends-item="${esc(it.id)}" ${it.dependsOnPrior ? 'checked' : ''}>
-                        <span>Depends on another task first</span>
-                      </label>
+                      <div class="nh-dep-block">
+                        <label class="nh-dep-check" title="This task must wait for another task to be done first">
+                          <input type="checkbox" data-depends-item="${esc(it.id)}" ${depOn ? 'checked' : ''}>
+                          <span>Depends on another task first</span>
+                        </label>
+                        ${depOn ? `
+                          <select class="form-input nh-dep-select" data-depends-select="${esc(it.id)}" title="Select prerequisite task">
+                            ${dependencyOptionsHtml(it.id, it.dependsOnTaskId || '')}
+                          </select>
+                        ` : ''}
+                      </div>
                     ` : ''}
                     <button class="btn-xs" type="button" data-edit-item="${esc(it.id)}">Edit</button>
                     <button class="btn-xs danger" type="button" data-del-item="${esc(it.id)}">Delete</button>
                   </div>
-                </div>`).join('') : '<div class="nh-empty-block" style="border:none;margin:8px">No tasks in this category yet.</div>'}
+                </div>`;
+              }).join('') : '<div class="nh-empty-block" style="border:none;margin:8px">No tasks in this category yet.</div>'}
             </div>
           </div>
         </div>`;
@@ -1290,7 +1354,7 @@
       data.items.push({
         id: uid('t'), sectionId, label, role, assignee, owner: assignee,
         inputType, options, dueOffsetDays, dueAnchor, order: maxOrder + 1,
-        sensitive: false, dependsOnPrior: false
+        sensitive: false, dependsOnPrior: false, dependsOnTaskId: null
       });
       processAdminOpen[sectionId] = true;
     }
