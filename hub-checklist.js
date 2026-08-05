@@ -581,6 +581,9 @@
     root.querySelectorAll('[data-open-hire]').forEach((btn) => {
       btn.addEventListener('click', () => {
         selectedHireId = btn.getAttribute('data-open-hire');
+        // Always open a hire with all categories collapsed
+        openSections = {};
+        (data.sections || []).forEach((s) => { openSections[s.id] = false; });
         view = 'detail';
         render();
       });
@@ -711,32 +714,54 @@
     bindRosterChrome(root);
   }
 
+  function sectionBarClass(done, total) {
+    if (total > 0 && done >= total) return 'nh-bar-green';
+    if (done > 0) return 'nh-bar-blue';
+    return 'nh-bar-white';
+  }
+
+  function isPastDue(due, filled) {
+    if (!due || filled) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return due < today;
+  }
+
   function renderDetail(root) {
     const hire = hires().find((h) => h.id === selectedHireId);
     if (!hire) { view = 'dashboard'; return renderDashboard(root); }
-    setPageSub('Update typed fields for this hire. Assignees and due dates follow the shared process by role.');
+    setPageSub('Each task is one row (assignee first). Section bars: white = not started, blue = in progress, green = complete. Past-due dates turn red.');
     const p = hireProgress(hire);
 
     const sectionsHtml = data.sections.map((sec) => {
-      let items = itemsForSection(sec.id);
-      if (filters.role !== 'all') items = items.filter((i) => i.role === filters.role);
-      const open = openSections[sec.id] !== false;
+      // Always show every task in the section (full spreadsheet visibility)
+      const items = itemsForSection(sec.id);
+      const expanded = openSections[sec.id] === true;
       const spDone = items.filter((it) => isFilled(it, hire.values?.[it.id])).length;
-      const spPct = items.length ? Math.round((spDone / items.length) * 100) : 0;
+      const spOpen = items.length - spDone;
+      const barCls = sectionBarClass(spDone, items.length);
       return `
-        <div class="nh-section ${open ? 'open' : ''}">
-          <button type="button" class="nh-section-head" data-toggle-sec="${esc(sec.id)}">
-            <div>
+        <div class="nh-section ${expanded ? 'open' : ''} ${barCls}">
+          <button type="button" class="nh-section-head ${barCls}" data-toggle-sec="${esc(sec.id)}">
+            <div class="nh-section-left">
+              <span class="nh-chevron">${expanded ? '▾' : '▸'}</span>
               <div class="nh-section-title">${esc(sec.id)}. ${esc(sec.title)}</div>
-              <div class="nh-muted">${items.length} tasks${filters.role !== 'all' ? ' for ' + esc(filters.role) : ''}</div>
             </div>
             <div class="nh-section-right">
-              <span class="nh-section-pct">${spDone}/${items.length} · ${spPct}%</span>
-              <span class="nh-chevron">${open ? '▾' : '▸'}</span>
+              <span class="nh-section-counts"><strong>${spDone}</strong> done / <strong>${spOpen}</strong> open</span>
             </div>
           </button>
-          <div class="nh-section-body" ${open ? '' : 'hidden'}>
-            ${items.map((it) => fieldRow(hire, it)).join('') || '<div class="nh-empty-block">No tasks for this role in this section.</div>'}
+          <div class="nh-section-body" ${expanded ? '' : 'hidden'}>
+            <div class="nh-task-table">
+              <div class="nh-task-head">
+                <span>Assigned</span>
+                <span>Task</span>
+                <span>Due</span>
+                <span>Value</span>
+                <span>Status</span>
+              </div>
+              ${items.map((it) => fieldRow(hire, it)).join('') || '<div class="nh-empty-block">No tasks in this section.</div>'}
+            </div>
           </div>
         </div>`;
     }).join('');
@@ -746,9 +771,9 @@
         <button class="btn-secondary" type="button" id="nh-back">← Dashboard</button>
         <div class="nh-detail-actions">
           <label class="nh-check-label"><input type="checkbox" id="nh-reveal" ${revealSensitive ? 'checked' : ''}> Show sensitive</label>
-          <select id="nh-role-d" class="form-input" style="width:140px">
-            ${(data.roles || []).map((r) => `<option value="${esc(r.id)}" ${filters.role === r.id ? 'selected' : ''}>${esc(r.label)}</option>`).join('')}
-            <option value="all" ${filters.role === 'all' ? 'selected' : ''}>All roles</option>
+          <select id="nh-role-d" class="form-input" style="width:140px" title="Highlight tasks for this role">
+            <option value="all" ${filters.role === 'all' ? 'selected' : ''}>Highlight: all</option>
+            ${(data.roles || []).map((r) => `<option value="${esc(r.id)}" ${filters.role === r.id ? 'selected' : ''}>Highlight: ${esc(r.label)}</option>`).join('')}
           </select>
           <button class="btn-secondary" type="button" id="nh-edit-hire">Edit profile</button>
         </div>
@@ -762,12 +787,17 @@
             ${hire.bootcampDate ? `<span>· Bootcamp ${esc(hire.bootcampDate)}</span>` : ''}
             ${hire.assignedPm ? `<span>· PM ${esc(hire.assignedPm)}</span>` : ''}
           </div>
+          <div class="nh-bar-legend">
+            <span class="nh-leg nh-bar-white">Not started</span>
+            <span class="nh-leg nh-bar-blue">In progress</span>
+            <span class="nh-leg nh-bar-green">Complete</span>
+          </div>
         </div>
         <div class="nh-profile-right">
           <span class="${statusBadgeClass(hire.status)}">${esc(hire.status || '—')}</span>
           <div class="nh-prog big">
             <div class="nh-prog-bar"><span style="width:${p.pct}%"></span></div>
-            <div class="nh-prog-label">${p.done} of ${p.total} · ${p.pct}%</div>
+            <div class="nh-prog-label">${p.done} done / ${p.total - p.done} open · ${p.pct}%</div>
           </div>
         </div>
       </div>
@@ -791,7 +821,7 @@
     root.querySelectorAll('[data-toggle-sec]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-toggle-sec');
-        openSections[id] = !openSections[id];
+        openSections[id] = openSections[id] !== true;
         render();
       });
     });
@@ -802,14 +832,8 @@
         let val = el.type === 'checkbox' ? el.checked : el.value;
         if (item?.sensitive && !revealSensitive && String(val).includes('••')) return;
         saveValue(hire.id, itemId, val);
-        const row = el.closest('.nh-field');
-        if (row && item) {
-          const filled = isFilled(item, val);
-          row.classList.toggle('filled', filled);
-          row.classList.toggle('open', !filled);
-          const st = row.querySelector('.nh-field-status');
-          if (st) st.textContent = filled ? 'Complete' : 'Open';
-        }
+        // Re-render so section bar colors + done/open counts stay accurate
+        render();
       };
       el.addEventListener('change', save);
       if (el.type !== 'checkbox') el.addEventListener('blur', save);
@@ -828,11 +852,12 @@
     const raw = hire.values?.[it.id];
     const filled = isFilled(it, raw);
     const due = dueDateFor(hire, it);
+    const overdue = isPastDue(due, filled);
     const who = assigneeOf(hire, it);
     const people = [...new Set([...peopleForRole(it.role), who].filter(Boolean))];
     let control = '';
     if (it.inputType === 'checkbox') {
-      control = `<label class="nh-check-label"><input type="checkbox" data-field="${esc(it.id)}" ${filled ? 'checked' : ''}> Complete</label>`;
+      control = `<label class="nh-check-label"><input type="checkbox" data-field="${esc(it.id)}" ${filled ? 'checked' : ''}> Done</label>`;
     } else if (it.inputType === 'select') {
       const opts = (it.options || []).map((o) => `<option value="${esc(o)}" ${String(raw) === o ? 'selected' : ''}>${esc(o)}</option>`).join('');
       control = `<select class="form-input nh-field-input" data-field="${esc(it.id)}"><option value="">—</option>${opts}</select>`;
@@ -845,19 +870,17 @@
       control = `<input class="form-input nh-field-input" type="text" data-field="${esc(it.id)}" value="${esc(display)}" ${it.sensitive && !revealSensitive && raw ? 'readonly' : ''} placeholder="Enter value…">`;
     }
     return `
-      <div class="nh-field ${mine ? 'mine' : ''} ${filled ? 'filled' : 'open'}">
-        <div class="nh-field-meta">
-          <div class="nh-field-label">${esc(it.label)}${it.sensitive ? ' <span class="nh-lock">sensitive</span>' : ''}</div>
-          <div class="nh-todo-meta">
-            <span class="nh-role-chip">${esc(it.role)}</span>
-            <span class="nh-due">Due ${esc(fmtDate(due))}</span>
-          </div>
+      <div class="nh-task-row ${mine ? 'mine' : ''} ${filled ? 'filled' : 'open'} ${overdue ? 'overdue' : ''}">
+        <div class="nh-task-assignee">
           <select class="form-input nh-assignee" data-assignee="${esc(it.id)}" title="Assigned person">
             ${people.map((p) => `<option value="${esc(p)}" ${who === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}
           </select>
+          <span class="nh-role-chip">${esc(it.role)}</span>
         </div>
-        ${control}
-        <div class="nh-field-status">${filled ? 'Complete' : 'Open'}</div>
+        <div class="nh-task-label">${esc(it.label)}${it.sensitive ? ' <span class="nh-lock">sensitive</span>' : ''}</div>
+        <div class="nh-task-due ${overdue ? 'is-overdue' : ''}">${esc(fmtDate(due))}</div>
+        <div class="nh-task-value">${control}</div>
+        <div class="nh-field-status">${filled ? 'Done' : (overdue ? 'Past due' : 'Open')}</div>
       </div>`;
   }
 
@@ -1200,8 +1223,9 @@
     const person = localStorage.getItem(PERSON_PREF_KEY);
     if (role) filters.role = role;
     if (person) filters.person = person;
-    data.sections.forEach((s, i) => {
-      if (openSections[s.id] === undefined) openSections[s.id] = i < 2;
+    // Start with every category collapsed
+    data.sections.forEach((s) => {
+      if (openSections[s.id] === undefined) openSections[s.id] = false;
     });
   }
 

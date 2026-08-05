@@ -500,23 +500,55 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .nh-prog-bar { height: 7px; background: #e2e8f0; border-radius: 99px; overflow: hidden; }
 .nh-prog-bar span { display: block; height: 100%; background: #1a2540; border-radius: 99px; }
 .nh-prog-label { font-size: 11px; color: #64748b; margin-top: 4px; }
-.nh-section { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
-.nh-section-head { width: 100%; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 14px 16px; background: #f8fafc; border: none; border-bottom: 1px solid transparent; cursor: pointer; text-align: left; font-family: inherit; }
-.nh-section.open .nh-section-head { border-bottom-color: #e2e8f0; }
-.nh-section-head.static { cursor: default; border-bottom-color: #e2e8f0; }
-.nh-section-head:hover:not(.static) { background: #f1f5f9; }
-.nh-section-title { font-size: 14px; font-weight: 600; color: #1e293b; }
+.nh-section { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 10px; overflow: hidden; }
+.nh-section-head { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border: none; border-bottom: 1px solid transparent; cursor: pointer; text-align: left; font-family: inherit; }
+.nh-section.open .nh-section-head { border-bottom-color: rgba(15,23,42,.08); }
+.nh-section-head.static { cursor: default; border-bottom-color: #e2e8f0; background: #f8fafc; }
+.nh-section-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.nh-section-title { font-size: 14px; font-weight: 700; }
 .nh-section-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.nh-section-pct { font-size: 12px; font-weight: 600; color: #475569; }
-.nh-chevron { color: #94a3b8; font-size: 14px; }
-.nh-section-body { padding: 10px 12px 14px; display: grid; gap: 8px; }
-.nh-field { display: grid; grid-template-columns: minmax(180px, 1.2fr) minmax(180px, 1.4fr) 72px; gap: 10px; align-items: center; padding: 10px 8px; border-radius: 8px; border: 1px solid transparent; }
-.nh-field.mine { background: #f0f9ff; border-color: #bae6fd; }
-.nh-field.filled .nh-field-status { color: #166534; }
-.nh-field.open .nh-field-status { color: #b45309; }
-.nh-field-meta { min-width: 0; }
-.nh-field-label { font-size: 12px; font-weight: 500; color: #1e293b; line-height: 1.35; }
-.nh-field-status { font-size: 11px; font-weight: 600; text-align: right; }
+.nh-section-counts { font-size: 12px; font-weight: 600; white-space: nowrap; }
+.nh-chevron { font-size: 14px; width: 16px; text-align: center; flex-shrink: 0; }
+.nh-section-body { padding: 0; }
+/* Staff bar colors: white / blue / green */
+.nh-section-head.nh-bar-white { background: #ffffff; color: #1e293b; border: 1px solid #e2e8f0; border-left: 4px solid #cbd5e1; }
+.nh-section-head.nh-bar-blue { background: #dbeafe; color: #1e3a8a; border-left: 4px solid #2563eb; }
+.nh-section-head.nh-bar-green { background: #bbf7d0; color: #14532d; border-left: 4px solid #16a34a; }
+.nh-section-head.nh-bar-white .nh-chevron,
+.nh-section-head.nh-bar-white .nh-section-counts { color: #64748b; }
+.nh-section-head.nh-bar-blue .nh-chevron,
+.nh-section-head.nh-bar-blue .nh-section-counts { color: #1d4ed8; }
+.nh-section-head.nh-bar-green .nh-chevron,
+.nh-section-head.nh-bar-green .nh-section-counts { color: #166534; }
+.nh-bar-legend { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.nh-leg { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; border: 1px solid #e2e8f0; }
+.nh-leg.nh-bar-white { background: #fff; color: #475569; }
+.nh-leg.nh-bar-blue { background: #dbeafe; color: #1d4ed8; border-color: #93c5fd; }
+.nh-leg.nh-bar-green { background: #bbf7d0; color: #166534; border-color: #86efac; }
+.nh-task-table { display: grid; gap: 0; }
+.nh-task-head, .nh-task-row {
+  display: grid;
+  grid-template-columns: 140px minmax(180px, 1.4fr) 100px minmax(160px, 1.2fr) 72px;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+}
+.nh-task-head { background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .04em; }
+.nh-task-row { border-bottom: 1px solid #f1f5f9; background: #fff; }
+.nh-task-row:last-child { border-bottom: none; }
+.nh-task-row.mine { background: #f0f9ff; }
+.nh-task-row.filled { background: #f0fdf4; }
+.nh-task-row.overdue { background: #fff7f7; }
+.nh-task-assignee { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.nh-task-assignee .nh-assignee { margin-top: 0; width: 100%; font-size: 12px; padding: 5px 6px; }
+.nh-task-label { font-size: 12px; font-weight: 500; color: #1e293b; line-height: 1.35; }
+.nh-task-due { font-size: 12px; font-weight: 600; color: #475569; }
+.nh-task-due.is-overdue { color: #dc2626; font-weight: 700; }
+.nh-task-value { min-width: 0; }
+.nh-task-value .nh-field-input { width: 100%; font-size: 12px; padding: 6px 8px; }
+.nh-field-status { font-size: 11px; font-weight: 600; text-align: right; color: #b45309; }
+.nh-task-row.filled .nh-field-status { color: #166534; }
+.nh-task-row.overdue .nh-field-status { color: #dc2626; }
 .nh-lock { font-size: 10px; color: #b45309; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
 .nh-assignee { margin-top: 6px; font-size: 12px; padding: 5px 8px; }
 .nh-template-list { display: grid; gap: 0; }
@@ -543,9 +575,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .nh-pct-zero { background: #f1f5f9; color: #64748b; }
 .nh-linkish { background: none; border: none; padding: 0; font: inherit; font-weight: 600; color: #1E3A5F; cursor: pointer; text-align: left; }
 .nh-linkish:hover { text-decoration: underline; }
-@media (max-width: 800px) {
+@media (max-width: 900px) {
   .nh-stats, .nh-stats-todo { grid-template-columns: repeat(2, minmax(0,1fr)); }
-  .nh-field { grid-template-columns: 1fr; }
+  .nh-task-head { display: none; }
+  .nh-task-head, .nh-task-row { grid-template-columns: 1fr; gap: 6px; }
   .nh-field-status { text-align: left; }
   .nh-sheet-wrap { max-height: none; }
 }
