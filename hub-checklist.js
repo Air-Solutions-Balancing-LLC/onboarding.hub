@@ -10,6 +10,7 @@
   let employees = [];
   let view = 'dashboard'; // dashboard | todo | roster | detail | template
   const STATUS_OPTIONS = ['active', 'terminated', 'quit', 'rescinded', 'resigned'];
+  let processAdminOpen = {}; // category expand state in Admin
   let selectedHireId = null;
   let openSections = {};
   let filters = { q: '', status: 'all', role: 'HR', person: 'all', todoScope: 'week', hireWindow: 'onboarding' };
@@ -464,8 +465,17 @@
     });
     root.querySelector('#nh-btn-add')?.addEventListener('click', () => openHireModal());
     root.querySelector('#nh-btn-template')?.addEventListener('click', () => {
-      view = 'template';
-      render();
+      // Process editing lives in Admin for full team control
+      if (window.HubAuth && HubAuth.isAdmin && HubAuth.isAdmin()) {
+        const adminBtn = document.getElementById('nav-admin');
+        showPage('admin', adminBtn);
+        setTimeout(() => {
+          document.getElementById('nh-process-admin-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 50);
+      } else {
+        view = 'template';
+        render();
+      }
     });
   }
 
@@ -925,26 +935,67 @@
     if (error) throw new Error(error.message);
   }
 
-  function renderTemplate(root) {
-    setPageSub('Edit the shared process: role, assignee, field type, and due-date offset from start date.');
-    root.innerHTML = `
-      <div class="nh-detail-top">
-        <button class="btn-secondary" type="button" id="nh-back-t">← Back</button>
-        <button class="btn-primary" type="button" id="nh-add-item">+ Add task</button>
-      </div>
-      ${data.sections.map((sec) => {
-        const items = itemsForSection(sec.id);
-        return `<div class="nh-section open">
-          <div class="nh-section-head static">
-            <div class="nh-section-title">${esc(sec.id)}. ${esc(sec.title)}</div>
-            <div class="nh-muted">${items.length} tasks</div>
-          </div>
-          <div class="nh-section-body">
+  function deleteProcessItem(id) {
+    ensureData();
+    const it = data.items.find((i) => i.id === id);
+    if (!it || !confirm(`Delete "${it.label}" from the shared process?`)) return false;
+    data.items = data.items.filter((i) => i.id !== id);
+    Object.values(data.progress || {}).forEach((p) => {
+      if (p.values) delete p.values[id];
+      if (p.assignees) delete p.assignees[id];
+    });
+    persist();
+    return true;
+  }
+
+  function bindProcessEditor(root, opts) {
+    const onRefresh = opts && opts.onRefresh;
+    root.querySelectorAll('[data-toggle-process-sec]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-toggle-process-sec');
+        processAdminOpen[id] = processAdminOpen[id] !== true;
+        if (onRefresh) onRefresh();
+      });
+    });
+    root.querySelectorAll('[data-add-section]').forEach((btn) => {
+      btn.addEventListener('click', () => openItemModal(null, btn.getAttribute('data-add-section')));
+    });
+    root.querySelectorAll('[data-edit-item]').forEach((btn) => {
+      btn.addEventListener('click', () => openItemModal(btn.getAttribute('data-edit-item')));
+    });
+    root.querySelectorAll('[data-del-item]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (deleteProcessItem(btn.getAttribute('data-del-item')) && onRefresh) onRefresh();
+      });
+    });
+  }
+
+  function processSectionsHtml() {
+    ensureData();
+    return (data.sections || []).map((sec) => {
+      const items = itemsForSection(sec.id);
+      const expanded = processAdminOpen[sec.id] === true;
+      return `
+        <div class="nh-section ${expanded ? 'open' : ''}">
+          <button type="button" class="nh-section-head nh-bar-white" data-toggle-process-sec="${esc(sec.id)}">
+            <div class="nh-section-left">
+              <span class="nh-chevron">${expanded ? '▾' : '▸'}</span>
+              <div class="nh-section-title">${esc(sec.id)}. ${esc(sec.title)}</div>
+            </div>
+            <div class="nh-section-right">
+              <span class="nh-section-counts"><strong>${items.length}</strong> tasks</span>
+            </div>
+          </button>
+          <div class="nh-section-body" ${expanded ? '' : 'hidden'}>
+            <div class="nh-process-cat-actions">
+              <button class="btn-primary" type="button" data-add-section="${esc(sec.id)}">+ Add task to ${esc(sec.id)}</button>
+              <span class="nh-muted">Assignee, role, field type, and due offset from start/bootcamp date</span>
+            </div>
             <div class="nh-template-list">
-              ${items.map((it) => `
+              ${items.length ? items.map((it) => `
                 <div class="nh-template-row">
                   <div>
-                    <div class="nh-field-label">${esc(it.label)}</div>
+                    <div class="nh-field-label" style="font-size:13px;font-weight:600;color:#1e293b">${esc(it.label)}</div>
                     <div class="nh-todo-meta">
                       <span class="nh-role-chip">${esc(it.role)}</span>
                       <span class="nh-owner-chip">${esc(it.assignee)}</span>
@@ -956,31 +1007,53 @@
                     <button class="btn-xs" type="button" data-edit-item="${esc(it.id)}">Edit</button>
                     <button class="btn-xs danger" type="button" data-del-item="${esc(it.id)}">Delete</button>
                   </div>
-                </div>`).join('')}
+                </div>`).join('') : '<div class="nh-empty-block" style="border:none;margin:8px">No tasks in this category yet.</div>'}
             </div>
           </div>
         </div>`;
-      }).join('')}`;
+    }).join('');
+  }
 
-    root.querySelector('#nh-back-t').addEventListener('click', () => { view = 'todo'; render(); });
+  function renderProcessAdmin(root) {
+    if (!root) return;
+    ensureData();
+    if (!data.items?.length) data = seed();
+    (data.sections || []).forEach((s) => {
+      if (processAdminOpen[s.id] === undefined) processAdminOpen[s.id] = false;
+    });
+    const total = (data.items || []).length;
+    root.innerHTML = `
+      <p class="user-mgmt-subtitle" style="margin-bottom:12px">${total} tasks across ${(data.sections || []).length} categories. Expand a category to edit or add tasks.</p>
+      ${processSectionsHtml()}`;
+    bindProcessEditor(root, { onRefresh: () => renderProcessAdmin(root) });
+  }
+
+  function mountProcessAdmin() {
+    ensureData();
+    if (!data || !data.items?.length) data = seed();
+    renderProcessAdmin(document.getElementById('nh-process-admin-root'));
+  }
+
+  function refreshAfterProcessChange() {
+    const adminRoot = document.getElementById('nh-process-admin-root');
+    if (adminRoot) renderProcessAdmin(adminRoot);
+    if (document.getElementById('page-checklist')?.classList.contains('active')) render();
+  }
+
+  function renderTemplate(root) {
+    setPageSub('Edit the shared process by category. Prefer Admin → New Hire Checklist Process when you are an Admin.');
+    (data.sections || []).forEach((s) => {
+      if (processAdminOpen[s.id] === undefined) processAdminOpen[s.id] = true;
+    });
+    root.innerHTML = `
+      <div class="nh-detail-top">
+        <button class="btn-secondary" type="button" id="nh-back-t">← Back</button>
+        <button class="btn-primary" type="button" id="nh-add-item">+ Add task</button>
+      </div>
+      ${processSectionsHtml()}`;
+    root.querySelector('#nh-back-t').addEventListener('click', () => { view = 'dashboard'; render(); });
     root.querySelector('#nh-add-item').addEventListener('click', () => openItemModal());
-    root.querySelectorAll('[data-edit-item]').forEach((btn) => {
-      btn.addEventListener('click', () => openItemModal(btn.getAttribute('data-edit-item')));
-    });
-    root.querySelectorAll('[data-del-item]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-del-item');
-        const it = data.items.find((i) => i.id === id);
-        if (!it || !confirm(`Delete "${it.label}"?`)) return;
-        data.items = data.items.filter((i) => i.id !== id);
-        Object.values(data.progress).forEach((p) => {
-          if (p.values) delete p.values[id];
-          if (p.assignees) delete p.assignees[id];
-        });
-        persist();
-        render();
-      });
-    });
+    bindProcessEditor(root, { onRefresh: () => renderTemplate(root) });
   }
 
   function openHireModal(id) {
@@ -1097,7 +1170,7 @@
     render();
   }
 
-  function openItemModal(id) {
+  function openItemModal(id, defaultSectionId) {
     ensureData();
     let modal = document.getElementById('nh-item-modal');
     if (!modal) {
@@ -1109,8 +1182,8 @@
           <div class="modal-head"><span class="modal-title" id="nh-item-title">Add task</span><button class="modal-close" type="button" id="nh-item-x">×</button></div>
           <div class="modal-body">
             <input type="hidden" id="nh-item-id">
-            <div class="form-row"><label class="form-label">Section</label><select id="nh-item-section" class="form-input"></select></div>
-            <div class="form-row"><label class="form-label">Task label *</label><input id="nh-item-label" class="form-input" type="text"></div>
+            <div class="form-row"><label class="form-label">Category *</label><select id="nh-item-section" class="form-input"></select></div>
+            <div class="form-row"><label class="form-label">Task label *</label><input id="nh-item-label" class="form-input" type="text" placeholder="e.g. Date background check requested"></div>
             <div class="form-row-2">
               <div><label class="form-label">Role *</label>
                 <select id="nh-item-role" class="form-input">
@@ -1154,7 +1227,7 @@
     const it = id ? data.items.find((i) => i.id === id) : null;
     document.getElementById('nh-item-title').textContent = it ? 'Edit task' : 'Add task';
     document.getElementById('nh-item-id').value = it?.id || '';
-    document.getElementById('nh-item-section').value = it?.sectionId || 'A';
+    document.getElementById('nh-item-section').value = it?.sectionId || defaultSectionId || 'A';
     document.getElementById('nh-item-label').value = it?.label || '';
     document.getElementById('nh-item-role').value = it?.role || 'HR';
     document.getElementById('nh-item-assignee').value = it?.assignee || '';
@@ -1189,10 +1262,12 @@
         id: uid('t'), sectionId, label, role, assignee, owner: assignee,
         inputType, options, dueOffsetDays, dueAnchor, order: maxOrder + 1, sensitive: false
       });
+      processAdminOpen[sectionId] = true;
     }
     persist();
     closeItemModal();
-    render();
+    refreshAfterProcessChange();
+    if (view === 'template') render();
   }
 
   function render() {
@@ -1251,6 +1326,8 @@
     mount,
     loadEmployees,
     applyRemote,
-    render
+    render,
+    mountProcessAdmin,
+    openItemModal
   };
 })();
