@@ -53,6 +53,7 @@
         dueOffsetDays: old.dueOffsetDays != null ? old.dueOffsetDays : bi.dueOffsetDays,
         dueAnchor: old.dueAnchor || bi.dueAnchor,
         sensitive: old.sensitive != null ? old.sensitive : bi.sensitive,
+        dependsOnPrior: old.dependsOnPrior != null ? !!old.dependsOnPrior : !!bi.dependsOnPrior,
         order: old.order != null ? old.order : bi.order,
         sectionId: old.sectionId || bi.sectionId
       });
@@ -61,7 +62,7 @@
       if (oi.id && String(oi.id).startsWith('t') && oi.label && oi.role && !items.find((i) => i.id === oi.id)) {
         items.push(Object.assign({
           role: 'HR', assignee: 'Lisa', inputType: 'text', options: [],
-          dueOffsetDays: -7, dueAnchor: 'start', sensitive: false, order: items.length + 1
+          dueOffsetDays: -7, dueAnchor: 'start', sensitive: false, dependsOnPrior: false, order: items.length + 1
         }, oi));
       }
     });
@@ -950,6 +951,7 @@
 
   function bindProcessEditor(root, opts) {
     const onRefresh = opts && opts.onRefresh;
+    const adminMode = !!(opts && opts.adminMode);
     root.querySelectorAll('[data-toggle-process-sec]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-toggle-process-sec');
@@ -968,10 +970,27 @@
         if (deleteProcessItem(btn.getAttribute('data-del-item')) && onRefresh) onRefresh();
       });
     });
+    if (adminMode) {
+      root.querySelectorAll('[data-depends-item]').forEach((cb) => {
+        cb.addEventListener('change', () => {
+          const id = cb.getAttribute('data-depends-item');
+          const it = data.items.find((i) => i.id === id);
+          if (!it) return;
+          it.dependsOnPrior = !!cb.checked;
+          persist();
+          // Keep category open and refresh so the badge stays in sync
+          processAdminOpen[it.sectionId] = true;
+          if (onRefresh) onRefresh();
+        });
+        // Don't toggle the category when clicking the checkbox
+        cb.addEventListener('click', (e) => e.stopPropagation());
+      });
+    }
   }
 
-  function processSectionsHtml() {
+  function processSectionsHtml(opts) {
     ensureData();
+    const adminMode = !!(opts && opts.adminMode);
     return (data.sections || []).map((sec) => {
       const items = itemsForSection(sec.id);
       const expanded = processAdminOpen[sec.id] === true;
@@ -989,11 +1008,13 @@
           <div class="nh-section-body" ${expanded ? '' : 'hidden'}>
             <div class="nh-process-cat-actions">
               <button class="btn-primary" type="button" data-add-section="${esc(sec.id)}">+ Add task to ${esc(sec.id)}</button>
-              <span class="nh-muted">Assignee, role, field type, and due offset from start/bootcamp date</span>
+              <span class="nh-muted">${adminMode
+                ? 'Use the dependency checkbox when a task must wait for another task to be done first.'
+                : 'Assignee, role, field type, and due offset from start/bootcamp date'}</span>
             </div>
             <div class="nh-template-list">
               ${items.length ? items.map((it) => `
-                <div class="nh-template-row">
+                <div class="nh-template-row${it.dependsOnPrior ? ' nh-has-dependency' : ''}">
                   <div>
                     <div class="nh-field-label" style="font-size:13px;font-weight:600;color:#1e293b">${esc(it.label)}</div>
                     <div class="nh-todo-meta">
@@ -1001,9 +1022,16 @@
                       <span class="nh-owner-chip">${esc(it.assignee)}</span>
                       <span class="nh-type">${esc(it.inputType)}</span>
                       <span class="nh-due">${esc(it.dueAnchor)} ${it.dueOffsetDays >= 0 ? '+' : ''}${it.dueOffsetDays}d</span>
+                      ${it.dependsOnPrior && adminMode ? '<span class="nh-dep-badge">Depends on prior task</span>' : ''}
                     </div>
                   </div>
                   <div class="nh-template-actions">
+                    ${adminMode ? `
+                      <label class="nh-dep-check" title="Check if this task depends on another task being done first">
+                        <input type="checkbox" data-depends-item="${esc(it.id)}" ${it.dependsOnPrior ? 'checked' : ''}>
+                        <span>Depends on another task first</span>
+                      </label>
+                    ` : ''}
                     <button class="btn-xs" type="button" data-edit-item="${esc(it.id)}">Edit</button>
                     <button class="btn-xs danger" type="button" data-del-item="${esc(it.id)}">Delete</button>
                   </div>
@@ -1023,9 +1051,12 @@
     });
     const total = (data.items || []).length;
     root.innerHTML = `
-      <p class="user-mgmt-subtitle" style="margin-bottom:12px">${total} tasks across ${(data.sections || []).length} categories. Expand a category to edit or add tasks.</p>
-      ${processSectionsHtml()}`;
-    bindProcessEditor(root, { onRefresh: () => renderProcessAdmin(root) });
+      <p class="user-mgmt-subtitle" style="margin-bottom:12px">${total} tasks across ${(data.sections || []).length} categories. Expand a category to edit or add tasks. The dependency checkbox appears only here in Admin.</p>
+      ${processSectionsHtml({ adminMode: true })}`;
+    bindProcessEditor(root, {
+      adminMode: true,
+      onRefresh: () => renderProcessAdmin(root)
+    });
   }
 
   function mountProcessAdmin() {
@@ -1050,10 +1081,10 @@
         <button class="btn-secondary" type="button" id="nh-back-t">← Back</button>
         <button class="btn-primary" type="button" id="nh-add-item">+ Add task</button>
       </div>
-      ${processSectionsHtml()}`;
+      ${processSectionsHtml({ adminMode: false })}`;
     root.querySelector('#nh-back-t').addEventListener('click', () => { view = 'dashboard'; render(); });
     root.querySelector('#nh-add-item').addEventListener('click', () => openItemModal());
-    bindProcessEditor(root, { onRefresh: () => renderTemplate(root) });
+    bindProcessEditor(root, { adminMode: false, onRefresh: () => renderTemplate(root) });
   }
 
   function openHireModal(id) {
@@ -1260,7 +1291,8 @@
       const maxOrder = data.items.reduce((m, i) => Math.max(m, i.order || 0), 0);
       data.items.push({
         id: uid('t'), sectionId, label, role, assignee, owner: assignee,
-        inputType, options, dueOffsetDays, dueAnchor, order: maxOrder + 1, sensitive: false
+        inputType, options, dueOffsetDays, dueAnchor, order: maxOrder + 1,
+        sensitive: false, dependsOnPrior: false
       });
       processAdminOpen[sectionId] = true;
     }

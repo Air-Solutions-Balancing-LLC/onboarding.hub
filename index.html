@@ -265,7 +265,20 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .nh-process-admin .nh-section { margin-bottom: 0.75rem; }
 .nh-process-admin .nh-section-head { cursor: pointer; }
 .nh-process-cat-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 12px; border-bottom: 1px solid #f1f5f9; background: #fafbfc; }
-.nh-process-admin .nh-template-row { padding: 10px 12px; }
+.nh-process-admin .nh-template-row { padding: 10px 12px; align-items: flex-start; }
+.nh-process-admin .nh-template-actions { flex-wrap: wrap; justify-content: flex-end; max-width: 280px; }
+.nh-dep-check {
+  display: flex; align-items: flex-start; gap: 6px;
+  font-size: 11px; font-weight: 600; color: #475569;
+  background: #fff7ed; border: 1px solid #fed7aa; border-radius: 6px;
+  padding: 5px 8px; cursor: pointer; line-height: 1.3; text-align: left;
+}
+.nh-dep-check input { margin-top: 1px; }
+.nh-dep-badge {
+  display: inline-block; font-size: 10px; font-weight: 700;
+  color: #9a3412; background: #ffedd5; border-radius: 4px; padding: 2px 7px;
+}
+.nh-template-row.nh-has-dependency { background: #fffbeb; }
 .user-mgmt-shell {
   --color-bg: #eef0f3;
   --color-surface: #ffffff;
