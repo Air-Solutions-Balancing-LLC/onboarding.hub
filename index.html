@@ -429,7 +429,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
 /* ── NEW HIRE CHECKLIST ── */
 .page-checklist { background: #f8fafc; min-height: calc(100vh - 56px); }
-.page-checklist .main { max-width: 1200px; }
+.page-checklist .main { max-width: 1400px; }
 .nh-stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 18px; }
 .nh-stat { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
 .nh-stat-label { font-size: 11px; color: #64748b; font-weight: 500; margin-bottom: 4px; }
@@ -523,10 +523,31 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .nh-template-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 10px 8px; border-bottom: 1px solid #f1f5f9; }
 .nh-template-row:last-child { border-bottom: none; }
 .nh-template-actions { display: flex; gap: 6px; }
+.nh-sheet-wrap { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: auto; max-height: calc(100vh - 280px); }
+.nh-sheet { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; }
+.nh-sheet th, .nh-sheet td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; border-right: 1px solid #f8fafc; white-space: nowrap; vertical-align: middle; }
+.nh-sheet thead th { position: sticky; top: 0; z-index: 3; background: #f8fafc; color: #64748b; font-weight: 700; text-align: left; box-shadow: inset 0 -1px 0 #e2e8f0; }
+.nh-sheet .nh-sheet-subhead th { top: 34px; font-weight: 500; font-size: 10px; color: #94a3b8; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
+.nh-sheet .nh-sticky { position: sticky; left: 0; z-index: 2; background: #fff; }
+.nh-sheet thead .nh-sticky { z-index: 4; background: #f8fafc; }
+.nh-sheet .nh-sticky-2 { left: 48px; min-width: 160px; box-shadow: 2px 0 4px rgba(15,23,42,.04); }
+.nh-sheet .nh-sec-col { text-align: center; min-width: 52px; }
+.nh-sheet .nh-sec-sub { text-align: center; max-width: 72px; }
+.nh-sheet .nh-sec-cell { text-align: center; padding: 4px 6px; }
+.nh-status-select { font-size: 11px; font-family: inherit; padding: 4px 6px; border-radius: 6px; border: 1px solid #e2e8f0; background: #fff; color: #334155; text-transform: capitalize; max-width: 120px; }
+.nh-status-select.nh-saving { opacity: .55; }
+.nh-pct { display: inline-block; min-width: 44px; padding: 3px 6px; border-radius: 6px; font-size: 11px; font-weight: 700; border: none; cursor: pointer; font-family: inherit; }
+.nh-pct-done { background: #dcfce7; color: #166534; }
+.nh-pct-mid { background: #dbeafe; color: #1d4ed8; }
+.nh-pct-low { background: #ffedd5; color: #c2410c; }
+.nh-pct-zero { background: #f1f5f9; color: #64748b; }
+.nh-linkish { background: none; border: none; padding: 0; font: inherit; font-weight: 600; color: #1E3A5F; cursor: pointer; text-align: left; }
+.nh-linkish:hover { text-decoration: underline; }
 @media (max-width: 800px) {
   .nh-stats, .nh-stats-todo { grid-template-columns: repeat(2, minmax(0,1fr)); }
   .nh-field { grid-template-columns: 1fr; }
   .nh-field-status { text-align: left; }
+  .nh-sheet-wrap { max-height: none; }
 }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
@@ -800,7 +821,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <div id="page-checklist" class="page page-checklist">
   <div class="main">
     <div class="page-title">New Hire Checklist</div>
-    <div class="page-sub">My To-Do by role (HR / Admin / PM / Logistics / Training) with due dates from start date — plus Brian’s employee roster.</div>
+    <div class="page-sub">Shared dashboard like the NH Checklist spreadsheet — full team visibility, editable status, My To-Do by role, and roster.</div>
     <div id="nh-checklist-root">
       <p class="nh-status">Loading employees…</p>
     </div>

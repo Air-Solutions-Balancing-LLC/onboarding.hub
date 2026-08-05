@@ -8,7 +8,8 @@
 
   let data = null; // { version, roles, sections, items, progress }
   let employees = [];
-  let view = 'todo'; // todo | roster | detail | template
+  let view = 'dashboard'; // dashboard | todo | roster | detail | template
+  const STATUS_OPTIONS = ['active', 'terminated', 'quit', 'rescinded', 'resigned'];
   let selectedHireId = null;
   let openSections = {};
   let filters = { q: '', status: 'all', role: 'HR', person: 'all', todoScope: 'week', hireWindow: 'onboarding' };
@@ -365,6 +366,53 @@
     if (el) el.textContent = text;
   }
 
+  function statusSelect(empId, status, extraClass) {
+    const cur = status || 'active';
+    const opts = STATUS_OPTIONS.includes(cur) ? STATUS_OPTIONS : [cur, ...STATUS_OPTIONS];
+    return `<select class="nh-status-select ${extraClass || ''}" data-status-emp="${esc(empId)}" title="Change status">
+      ${opts.map((s) => `<option value="${esc(s)}" ${s === cur ? 'selected' : ''}>${esc(s)}</option>`).join('')}
+    </select>`;
+  }
+
+  function bindStatusSelects(root) {
+    root.querySelectorAll('[data-status-emp]').forEach((sel) => {
+      sel.addEventListener('change', async () => {
+        const id = sel.getAttribute('data-status-emp');
+        const status = sel.value;
+        const emp = employees.find((e) => e.id === id);
+        if (!emp) return;
+        const prev = emp.status;
+        emp.status = status;
+        sel.classList.add('nh-saving');
+        try {
+          await syncEmployeePatch(id, { status });
+        } catch (e) {
+          emp.status = prev;
+          sel.value = prev;
+          alert('Could not update status: ' + (e.message || e));
+        }
+        sel.classList.remove('nh-saving');
+        // Refresh stats / filters without losing scroll too hard
+        if (view === 'roster' || view === 'dashboard') render();
+      });
+    });
+  }
+
+  function sectionProgress(hire, sectionId) {
+    const items = itemsForSection(sectionId);
+    const total = items.length;
+    let done = 0;
+    items.forEach((it) => { if (isFilled(it, hire.values?.[it.id])) done++; });
+    return { done, total, pct: total ? Math.round((done / total) * 100) : 0 };
+  }
+
+  function pctClass(pct) {
+    if (pct >= 100) return 'nh-pct-done';
+    if (pct >= 50) return 'nh-pct-mid';
+    if (pct > 0) return 'nh-pct-low';
+    return 'nh-pct-zero';
+  }
+
   function roleBar() {
     const roles = data.roles || [];
     const people = peopleForRole(filters.role);
@@ -385,6 +433,7 @@
           </label>
         </div>
         <div class="nh-rolebar-right">
+          <button class="btn-secondary ${view === 'dashboard' ? 'nh-tab-on' : ''}" type="button" data-view="dashboard">Dashboard</button>
           <button class="btn-secondary ${view === 'todo' ? 'nh-tab-on' : ''}" type="button" data-view="todo">My To-Do</button>
           <button class="btn-secondary ${view === 'roster' ? 'nh-tab-on' : ''}" type="button" data-view="roster">Roster</button>
           <button class="btn-secondary" type="button" id="nh-btn-template">Manage process</button>
@@ -510,53 +559,9 @@
       </div>`;
   }
 
-  function renderRoster(root) {
-    setPageSub('Employee roster — search, filter by status, and open a hire to update role-based checklist tasks.');
-    const s = stats();
-    const rows = filteredEmployees();
-    const statusFilters = ['all', 'active', 'terminated', 'quit', 'rescinded'];
-
-    root.innerHTML = `
-      ${roleBar()}
-      <div class="nh-stats">
-        <div class="nh-stat"><div class="nh-stat-label">Total Employees</div><div class="nh-stat-num">${s.total}</div></div>
-        <div class="nh-stat"><div class="nh-stat-label">Active</div><div class="nh-stat-num nh-stat-green">${s.active}</div></div>
-        <div class="nh-stat"><div class="nh-stat-label">Inactive</div><div class="nh-stat-num nh-stat-red">${s.inactive}</div></div>
-        <div class="nh-stat"><div class="nh-stat-label">Technicians</div><div class="nh-stat-num nh-stat-amber">${s.technicians}</div></div>
-      </div>
-      <div class="nh-toolbar">
-        <input type="search" class="nh-search" id="nh-search" placeholder="Search by name, email, or #..." value="${esc(filters.q)}" />
-        <div class="nh-filters">
-          ${statusFilters.map((f) =>
-            `<button type="button" class="nh-filter-btn${filters.status === f ? ' active' : ''}" data-nh-filter="${f}">${f}</button>`
-          ).join('')}
-        </div>
-      </div>
-      <div class="nh-table-wrap">
-        <table class="nh-table">
-          <thead>
-            <tr><th>#</th><th>Name</th><th>Type</th><th>Region</th><th>Start Date</th><th>Status</th><th></th></tr>
-          </thead>
-          <tbody>
-            ${rows.length ? rows.map((emp) => {
-              const hire = empToHire(emp);
-              const pr = filters.role !== 'all' ? hireProgress(hire, filters.role) : hireProgress(hire);
-              return `<tr>
-                <td class="nh-muted">${esc(emp.employee_number ?? '—')}</td>
-                <td class="nh-name">${esc(emp.full_name)}</td>
-                <td><span class="${typeBadgeClass(emp.employee_type)}">${esc(formatType(emp.employee_type))}</span></td>
-                <td>${esc(emp.region || '—')}</td>
-                <td>${esc(emp.start_date || '—')}</td>
-                <td><span class="${statusBadgeClass(emp.status)}">${esc(emp.status || '—')}</span></td>
-                <td><button class="btn-xs primary" type="button" data-open-hire="${esc(emp.id)}">${pr.done}/${pr.total}</button></td>
-              </tr>`;
-            }).join('') : `<tr><td colspan="7" class="nh-empty">No employees found</td></tr>`}
-          </tbody>
-        </table>
-      </div>
-      <p class="nh-footnote">${rows.length} employees shown · click progress to open checklist</p>`;
-
+  function bindRosterChrome(root) {
     bindRoleBar(root);
+    bindStatusSelects(root);
     root.querySelector('#nh-search')?.addEventListener('input', (e) => {
       filters.q = e.target.value;
       render();
@@ -582,9 +587,133 @@
     });
   }
 
+  function renderDashboard(root) {
+    setPageSub('Shared spreadsheet dashboard — everyone can see every hire’s progress by section (like the NH Checklist Excel). Change Status in the dropdown.');
+    ensureData();
+    const s = stats();
+    const rows = filteredEmployees();
+    const statusFilters = ['all', 'active', 'terminated', 'quit', 'rescinded'];
+    const sections = data.sections || [];
+
+    root.innerHTML = `
+      ${roleBar()}
+      <div class="nh-stats">
+        <div class="nh-stat"><div class="nh-stat-label">Total Employees</div><div class="nh-stat-num">${s.total}</div></div>
+        <div class="nh-stat"><div class="nh-stat-label">Active</div><div class="nh-stat-num nh-stat-green">${s.active}</div></div>
+        <div class="nh-stat"><div class="nh-stat-label">Inactive</div><div class="nh-stat-num nh-stat-red">${s.inactive}</div></div>
+        <div class="nh-stat"><div class="nh-stat-label">Technicians</div><div class="nh-stat-num nh-stat-amber">${s.technicians}</div></div>
+      </div>
+      <div class="nh-toolbar">
+        <input type="search" class="nh-search" id="nh-search" placeholder="Search by name, email, or #..." value="${esc(filters.q)}" />
+        <div class="nh-filters">
+          ${statusFilters.map((f) =>
+            `<button type="button" class="nh-filter-btn${filters.status === f ? ' active' : ''}" data-nh-filter="${f}">${f}</button>`
+          ).join('')}
+        </div>
+      </div>
+      <div class="nh-sheet-wrap">
+        <table class="nh-sheet">
+          <thead>
+            <tr>
+              <th class="nh-sticky">#</th>
+              <th class="nh-sticky nh-sticky-2">Name</th>
+              <th>Region</th>
+              <th>Start</th>
+              <th>Status</th>
+              <th>Overall</th>
+              ${sections.map((sec) => `<th title="${esc(sec.title)}" class="nh-sec-col">${esc(sec.id)}</th>`).join('')}
+              <th></th>
+            </tr>
+            <tr class="nh-sheet-subhead">
+              <th class="nh-sticky"></th>
+              <th class="nh-sticky nh-sticky-2"></th>
+              <th colspan="4" class="nh-muted">Profile</th>
+              ${sections.map((sec) => `<th class="nh-sec-sub">${esc(sec.title)}</th>`).join('')}
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.length ? rows.map((emp) => {
+              const hire = empToHire(emp);
+              const overall = hireProgress(hire);
+              return `<tr>
+                <td class="nh-sticky nh-muted">${esc(emp.employee_number ?? '—')}</td>
+                <td class="nh-sticky nh-sticky-2 nh-name">
+                  <button type="button" class="nh-linkish" data-open-hire="${esc(emp.id)}">${esc(emp.full_name)}</button>
+                </td>
+                <td>${esc(emp.region || '—')}</td>
+                <td>${esc(emp.start_date || '—')}</td>
+                <td>${statusSelect(emp.id, emp.status)}</td>
+                <td><span class="nh-pct ${pctClass(overall.pct)}" title="${overall.done}/${overall.total}">${overall.pct}%</span></td>
+                ${sections.map((sec) => {
+                  const sp = sectionProgress(hire, sec.id);
+                  return `<td class="nh-sec-cell">
+                    <button type="button" class="nh-pct ${pctClass(sp.pct)}" data-open-hire="${esc(emp.id)}" title="${esc(sec.title)}: ${sp.done}/${sp.total}">${sp.done}/${sp.total}</button>
+                  </td>`;
+                }).join('')}
+                <td><button class="btn-xs primary" type="button" data-open-hire="${esc(emp.id)}">Open</button></td>
+              </tr>`;
+            }).join('') : `<tr><td colspan="${7 + sections.length}" class="nh-empty">No employees found</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+      <p class="nh-footnote">${rows.length} hires · columns A–J match spreadsheet sections · change Status in the dropdown · click a cell to open that hire</p>`;
+
+    bindRosterChrome(root);
+  }
+
+  function renderRoster(root) {
+    setPageSub('Employee roster — change Status with the dropdown, search/filter, and open a hire for the full checklist.');
+    const s = stats();
+    const rows = filteredEmployees();
+    const statusFilters = ['all', 'active', 'terminated', 'quit', 'rescinded'];
+
+    root.innerHTML = `
+      ${roleBar()}
+      <div class="nh-stats">
+        <div class="nh-stat"><div class="nh-stat-label">Total Employees</div><div class="nh-stat-num">${s.total}</div></div>
+        <div class="nh-stat"><div class="nh-stat-label">Active</div><div class="nh-stat-num nh-stat-green">${s.active}</div></div>
+        <div class="nh-stat"><div class="nh-stat-label">Inactive</div><div class="nh-stat-num nh-stat-red">${s.inactive}</div></div>
+        <div class="nh-stat"><div class="nh-stat-label">Technicians</div><div class="nh-stat-num nh-stat-amber">${s.technicians}</div></div>
+      </div>
+      <div class="nh-toolbar">
+        <input type="search" class="nh-search" id="nh-search" placeholder="Search by name, email, or #..." value="${esc(filters.q)}" />
+        <div class="nh-filters">
+          ${statusFilters.map((f) =>
+            `<button type="button" class="nh-filter-btn${filters.status === f ? ' active' : ''}" data-nh-filter="${f}">${f}</button>`
+          ).join('')}
+        </div>
+      </div>
+      <div class="nh-table-wrap">
+        <table class="nh-table">
+          <thead>
+            <tr><th>#</th><th>Name</th><th>Type</th><th>Region</th><th>Start Date</th><th>Status</th><th>Progress</th></tr>
+          </thead>
+          <tbody>
+            ${rows.length ? rows.map((emp) => {
+              const hire = empToHire(emp);
+              const pr = hireProgress(hire);
+              return `<tr>
+                <td class="nh-muted">${esc(emp.employee_number ?? '—')}</td>
+                <td class="nh-name"><button type="button" class="nh-linkish" data-open-hire="${esc(emp.id)}">${esc(emp.full_name)}</button></td>
+                <td><span class="${typeBadgeClass(emp.employee_type)}">${esc(formatType(emp.employee_type))}</span></td>
+                <td>${esc(emp.region || '—')}</td>
+                <td>${esc(emp.start_date || '—')}</td>
+                <td>${statusSelect(emp.id, emp.status)}</td>
+                <td><button class="btn-xs primary" type="button" data-open-hire="${esc(emp.id)}">${pr.done}/${pr.total}</button></td>
+              </tr>`;
+            }).join('') : `<tr><td colspan="7" class="nh-empty">No employees found</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+      <p class="nh-footnote">${rows.length} employees shown · use the Status dropdown to update · click name/progress to open checklist</p>`;
+
+    bindRosterChrome(root);
+  }
+
   function renderDetail(root) {
     const hire = hires().find((h) => h.id === selectedHireId);
-    if (!hire) { view = 'todo'; return renderTodo(root); }
+    if (!hire) { view = 'dashboard'; return renderDashboard(root); }
     setPageSub('Update typed fields for this hire. Assignees and due dates follow the shared process by role.');
     const p = hireProgress(hire);
 
@@ -614,7 +743,7 @@
 
     root.innerHTML = `
       <div class="nh-detail-top">
-        <button class="btn-secondary" type="button" id="nh-back">← Back</button>
+        <button class="btn-secondary" type="button" id="nh-back">← Dashboard</button>
         <div class="nh-detail-actions">
           <label class="nh-check-label"><input type="checkbox" id="nh-reveal" ${revealSensitive ? 'checked' : ''}> Show sensitive</label>
           <select id="nh-role-d" class="form-input" style="width:140px">
@@ -645,7 +774,7 @@
       ${sectionsHtml}`;
 
     root.querySelector('#nh-back').addEventListener('click', () => {
-      view = 'todo';
+      view = 'dashboard';
       selectedHireId = null;
       render();
     });
@@ -763,14 +892,14 @@
 
   async function syncEmployeePatch(id, patch) {
     const supabase = client();
-    if (!supabase) return;
+    if (!supabase) throw new Error('Not signed in');
     const body = {};
     ['region', 'start_date', 'bootcamp_start_date', 'assigned_pm', 'full_name', 'status', 'status_note', 'employee_type'].forEach((k) => {
       if (patch[k] !== undefined) body[k] = patch[k] || null;
     });
     if (!Object.keys(body).length) return;
     const { error } = await supabase.from('employees').update(body).eq('id', id);
-    if (error) console.warn('employee update skipped', error.message);
+    if (error) throw new Error(error.message);
   }
 
   function renderTemplate(root) {
@@ -1060,7 +1189,8 @@
     if (view === 'detail' && selectedHireId) renderDetail(root);
     else if (view === 'template') renderTemplate(root);
     else if (view === 'roster') renderRoster(root);
-    else renderTodo(root);
+    else if (view === 'todo') renderTodo(root);
+    else renderDashboard(root);
   }
 
   function applyRemote(value) {
