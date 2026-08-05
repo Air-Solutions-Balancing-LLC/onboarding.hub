@@ -55,6 +55,7 @@
         sensitive: old.sensitive != null ? old.sensitive : bi.sensitive,
         dependsOnPrior: !!(old.dependsOnPrior || old.dependsOnTaskId || bi.dependsOnPrior || bi.dependsOnTaskId),
         dependsOnTaskId: old.dependsOnTaskId || bi.dependsOnTaskId || null,
+        checklistSteps: Array.isArray(old.checklistSteps) ? old.checklistSteps : (bi.checklistSteps || []),
         order: old.order != null ? old.order : bi.order,
         sectionId: old.sectionId || bi.sectionId
       });
@@ -64,7 +65,8 @@
         items.push(Object.assign({
           role: 'HR', assignee: 'Lisa', inputType: 'text', options: [],
           dueOffsetDays: -7, dueAnchor: 'start', sensitive: false,
-          dependsOnPrior: false, dependsOnTaskId: null, order: items.length + 1
+          dependsOnPrior: false, dependsOnTaskId: null, checklistSteps: [],
+          order: items.length + 1
         }, oi));
       }
     });
@@ -154,10 +156,32 @@
 
   function progressOf(empId) {
     ensureData();
-    if (!data.progress[empId]) data.progress[empId] = { values: {}, assignees: {} };
+    if (!data.progress[empId]) data.progress[empId] = { values: {}, assignees: {}, checklists: {} };
     if (!data.progress[empId].values) data.progress[empId].values = {};
     if (!data.progress[empId].assignees) data.progress[empId].assignees = {};
+    if (!data.progress[empId].checklists) data.progress[empId].checklists = {};
     return data.progress[empId];
+  }
+
+  function normalizeSteps(item) {
+    const raw = (item && item.checklistSteps) || [];
+    return raw.map((s, i) => {
+      if (typeof s === 'string') {
+        return { id: 's' + i, label: s };
+      }
+      return {
+        id: s.id || ('s' + i),
+        label: String(s.label || '').trim()
+      };
+    }).filter((s) => s.label);
+  }
+
+  function checklistProgress(hire, item) {
+    const steps = normalizeSteps(item);
+    if (!steps.length) return null;
+    const cl = (hire.checklists && hire.checklists[item.id]) || {};
+    const done = steps.filter((s) => !!cl[s.id]).length;
+    return { done, total: steps.length, pct: Math.round((done / steps.length) * 100), steps, map: cl };
   }
 
   function empToHire(emp) {
@@ -186,6 +210,7 @@
       assignedPm: emp.assigned_pm || '',
       values: p.values,
       assignees: p.assignees,
+      checklists: p.checklists,
       _emp: emp
     };
   }
@@ -203,7 +228,12 @@
     return addDays(anchor, item.dueOffsetDays || 0);
   }
 
-  function isFilled(item, val) {
+  function isFilled(item, val, hire) {
+    const steps = normalizeSteps(item);
+    if (steps.length && hire) {
+      const cl = (hire.checklists && hire.checklists[item.id]) || {};
+      return steps.every((s) => !!cl[s.id]);
+    }
     if (item.inputType === 'checkbox') return val === true || val === 'true' || val === 'Yes' || val === 1;
     const v = String(val ?? '').trim();
     if (!v) return false;
@@ -243,7 +273,7 @@
     if (roleFilter && roleFilter !== 'all') items = items.filter((i) => i.role === roleFilter);
     const total = items.length;
     let done = 0;
-    items.forEach((it) => { if (isFilled(it, hire.values?.[it.id])) done++; });
+    items.forEach((it) => { if (isFilled(it, hire.values?.[it.id], hire)) done++; });
     return { done, total, pct: total ? Math.round((done / total) * 100) : 0 };
   }
 
@@ -273,7 +303,7 @@
           if (filters.role !== 'all' && item.role !== filters.role) return;
           const who = assigneeOf(hire, item);
           if (filters.person !== 'all' && who !== filters.person) return;
-          const done = isFilled(item, hire.values?.[item.id]);
+          const done = isFilled(item, hire.values?.[item.id], hire);
           if (filters.todoScope === 'open' && done) return;
           if (filters.todoScope === 'done' && !done) return;
           const due = dueDateFor(hire, item);
@@ -414,7 +444,7 @@
     const items = itemsForSection(sectionId);
     const total = items.length;
     let done = 0;
-    items.forEach((it) => { if (isFilled(it, hire.values?.[it.id])) done++; });
+    items.forEach((it) => { if (isFilled(it, hire.values?.[it.id], hire)) done++; });
     return { done, total, pct: total ? Math.round((done / total) * 100) : 0 };
   }
 
@@ -757,7 +787,7 @@
       // Always show every task in the section (full spreadsheet visibility)
       const items = itemsForSection(sec.id);
       const expanded = openSections[sec.id] === true;
-      const spDone = items.filter((it) => isFilled(it, hire.values?.[it.id])).length;
+      const spDone = items.filter((it) => isFilled(it, hire.values?.[it.id], hire)).length;
       const spOpen = items.length - spDone;
       const barCls = sectionBarClass(spDone, items.length);
       return `
@@ -865,18 +895,28 @@
         persist();
       });
     });
+    root.querySelectorAll('[data-open-checklist]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        openTaskChecklistModal(hire.id, btn.getAttribute('data-open-checklist'));
+      });
+    });
   }
 
   function fieldRow(hire, it) {
     const mine = filters.role !== 'all' && it.role === filters.role;
     const raw = hire.values?.[it.id];
-    const filled = isFilled(it, raw);
+    const filled = isFilled(it, raw, hire);
     const due = dueDateFor(hire, it);
     const overdue = isPastDue(due, filled);
     const who = assigneeOf(hire, it);
     const people = [...new Set([...peopleForRole(it.role), who].filter(Boolean))];
+    const stepProg = checklistProgress(hire, it);
     let control = '';
-    if (it.inputType === 'checkbox') {
+    if (stepProg) {
+      control = `<button type="button" class="btn-secondary nh-checklist-btn" data-open-checklist="${esc(it.id)}">
+        Open check-off list (${stepProg.done}/${stepProg.total})
+      </button>`;
+    } else if (it.inputType === 'checkbox') {
       control = `<label class="nh-check-label"><input type="checkbox" data-field="${esc(it.id)}" ${filled ? 'checked' : ''}> Done</label>`;
     } else if (it.inputType === 'select') {
       const opts = (it.options || []).map((o) => `<option value="${esc(o)}" ${String(raw) === o ? 'selected' : ''}>${esc(o)}</option>`).join('');
@@ -890,18 +930,113 @@
       control = `<input class="form-input nh-field-input" type="text" data-field="${esc(it.id)}" value="${esc(display)}" ${it.sensitive && !revealSensitive && raw ? 'readonly' : ''} placeholder="Enter value…">`;
     }
     return `
-      <div class="nh-task-row ${mine ? 'mine' : ''} ${filled ? 'filled' : 'open'} ${overdue ? 'overdue' : ''}">
+      <div class="nh-task-row ${mine ? 'mine' : ''} ${filled ? 'filled' : 'open'} ${overdue ? 'overdue' : ''}${stepProg ? ' has-checklist' : ''}">
         <div class="nh-task-assignee" title="${esc(who || 'Unassigned')} · ${esc(it.role)}">
           <select class="form-input nh-assignee" data-assignee="${esc(it.id)}" title="Assigned person">
             ${people.map((p) => `<option value="${esc(p)}" ${who === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}
           </select>
           <span class="nh-role-chip">${esc(it.role)}</span>
         </div>
-        <div class="nh-task-label">${esc(it.label)}${it.sensitive ? ' <span class="nh-lock">sensitive</span>' : ''}</div>
+        <div class="nh-task-label">
+          ${stepProg
+            ? `<button type="button" class="nh-linkish" data-open-checklist="${esc(it.id)}">${esc(it.label)}</button>`
+            : esc(it.label)}
+          ${it.sensitive ? ' <span class="nh-lock">sensitive</span>' : ''}
+          ${stepProg ? ` <span class="nh-steps-chip">${stepProg.total} steps</span>` : ''}
+        </div>
         <div class="nh-task-due ${overdue ? 'is-overdue' : ''}">${esc(fmtDate(due))}</div>
         <div class="nh-task-value">${control}</div>
         <div class="nh-field-status">${filled ? 'Done' : (overdue ? 'Past due' : 'Open')}</div>
       </div>`;
+  }
+
+  function syncChecklistCompletion(hireId, itemId) {
+    const item = data.items.find((i) => i.id === itemId);
+    if (!item) return;
+    const steps = normalizeSteps(item);
+    if (!steps.length) return;
+    const p = progressOf(hireId);
+    const allDone = steps.every((s) => !!(p.checklists[itemId] && p.checklists[itemId][s.id]));
+    if (allDone) {
+      if (item.inputType === 'checkbox') p.values[itemId] = true;
+      else if (!p.values[itemId]) p.values[itemId] = 'Complete';
+    }
+  }
+
+  function openTaskChecklistModal(hireId, itemId) {
+    ensureData();
+    const hire = hires().find((h) => h.id === hireId);
+    const item = data.items.find((i) => i.id === itemId);
+    if (!hire || !item) return;
+    const steps = normalizeSteps(item);
+    if (!steps.length) return;
+    const p = progressOf(hireId);
+    if (!p.checklists[itemId]) p.checklists[itemId] = {};
+    const map = p.checklists[itemId];
+    const done = steps.filter((s) => !!map[s.id]).length;
+
+    let modal = document.getElementById('nh-task-checklist-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'nh-task-checklist-modal';
+      modal.className = 'modal-backdrop';
+      modal.innerHTML = `
+        <div class="modal" style="width:520px">
+          <div class="modal-head">
+            <span class="modal-title" id="nh-cl-title">Check-off list</span>
+            <button class="modal-close" type="button" id="nh-cl-x">×</button>
+          </div>
+          <div class="modal-body">
+            <p class="nh-cl-sub" id="nh-cl-sub"></p>
+            <div id="nh-cl-steps" class="nh-cl-steps"></div>
+          </div>
+          <div class="modal-footer">
+            <span class="nh-muted" id="nh-cl-count" style="margin-right:auto"></span>
+            <button class="btn-primary" type="button" id="nh-cl-done">Done</button>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+      modal.addEventListener('click', (e) => { if (e.target === modal) closeTaskChecklistModal(); });
+      document.getElementById('nh-cl-x').addEventListener('click', closeTaskChecklistModal);
+      document.getElementById('nh-cl-done').addEventListener('click', () => {
+        closeTaskChecklistModal();
+        render();
+      });
+    }
+
+    document.getElementById('nh-cl-title').textContent = item.label;
+    document.getElementById('nh-cl-sub').textContent = `${hire.name} · ${item.assignee || item.role} · check off each step`;
+    document.getElementById('nh-cl-count').textContent = `${done} of ${steps.length} complete`;
+    document.getElementById('nh-cl-steps').innerHTML = steps.map((s) => `
+      <label class="nh-cl-step">
+        <input type="checkbox" data-cl-hire="${esc(hireId)}" data-cl-item="${esc(itemId)}" data-cl-step="${esc(s.id)}" ${map[s.id] ? 'checked' : ''}>
+        <span>${esc(s.label)}</span>
+      </label>
+    `).join('');
+
+    document.getElementById('nh-cl-steps').querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+      cb.addEventListener('change', () => {
+        const hid = cb.getAttribute('data-cl-hire');
+        const iid = cb.getAttribute('data-cl-item');
+        const sid = cb.getAttribute('data-cl-step');
+        const prog = progressOf(hid);
+        if (!prog.checklists[iid]) prog.checklists[iid] = {};
+        if (cb.checked) prog.checklists[iid][sid] = true;
+        else delete prog.checklists[iid][sid];
+        syncChecklistCompletion(hid, iid);
+        persist();
+        const item2 = data.items.find((i) => i.id === iid);
+        const steps2 = normalizeSteps(item2);
+        const done2 = steps2.filter((s) => !!(prog.checklists[iid] && prog.checklists[iid][s.id])).length;
+        document.getElementById('nh-cl-count').textContent = `${done2} of ${steps2.length} complete`;
+      });
+    });
+
+    modal.classList.add('open');
+  }
+
+  function closeTaskChecklistModal() {
+    document.getElementById('nh-task-checklist-modal')?.classList.remove('open');
   }
 
   function saveValue(hireId, itemId, value) {
@@ -1076,6 +1211,7 @@
                       <span class="nh-person-role"><span class="nh-owner-chip">${esc(it.assignee)}</span><span class="nh-role-chip">${esc(it.role)}</span></span>
                       <span class="nh-type">${esc(it.inputType)}</span>
                       <span class="nh-due">${esc(it.dueAnchor)} ${it.dueOffsetDays >= 0 ? '+' : ''}${it.dueOffsetDays}d</span>
+                      ${normalizeSteps(it).length ? `<span class="nh-steps-chip">${normalizeSteps(it).length}-step check-off</span>` : ''}
                       ${depOn && adminMode ? `<span class="nh-dep-badge">${depLabel ? 'Depends on: ' + esc(depLabel) : 'Pick prerequisite…'}</span>` : ''}
                     </div>
                   </div>
@@ -1263,55 +1399,101 @@
     render();
   }
 
+  function renderItemStepsEditor(steps) {
+    const root = document.getElementById('nh-item-steps');
+    if (!root) return;
+    const list = (steps && steps.length) ? steps : [];
+    root.innerHTML = list.length
+      ? list.map((s, idx) => `
+          <div class="nh-step-edit-row" data-step-idx="${idx}" data-step-id="${esc(s.id || '')}">
+            <span class="nh-step-num">${idx + 1}.</span>
+            <input class="form-input nh-step-label" type="text" value="${esc(s.label)}" placeholder="Step to check off…">
+            <button type="button" class="btn-xs danger" data-remove-step="${idx}">Remove</button>
+          </div>
+        `).join('')
+      : '<p class="nh-muted" style="margin:0">No check-off steps yet. Add steps only if this task needs a multi-item list (e.g. RingCentral setup).</p>';
+
+    root.querySelectorAll('[data-remove-step]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const rows = collectItemStepsFromEditor();
+        rows.splice(+btn.getAttribute('data-remove-step'), 1);
+        renderItemStepsEditor(rows);
+      });
+    });
+  }
+
+  function collectItemStepsFromEditor() {
+    const root = document.getElementById('nh-item-steps');
+    if (!root) return [];
+    return [...root.querySelectorAll('.nh-step-edit-row')].map((row, i) => {
+      const label = row.querySelector('.nh-step-label')?.value.trim() || '';
+      const prevId = row.getAttribute('data-step-id');
+      return { id: prevId || uid('s'), label };
+    }).filter((s) => s.label);
+  }
+
   function openItemModal(id, defaultSectionId) {
     ensureData();
     let modal = document.getElementById('nh-item-modal');
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = 'nh-item-modal';
-      modal.className = 'modal-backdrop';
-      modal.innerHTML = `
-        <div class="modal" style="width:560px">
-          <div class="modal-head"><span class="modal-title" id="nh-item-title">Add task</span><button class="modal-close" type="button" id="nh-item-x">×</button></div>
-          <div class="modal-body">
-            <input type="hidden" id="nh-item-id">
-            <div class="form-row"><label class="form-label">Category *</label><select id="nh-item-section" class="form-input"></select></div>
-            <div class="form-row"><label class="form-label">Task label *</label><input id="nh-item-label" class="form-input" type="text" placeholder="e.g. Date background check requested"></div>
-            <div class="form-row-2">
-              <div><label class="form-label">Role *</label>
-                <select id="nh-item-role" class="form-input">
-                  <option>HR</option><option>Admin</option><option>PM</option><option>Logistics</option><option>Training</option>
-                </select>
-              </div>
-              <div><label class="form-label">Assignee *</label><input id="nh-item-assignee" class="form-input" type="text" list="nh-people-dl"><datalist id="nh-people-dl"></datalist></div>
+    if (modal) modal.remove(); // rebuild so Edit card always has checklist editor
+    modal = document.createElement('div');
+    modal.id = 'nh-item-modal';
+    modal.className = 'modal-backdrop';
+    modal.innerHTML = `
+      <div class="modal" style="width:600px;max-height:90vh;overflow:auto">
+        <div class="modal-head"><span class="modal-title" id="nh-item-title">Add task</span><button class="modal-close" type="button" id="nh-item-x">×</button></div>
+        <div class="modal-body">
+          <input type="hidden" id="nh-item-id">
+          <div class="form-row"><label class="form-label">Category *</label><select id="nh-item-section" class="form-input"></select></div>
+          <div class="form-row"><label class="form-label">Task label *</label><input id="nh-item-label" class="form-input" type="text" placeholder="e.g. RingCentral account creation"></div>
+          <div class="form-row-2">
+            <div><label class="form-label">Role *</label>
+              <select id="nh-item-role" class="form-input">
+                <option>HR</option><option>Admin</option><option>PM</option><option>Logistics</option><option>Training</option>
+              </select>
             </div>
-            <div class="form-row-2">
-              <div><label class="form-label">Input type</label>
-                <select id="nh-item-type" class="form-input">
-                  <option value="text">Text</option><option value="date">Date</option>
-                  <option value="select">Dropdown</option><option value="checkbox">Checklist</option>
-                </select>
-              </div>
-              <div><label class="form-label">Due offset (days)</label><input id="nh-item-offset" class="form-input" type="number" value="-7"></div>
-            </div>
-            <div class="form-row-2">
-              <div><label class="form-label">Due anchor</label>
-                <select id="nh-item-anchor" class="form-input"><option value="start">Start date</option><option value="bootcamp">Bootcamp date</option></select>
-              </div>
-              <div><label class="form-label">Dropdown options (comma-sep)</label><input id="nh-item-options" class="form-input" type="text" placeholder="Yes, No, N/A"></div>
-            </div>
+            <div><label class="form-label">Assignee *</label><input id="nh-item-assignee" class="form-input" type="text" list="nh-people-dl"><datalist id="nh-people-dl"></datalist></div>
           </div>
-          <div class="modal-footer">
-            <button class="btn-secondary" type="button" id="nh-item-cancel">Cancel</button>
-            <button class="btn-primary" type="button" id="nh-item-save">Save task</button>
+          <div class="form-row-2">
+            <div><label class="form-label">Input type</label>
+              <select id="nh-item-type" class="form-input">
+                <option value="text">Text</option><option value="date">Date</option>
+                <option value="select">Dropdown</option><option value="checkbox">Checklist</option>
+              </select>
+            </div>
+            <div><label class="form-label">Due offset (days)</label><input id="nh-item-offset" class="form-input" type="number" value="-7"></div>
           </div>
-        </div>`;
-      document.body.appendChild(modal);
-      modal.addEventListener('click', (e) => { if (e.target === modal) closeItemModal(); });
-      document.getElementById('nh-item-x').addEventListener('click', closeItemModal);
-      document.getElementById('nh-item-cancel').addEventListener('click', closeItemModal);
-      document.getElementById('nh-item-save').addEventListener('click', saveItemModal);
-    }
+          <div class="form-row-2">
+            <div><label class="form-label">Due anchor</label>
+              <select id="nh-item-anchor" class="form-input"><option value="start">Start date</option><option value="bootcamp">Bootcamp date</option></select>
+            </div>
+            <div><label class="form-label">Dropdown options (comma-sep)</label><input id="nh-item-options" class="form-input" type="text" placeholder="Yes, No, N/A"></div>
+          </div>
+          <div class="form-row nh-item-steps-block">
+            <label class="form-label">Check-off list (optional)</label>
+            <p class="nh-muted" style="margin:0 0 8px">Add steps only when this task needs a multi-item check-off (e.g. RingCentral). On the hire, clicking the task opens this list.</p>
+            <div id="nh-item-steps"></div>
+            <button type="button" class="btn-secondary" id="nh-item-add-step" style="margin-top:8px">+ Add check-off step</button>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" type="button" id="nh-item-cancel">Cancel</button>
+          <button class="btn-primary" type="button" id="nh-item-save">Save task</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeItemModal(); });
+    document.getElementById('nh-item-x').addEventListener('click', closeItemModal);
+    document.getElementById('nh-item-cancel').addEventListener('click', closeItemModal);
+    document.getElementById('nh-item-save').addEventListener('click', saveItemModal);
+    document.getElementById('nh-item-add-step').addEventListener('click', () => {
+      const rows = collectItemStepsFromEditor();
+      rows.push({ id: uid('s'), label: '' });
+      renderItemStepsEditor(rows);
+      const inputs = document.querySelectorAll('#nh-item-steps .nh-step-label');
+      inputs[inputs.length - 1]?.focus();
+    });
+
     document.getElementById('nh-item-section').innerHTML = data.sections.map((s) =>
       `<option value="${s.id}">${esc(s.id)}. ${esc(s.title)}</option>`
     ).join('');
@@ -1328,6 +1510,12 @@
     document.getElementById('nh-item-offset').value = it?.dueOffsetDays != null ? it.dueOffsetDays : -7;
     document.getElementById('nh-item-anchor').value = it?.dueAnchor || 'start';
     document.getElementById('nh-item-options').value = (it?.options || []).join(', ');
+    const steps = normalizeSteps(it || {});
+    renderItemStepsEditor(steps.length ? steps : []);
+    // preserve step ids in DOM
+    [...document.querySelectorAll('#nh-item-steps .nh-step-edit-row')].forEach((row, i) => {
+      if (steps[i]) row.setAttribute('data-step-id', steps[i].id);
+    });
     modal.classList.add('open');
   }
 
@@ -1345,16 +1533,24 @@
     const dueOffsetDays = parseInt(document.getElementById('nh-item-offset').value, 10) || 0;
     const dueAnchor = document.getElementById('nh-item-anchor').value;
     const options = document.getElementById('nh-item-options').value.split(',').map((s) => s.trim()).filter(Boolean);
+    const checklistSteps = collectItemStepsFromEditor().map((s, i) => ({
+      id: s.id || ('s' + i),
+      label: s.label
+    }));
     if (!label || !assignee) { alert('Label and assignee are required.'); return; }
     if (id) {
       const it = data.items.find((i) => i.id === id);
-      Object.assign(it, { sectionId, label, role, assignee, owner: assignee, inputType, options, dueOffsetDays, dueAnchor });
+      Object.assign(it, {
+        sectionId, label, role, assignee, owner: assignee, inputType, options,
+        dueOffsetDays, dueAnchor, checklistSteps
+      });
     } else {
       const maxOrder = data.items.reduce((m, i) => Math.max(m, i.order || 0), 0);
       data.items.push({
         id: uid('t'), sectionId, label, role, assignee, owner: assignee,
         inputType, options, dueOffsetDays, dueAnchor, order: maxOrder + 1,
-        sensitive: false, dependsOnPrior: false, dependsOnTaskId: null
+        sensitive: false, dependsOnPrior: false, dependsOnTaskId: null,
+        checklistSteps
       });
       processAdminOpen[sectionId] = true;
     }
