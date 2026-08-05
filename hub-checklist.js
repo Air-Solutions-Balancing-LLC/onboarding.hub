@@ -4,16 +4,36 @@
   const ROLE_PREF_KEY = 'nh_role_pref';
   const PERSON_PREF_KEY = 'nh_person_pref';
   const SELECT_COLS =
-    'id, full_name, employee_number, employee_type, status, status_note, region, start_date, bootcamp_start_date, company_email, assigned_pm';
+    'id, full_name, employee_number, employee_type, status, status_note, region, city_center, start_date, bootcamp_start_date, company_email, assigned_pm';
 
   let data = null; // { version, roles, sections, items, progress }
   let employees = [];
-  let view = 'dashboard'; // dashboard | todo | roster | detail | template
+  let view = 'dashboard'; // dashboard | todo | roster | archive | detail | template
   const STATUS_OPTIONS = ['active', 'terminated', 'quit', 'rescinded', 'resigned'];
+  const ARCHIVE_STATUSES = ['terminated', 'quit', 'rescinded', 'resigned'];
+  const REGION_OPTIONS = [
+    'New England',
+    'Mid-Atlantic',
+    'Southeast',
+    'Mid-West',
+    'Southwest',
+    'Rocky Mountain',
+    'Intermountain',
+    'Pacific',
+    'National'
+  ];
+  // value stored in employees.employee_type
+  const POSITION_OPTIONS = [
+    { value: 'technician', label: 'TAB technician' },
+    { value: 'kes_installer', label: 'KES installer' },
+    { value: 'office_staff', label: 'office staff' }
+  ];
+  // Fill in when the team confirms the official list
+  const CITY_CENTER_OPTIONS = [];
   let processAdminOpen = {}; // category expand state in Admin
   let selectedHireId = null;
   let openSections = {};
-  let filters = { q: '', status: 'all', role: 'HR', person: 'all', todoScope: 'week', hireWindow: 'onboarding' };
+  let filters = { q: '', status: 'active', role: 'HR', person: 'all', todoScope: 'week', hireWindow: 'onboarding', archiveStatus: 'all' };
   let revealSensitive = false;
   let saveTimer = null;
   let loading = true;
@@ -215,6 +235,7 @@
       id: emp.id,
       name: emp.full_name,
       division: emp.region || '',
+      cityCenter: emp.city_center || '',
       role: emp.employee_type || '',
       startDate: emp.start_date || '',
       bootcampDate: emp.bootcamp_start_date || '',
@@ -297,6 +318,10 @@
     return (h.status || '').toLowerCase() === 'active';
   }
 
+  function isArchivedStatus(status) {
+    return ARCHIVE_STATUSES.includes(String(status || '').toLowerCase());
+  }
+
   function inOnboardingWindow(hire, today) {
     const start = parseDate(hire.startDate);
     if (!start) return true; // keep undated hires visible so they can be cleaned up
@@ -361,6 +386,8 @@
   function typeBadgeClass(type) {
     const map = {
       technician: 'nh-badge nh-badge-tech',
+      kes_installer: 'nh-badge nh-badge-intl',
+      office_staff: 'nh-badge nh-badge-office',
       us_office: 'nh-badge nh-badge-office',
       intl_office: 'nh-badge nh-badge-intl',
     };
@@ -368,7 +395,61 @@
   }
 
   function formatType(type) {
+    const hit = POSITION_OPTIONS.find((p) => p.value === type);
+    if (hit) return hit.label;
     return String(type || '—').replace(/_/g, ' ');
+  }
+
+  function normalizePosition(type) {
+    const t = String(type || '').toLowerCase().trim();
+    if (!t) return 'technician';
+    if (POSITION_OPTIONS.some((p) => p.value === t)) return t;
+    if (t === 'tab technician' || t === 'tab_technician') return 'technician';
+    if (t.includes('kes')) return 'kes_installer';
+    if (t.includes('office') || t === 'us_office' || t === 'intl_office') return 'office_staff';
+    return t;
+  }
+
+  function normalizeRegion(region) {
+    const raw = String(region || '').trim();
+    if (!raw) return '';
+    const hit = REGION_OPTIONS.find((r) => r.toLowerCase() === raw.toLowerCase());
+    if (hit) return hit;
+    // common aliases from older data
+    const aliases = {
+      'mid atlantic': 'Mid-Atlantic',
+      midwest: 'Mid-West',
+      'mid west': 'Mid-West',
+      'pacific coast': 'Pacific',
+      'rocky mountains': 'Rocky Mountain'
+    };
+    return aliases[raw.toLowerCase()] || raw;
+  }
+
+  function optionSelect(empId, field, value, options, extraClass) {
+    const cur = value || '';
+    const vals = options.map((o) => (typeof o === 'string' ? { value: o, label: o } : o));
+    const known = vals.some((o) => o.value === cur);
+    const opts = known || !cur ? vals : [{ value: cur, label: cur }, ...vals];
+    return `<select class="nh-status-select nh-profile-select ${extraClass || ''}" data-emp-field="${esc(field)}" data-emp-id="${esc(empId)}" title="${esc(field)}">
+      <option value="">—</option>
+      ${opts.map((o) => `<option value="${esc(o.value)}" ${o.value === cur ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}
+    </select>`;
+  }
+
+  function positionSelect(empId, type) {
+    return optionSelect(empId, 'employee_type', normalizePosition(type), POSITION_OPTIONS);
+  }
+
+  function regionSelect(empId, region) {
+    return optionSelect(empId, 'region', normalizeRegion(region), REGION_OPTIONS);
+  }
+
+  function cityCenterSelect(empId, city) {
+    const cur = city || '';
+    const fromData = [...new Set(employees.map((e) => e.city_center).filter(Boolean))];
+    const opts = [...new Set([...CITY_CENTER_OPTIONS, ...fromData])].sort((a, b) => a.localeCompare(b));
+    return optionSelect(empId, 'city_center', cur, opts);
   }
 
   function filteredEmployees() {
@@ -379,7 +460,21 @@
         (e.full_name || '').toLowerCase().includes(q) ||
         (e.company_email || '').toLowerCase().includes(q) ||
         String(e.employee_number ?? '').includes(q);
-      const matchFilter = filters.status === 'all' || e.status === filters.status;
+      // Dashboard / Roster: active only (archived hires live in Archive)
+      return matchSearch && (e.status || 'active') === 'active';
+    });
+  }
+
+  function filteredArchivedEmployees() {
+    const q = filters.q.trim().toLowerCase();
+    return employees.filter((e) => {
+      if (!isArchivedStatus(e.status)) return false;
+      const matchSearch =
+        !q ||
+        (e.full_name || '').toLowerCase().includes(q) ||
+        (e.company_email || '').toLowerCase().includes(q) ||
+        String(e.employee_number ?? '').includes(q);
+      const matchFilter = filters.archiveStatus === 'all' || e.status === filters.archiveStatus;
       return matchSearch && matchFilter;
     });
   }
@@ -390,7 +485,7 @@
       total: employees.length,
       active,
       inactive: employees.length - active,
-      technicians: employees.filter((e) => e.employee_type === 'technician').length,
+      technicians: employees.filter((e) => e.employee_type === 'technician' || e.employee_type === 'kes_installer').length,
     };
   }
 
@@ -404,17 +499,29 @@
     loading = true;
     loadError = null;
     render();
-    const { data: rows, error } = await supabase
+    let { data: rows, error } = await supabase
       .from('employees')
       .select(SELECT_COLS)
       .order('employee_number', { ascending: false, nullsFirst: false });
+    // Older DBs may not have city_center yet — fall back without it
+    if (error && /city_center/i.test(error.message || '')) {
+      const fallback = SELECT_COLS.replace(', city_center', '');
+      ({ data: rows, error } = await supabase
+        .from('employees')
+        .select(fallback)
+        .order('employee_number', { ascending: false, nullsFirst: false }));
+      if (!error && rows) rows = rows.map((r) => Object.assign({ city_center: null }, r));
+    }
     if (error) {
       loading = false;
       loadError = error.message;
       render();
       return;
     }
-    employees = rows || [];
+    employees = (rows || []).map((r) => Object.assign({}, r, {
+      employee_type: normalizePosition(r.employee_type),
+      region: normalizeRegion(r.region) || r.region || null
+    }));
     loading = false;
     render();
   }
@@ -450,10 +557,81 @@
           alert('Could not update status: ' + (e.message || e));
         }
         sel.classList.remove('nh-saving');
-        // Refresh stats / filters without losing scroll too hard
-        if (view === 'roster' || view === 'dashboard') render();
+        // Non-active statuses move to Archive; Active leaves Archive
+        if (view === 'detail' && selectedHireId === id && isArchivedStatus(status)) {
+          view = 'archive';
+          selectedHireId = null;
+        }
+        if (view === 'roster' || view === 'dashboard' || view === 'archive' || view === 'detail') render();
       });
     });
+  }
+
+  function syncRegionProgress(empId, region) {
+    ensureData();
+    const regionItem = data.items.find((i) => i.label === 'Region');
+    if (!regionItem) return;
+    const p = progressOf(empId);
+    if (region) p.values[regionItem.id] = region;
+    else delete p.values[regionItem.id];
+    persist();
+  }
+
+  function bindProfileSelects(root) {
+    root.querySelectorAll('[data-emp-field]').forEach((sel) => {
+      sel.addEventListener('change', async () => {
+        const id = sel.getAttribute('data-emp-id');
+        const field = sel.getAttribute('data-emp-field');
+        const emp = employees.find((e) => e.id === id);
+        if (!emp || !field) return;
+        const prev = emp[field];
+        let next = sel.value || null;
+        if (field === 'employee_type') next = normalizePosition(next || 'technician');
+        if (field === 'region') next = normalizeRegion(next) || null;
+        emp[field] = next;
+        sel.classList.add('nh-saving');
+        try {
+          await syncEmployeePatch(id, { [field]: next });
+          if (field === 'region') syncRegionProgress(id, next || '');
+        } catch (e) {
+          emp[field] = prev;
+          sel.value = prev || '';
+          alert('Could not update ' + field.replace(/_/g, ' ') + ': ' + (e.message || e));
+        }
+        sel.classList.remove('nh-saving');
+        if (view === 'roster' || view === 'dashboard' || view === 'archive') render();
+      });
+    });
+  }
+
+  async function deleteEmployee(id) {
+    const emp = employees.find((e) => e.id === id);
+    if (!emp) return false;
+    const name = emp.full_name || 'this hire';
+    if (!confirm(`Permanently delete "${name}"?\n\nThis removes them from the Hub and cannot be undone.`)) return false;
+    if (!confirm(`Confirm delete for "${name}". Continue?`)) return false;
+    const supabase = client();
+    if (!supabase) {
+      alert('Not signed in');
+      return false;
+    }
+    try {
+      await supabase.from('event_employees').delete().eq('employee_id', id);
+      await supabase.from('employee_notes').delete().eq('employee_id', id);
+      const { error } = await supabase.from('employees').delete().eq('id', id);
+      if (error) throw error;
+    } catch (e) {
+      alert('Could not delete: ' + (e.message || e));
+      return false;
+    }
+    employees = employees.filter((e) => e.id !== id);
+    ensureData();
+    if (data.progress && data.progress[id]) {
+      delete data.progress[id];
+      persist();
+    }
+    if (selectedHireId === id) selectedHireId = null;
+    return true;
   }
 
   function sectionProgress(hire, sectionId) {
@@ -494,6 +672,7 @@
           <button class="btn-secondary ${view === 'dashboard' ? 'nh-tab-on' : ''}" type="button" data-view="dashboard">Dashboard</button>
           <button class="btn-secondary ${view === 'todo' ? 'nh-tab-on' : ''}" type="button" data-view="todo">My To-Do</button>
           <button class="btn-secondary ${view === 'roster' ? 'nh-tab-on' : ''}" type="button" data-view="roster">Roster</button>
+          <button class="btn-secondary ${view === 'archive' ? 'nh-tab-on' : ''}" type="button" data-view="archive">Archive</button>
           <button class="btn-secondary" type="button" id="nh-btn-template">Manage process</button>
           <button class="btn-primary" type="button" id="nh-btn-add">+ Add new hire</button>
         </div>
@@ -629,6 +808,7 @@
   function bindRosterChrome(root) {
     bindRoleBar(root);
     bindStatusSelects(root);
+    bindProfileSelects(root);
     root.querySelector('#nh-search')?.addEventListener('input', (e) => {
       filters.q = e.target.value;
       render();
@@ -645,6 +825,12 @@
         render();
       });
     });
+    root.querySelectorAll('[data-archive-filter]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        filters.archiveStatus = btn.getAttribute('data-archive-filter');
+        render();
+      });
+    });
     root.querySelectorAll('[data-open-hire]').forEach((btn) => {
       btn.addEventListener('click', () => {
         selectedHireId = btn.getAttribute('data-open-hire');
@@ -655,14 +841,22 @@
         render();
       });
     });
+    root.querySelectorAll('[data-del-emp]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-del-emp');
+        btn.disabled = true;
+        const ok = await deleteEmployee(id);
+        if (ok) render();
+        else btn.disabled = false;
+      });
+    });
   }
 
   function renderDashboard(root) {
-    setPageSub('Shared spreadsheet dashboard — everyone can see every hire’s progress by section (like the NH Checklist Excel). Change Status in the dropdown.');
+    setPageSub('Active hires only — change Status to Terminated / Quit / Rescinded / Resigned to move someone to Archive.');
     ensureData();
     const s = stats();
     const rows = filteredEmployees();
-    const statusFilters = ['all', 'active', 'terminated', 'quit', 'rescinded'];
     const sections = data.sections || [];
 
     root.innerHTML = `
@@ -670,15 +864,13 @@
       <div class="nh-stats">
         <div class="nh-stat"><div class="nh-stat-label">Total Employees</div><div class="nh-stat-num">${s.total}</div></div>
         <div class="nh-stat"><div class="nh-stat-label">Active</div><div class="nh-stat-num nh-stat-green">${s.active}</div></div>
-        <div class="nh-stat"><div class="nh-stat-label">Inactive</div><div class="nh-stat-num nh-stat-red">${s.inactive}</div></div>
+        <div class="nh-stat"><div class="nh-stat-label">Archived</div><div class="nh-stat-num nh-stat-red">${s.inactive}</div></div>
         <div class="nh-stat"><div class="nh-stat-label">Technicians</div><div class="nh-stat-num nh-stat-amber">${s.technicians}</div></div>
       </div>
       <div class="nh-toolbar">
         <input type="search" class="nh-search" id="nh-search" placeholder="Search by name, email, or #..." value="${esc(filters.q)}" />
         <div class="nh-filters">
-          ${statusFilters.map((f) =>
-            `<button type="button" class="nh-filter-btn${filters.status === f ? ' active' : ''}" data-nh-filter="${f}">${f}</button>`
-          ).join('')}
+          <span class="nh-muted">Showing active hires · archived are under Archive</span>
         </div>
       </div>
       <div class="nh-sheet-wrap">
@@ -687,7 +879,9 @@
             <tr>
               <th class="nh-sticky">#</th>
               <th class="nh-sticky nh-sticky-2">Name</th>
+              <th>Position</th>
               <th>Region</th>
+              <th>City center</th>
               <th>Start</th>
               <th>Status</th>
               <th>Overall</th>
@@ -697,7 +891,7 @@
             <tr class="nh-sheet-subhead">
               <th class="nh-sticky"></th>
               <th class="nh-sticky nh-sticky-2"></th>
-              <th colspan="4" class="nh-muted">Profile</th>
+              <th colspan="6" class="nh-muted">Profile</th>
               ${sections.map((sec) => `<th class="nh-sec-sub">${esc(sec.title)}</th>`).join('')}
               <th></th>
             </tr>
@@ -711,7 +905,9 @@
                 <td class="nh-sticky nh-sticky-2 nh-name">
                   <button type="button" class="nh-linkish" data-open-hire="${esc(emp.id)}">${esc(emp.full_name)}</button>
                 </td>
-                <td>${esc(emp.region || '—')}</td>
+                <td>${positionSelect(emp.id, emp.employee_type)}</td>
+                <td>${regionSelect(emp.id, emp.region)}</td>
+                <td>${cityCenterSelect(emp.id, emp.city_center)}</td>
                 <td>${esc(emp.start_date || '—')}</td>
                 <td>${statusSelect(emp.id, emp.status)}</td>
                 <td><span class="nh-pct ${pctClass(overall.pct)}" title="${overall.done}/${overall.total}">${overall.pct}%</span></td>
@@ -723,41 +919,38 @@
                 }).join('')}
                 <td><button class="btn-xs primary" type="button" data-open-hire="${esc(emp.id)}">Open</button></td>
               </tr>`;
-            }).join('') : `<tr><td colspan="${7 + sections.length}" class="nh-empty">No employees found</td></tr>`}
+            }).join('') : `<tr><td colspan="${9 + sections.length}" class="nh-empty">No employees found</td></tr>`}
           </tbody>
         </table>
       </div>
-      <p class="nh-footnote">${rows.length} hires · columns A–J match spreadsheet sections · change Status in the dropdown · click a cell to open that hire</p>`;
+      <p class="nh-footnote">${rows.length} active hires · columns A–J match spreadsheet sections · non-active Status moves to Archive</p>`;
 
     bindRosterChrome(root);
   }
 
   function renderRoster(root) {
-    setPageSub('Employee roster — change Status with the dropdown, search/filter, and open a hire for the full checklist.');
+    setPageSub('Active employee roster — change Status to move someone to Archive. Open a hire for the full checklist.');
     const s = stats();
     const rows = filteredEmployees();
-    const statusFilters = ['all', 'active', 'terminated', 'quit', 'rescinded'];
 
     root.innerHTML = `
       ${roleBar()}
       <div class="nh-stats">
         <div class="nh-stat"><div class="nh-stat-label">Total Employees</div><div class="nh-stat-num">${s.total}</div></div>
         <div class="nh-stat"><div class="nh-stat-label">Active</div><div class="nh-stat-num nh-stat-green">${s.active}</div></div>
-        <div class="nh-stat"><div class="nh-stat-label">Inactive</div><div class="nh-stat-num nh-stat-red">${s.inactive}</div></div>
+        <div class="nh-stat"><div class="nh-stat-label">Archived</div><div class="nh-stat-num nh-stat-red">${s.inactive}</div></div>
         <div class="nh-stat"><div class="nh-stat-label">Technicians</div><div class="nh-stat-num nh-stat-amber">${s.technicians}</div></div>
       </div>
       <div class="nh-toolbar">
         <input type="search" class="nh-search" id="nh-search" placeholder="Search by name, email, or #..." value="${esc(filters.q)}" />
         <div class="nh-filters">
-          ${statusFilters.map((f) =>
-            `<button type="button" class="nh-filter-btn${filters.status === f ? ' active' : ''}" data-nh-filter="${f}">${f}</button>`
-          ).join('')}
+          <span class="nh-muted">Showing active hires · archived are under Archive</span>
         </div>
       </div>
       <div class="nh-table-wrap">
         <table class="nh-table">
           <thead>
-            <tr><th>#</th><th>Name</th><th>Type</th><th>Region</th><th>Start Date</th><th>Status</th><th>Progress</th></tr>
+            <tr><th>#</th><th>Name</th><th>Position</th><th>Region</th><th>City center</th><th>Start Date</th><th>Status</th><th>Progress</th></tr>
           </thead>
           <tbody>
             ${rows.length ? rows.map((emp) => {
@@ -766,17 +959,70 @@
               return `<tr>
                 <td class="nh-muted">${esc(emp.employee_number ?? '—')}</td>
                 <td class="nh-name"><button type="button" class="nh-linkish" data-open-hire="${esc(emp.id)}">${esc(emp.full_name)}</button></td>
-                <td><span class="${typeBadgeClass(emp.employee_type)}">${esc(formatType(emp.employee_type))}</span></td>
-                <td>${esc(emp.region || '—')}</td>
+                <td>${positionSelect(emp.id, emp.employee_type)}</td>
+                <td>${regionSelect(emp.id, emp.region)}</td>
+                <td>${cityCenterSelect(emp.id, emp.city_center)}</td>
                 <td>${esc(emp.start_date || '—')}</td>
                 <td>${statusSelect(emp.id, emp.status)}</td>
                 <td><button class="btn-xs primary" type="button" data-open-hire="${esc(emp.id)}">${pr.done}/${pr.total}</button></td>
               </tr>`;
-            }).join('') : `<tr><td colspan="7" class="nh-empty">No employees found</td></tr>`}
+            }).join('') : `<tr><td colspan="8" class="nh-empty">No employees found</td></tr>`}
           </tbody>
         </table>
       </div>
-      <p class="nh-footnote">${rows.length} employees shown · use the Status dropdown to update · click name/progress to open checklist</p>`;
+      <p class="nh-footnote">${rows.length} active employees · use Status to archive · click name/progress to open checklist</p>`;
+
+    bindRosterChrome(root);
+  }
+
+  function renderArchive(root) {
+    setPageSub('Archived hires (Terminated, Quit, Rescinded, Resigned). Set Status back to Active to restore, or Delete permanently.');
+    ensureData();
+    const s = stats();
+    const rows = filteredArchivedEmployees();
+    const archiveFilters = ['all', ...ARCHIVE_STATUSES];
+
+    root.innerHTML = `
+      ${roleBar()}
+      <div class="nh-stats">
+        <div class="nh-stat"><div class="nh-stat-label">Archived</div><div class="nh-stat-num nh-stat-red">${s.inactive}</div></div>
+        <div class="nh-stat"><div class="nh-stat-label">Terminated</div><div class="nh-stat-num">${employees.filter((e) => e.status === 'terminated').length}</div></div>
+        <div class="nh-stat"><div class="nh-stat-label">Quit / Resigned</div><div class="nh-stat-num">${employees.filter((e) => e.status === 'quit' || e.status === 'resigned').length}</div></div>
+        <div class="nh-stat"><div class="nh-stat-label">Rescinded</div><div class="nh-stat-num">${employees.filter((e) => e.status === 'rescinded').length}</div></div>
+      </div>
+      <div class="nh-toolbar">
+        <input type="search" class="nh-search" id="nh-search" placeholder="Search archived by name, email, or #..." value="${esc(filters.q)}" />
+        <div class="nh-filters">
+          ${archiveFilters.map((f) =>
+            `<button type="button" class="nh-filter-btn${filters.archiveStatus === f ? ' active' : ''}" data-archive-filter="${f}">${f === 'all' ? 'all archived' : f}</button>`
+          ).join('')}
+        </div>
+      </div>
+      <div class="nh-table-wrap">
+        <table class="nh-table">
+          <thead>
+            <tr><th>#</th><th>Name</th><th>Position</th><th>Region</th><th>City center</th><th>Start Date</th><th>Status</th><th>Progress</th><th></th></tr>
+          </thead>
+          <tbody>
+            ${rows.length ? rows.map((emp) => {
+              const hire = empToHire(emp);
+              const pr = hireProgress(hire);
+              return `<tr>
+                <td class="nh-muted">${esc(emp.employee_number ?? '—')}</td>
+                <td class="nh-name"><button type="button" class="nh-linkish" data-open-hire="${esc(emp.id)}">${esc(emp.full_name)}</button></td>
+                <td>${positionSelect(emp.id, emp.employee_type)}</td>
+                <td>${regionSelect(emp.id, emp.region)}</td>
+                <td>${cityCenterSelect(emp.id, emp.city_center)}</td>
+                <td>${esc(emp.start_date || '—')}</td>
+                <td>${statusSelect(emp.id, emp.status)}</td>
+                <td><button class="btn-xs primary" type="button" data-open-hire="${esc(emp.id)}">${pr.done}/${pr.total}</button></td>
+                <td><button class="btn-xs danger" type="button" data-del-emp="${esc(emp.id)}" title="Permanently delete">Delete</button></td>
+              </tr>`;
+            }).join('') : `<tr><td colspan="9" class="nh-empty">No archived hires</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+      <p class="nh-footnote">${rows.length} archived · set Status to Active to restore · Delete removes them permanently</p>`;
 
     bindRosterChrome(root);
   }
@@ -797,7 +1043,10 @@
   function renderDetail(root) {
     const hire = hires().find((h) => h.id === selectedHireId);
     if (!hire) { view = 'dashboard'; return renderDashboard(root); }
-    setPageSub('Each task is one row (assignee first). Section bars: white = not started, blue = in progress, green = complete. Past-due dates turn red.');
+    const archived = isArchivedStatus(hire.status);
+    setPageSub(archived
+      ? 'Archived hire — set Status back to Active on Archive to restore, or Delete from Archive.'
+      : 'Each task is one row (assignee first). Section bars: white = not started, blue = in progress, green = complete. Past-due dates turn red.');
     const p = hireProgress(hire);
 
     const sectionsHtml = data.sections.map((sec) => {
@@ -835,7 +1084,7 @@
 
     root.innerHTML = `
       <div class="nh-detail-top">
-        <button class="btn-secondary" type="button" id="nh-back">← Dashboard</button>
+        <button class="btn-secondary" type="button" id="nh-back">${archived ? '← Archive' : '← Dashboard'}</button>
         <div class="nh-detail-actions">
           <label class="nh-check-label"><input type="checkbox" id="nh-reveal" ${revealSensitive ? 'checked' : ''}> Show sensitive</label>
           <select id="nh-role-d" class="form-input" style="width:140px" title="Highlight tasks for this role">
@@ -843,14 +1092,19 @@
             ${(data.roles || []).map((r) => `<option value="${esc(r.id)}" ${filters.role === r.id ? 'selected' : ''}>Highlight: ${esc(r.label)}</option>`).join('')}
           </select>
           <button class="btn-secondary" type="button" id="nh-edit-hire">Edit profile</button>
+          ${archived ? `<button class="btn-xs danger" type="button" id="nh-del-hire">Delete</button>` : ''}
         </div>
       </div>
       <div class="nh-profile">
         <div>
           <div class="nh-profile-name">${esc(hire.name)}</div>
+          <div class="nh-profile-meta nh-profile-selects">
+            <label class="nh-check-label">Position ${positionSelect(hire.id, hire.employeeType)}</label>
+            <label class="nh-check-label">Region ${regionSelect(hire.id, hire.division)}</label>
+            <label class="nh-check-label">City center ${cityCenterSelect(hire.id, hire.cityCenter)}</label>
+          </div>
           <div class="nh-profile-meta">
-            <span>${esc(hire.division || 'No region')}</span>
-            <span>· Start ${esc(hire.startDate || 'TBD')}</span>
+            <span>Start ${esc(hire.startDate || 'TBD')}</span>
             ${hire.bootcampDate ? `<span>· Bootcamp ${esc(hire.bootcampDate)}</span>` : ''}
             ${hire.assignedPm ? `<span>· PM ${esc(hire.assignedPm)}</span>` : ''}
           </div>
@@ -871,11 +1125,18 @@
       ${sectionsHtml}`;
 
     root.querySelector('#nh-back').addEventListener('click', () => {
-      view = 'dashboard';
+      view = archived ? 'archive' : 'dashboard';
       selectedHireId = null;
       render();
     });
     root.querySelector('#nh-edit-hire').addEventListener('click', () => openHireModal(hire.id));
+    root.querySelector('#nh-del-hire')?.addEventListener('click', async () => {
+      if (await deleteEmployee(hire.id)) {
+        view = 'archive';
+        render();
+      }
+    });
+    bindProfileSelects(root);
     root.querySelector('#nh-role-d').addEventListener('change', (e) => {
       filters.role = e.target.value;
       localStorage.setItem(ROLE_PREF_KEY, filters.role);
@@ -929,6 +1190,7 @@
     const people = [...new Set([...peopleForRole(it.role), who].filter(Boolean))];
     const stepProg = checklistProgress(hire, it);
     const linkHtml = taskLinkHtml(it);
+    const isRegionField = /^Region$/i.test(it.label);
     let control = '';
     if (stepProg) {
       control = `<button type="button" class="btn-secondary nh-checklist-btn" data-open-checklist="${esc(it.id)}">
@@ -936,8 +1198,13 @@
       </button>`;
     } else if (it.inputType === 'checkbox') {
       control = `<label class="nh-check-label"><input type="checkbox" data-field="${esc(it.id)}" ${filled ? 'checked' : ''}> Done</label>`;
-    } else if (it.inputType === 'select') {
-      const opts = (it.options || []).map((o) => `<option value="${esc(o)}" ${String(raw) === o ? 'selected' : ''}>${esc(o)}</option>`).join('');
+    } else if (isRegionField || it.inputType === 'select') {
+      const optsList = isRegionField ? REGION_OPTIONS : (it.options || []);
+      const cur = isRegionField ? (normalizeRegion(raw) || raw || '') : String(raw || '');
+      const opts = optsList.map((o) => {
+        const v = typeof o === 'string' ? o : o.value;
+        return `<option value="${esc(v)}" ${String(cur) === v ? 'selected' : ''}>${esc(v)}</option>`;
+      }).join('');
       control = `<select class="form-input nh-field-input" data-field="${esc(it.id)}"><option value="">—</option>${opts}</select>`;
     } else if (it.inputType === 'date') {
       const v = typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}/.test(raw) ? raw.slice(0, 10) : '';
@@ -1092,11 +1359,18 @@
     const supabase = client();
     if (!supabase) throw new Error('Not signed in');
     const body = {};
-    ['region', 'start_date', 'bootcamp_start_date', 'assigned_pm', 'full_name', 'status', 'status_note', 'employee_type'].forEach((k) => {
+    ['region', 'city_center', 'start_date', 'bootcamp_start_date', 'assigned_pm', 'full_name', 'status', 'status_note', 'employee_type'].forEach((k) => {
       if (patch[k] !== undefined) body[k] = patch[k] || null;
     });
     if (!Object.keys(body).length) return;
-    const { error } = await supabase.from('employees').update(body).eq('id', id);
+    let { error } = await supabase.from('employees').update(body).eq('id', id);
+    if (error && body.city_center !== undefined && /city_center/i.test(error.message || '')) {
+      delete body.city_center;
+      if (!Object.keys(body).length) {
+        throw new Error('Run ALTER TABLE employees ADD COLUMN city_center TEXT; in Supabase, then try again.');
+      }
+      ({ error } = await supabase.from('employees').update(body).eq('id', id));
+    }
     if (error) throw new Error(error.message);
   }
 
@@ -1308,26 +1582,35 @@
 
   function openHireModal(id) {
     ensureData();
-    let modal = document.getElementById('nh-hire-modal');
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = 'nh-hire-modal';
-      modal.className = 'modal-backdrop';
-      modal.innerHTML = `
+    document.getElementById('nh-hire-modal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'nh-hire-modal';
+    modal.className = 'modal-backdrop';
+    modal.innerHTML = `
         <div class="modal" style="width:560px">
           <div class="modal-head"><span class="modal-title" id="nh-hire-title">Add new hire</span><button class="modal-close" type="button" id="nh-hire-x">×</button></div>
           <div class="modal-body">
             <input type="hidden" id="nh-hire-id">
             <div class="form-row"><label class="form-label">Full name *</label><input id="nh-hire-name" class="form-input" type="text"></div>
             <div class="form-row-2">
-              <div><label class="form-label">Region *</label><input id="nh-hire-division" class="form-input" type="text"></div>
-              <div><label class="form-label">Type</label>
+              <div><label class="form-label">Position *</label>
                 <select id="nh-hire-role" class="form-input">
-                  <option value="technician">technician</option>
-                  <option value="us_office">us_office</option>
-                  <option value="intl_office">intl_office</option>
+                  <option value="technician">TAB technician</option>
+                  <option value="kes_installer">KES installer</option>
+                  <option value="office_staff">office staff</option>
                 </select>
               </div>
+              <div><label class="form-label">Region *</label>
+                <select id="nh-hire-division" class="form-input">
+                  <option value="">— Select region —</option>
+                  ${REGION_OPTIONS.map((r) => `<option value="${esc(r)}">${esc(r)}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <label class="form-label">City center</label>
+              <input id="nh-hire-city" class="form-input" type="text" list="nh-city-dl" placeholder="e.g. Boston, Dallas, Denver…">
+              <datalist id="nh-city-dl"></datalist>
             </div>
             <div class="form-row-2">
               <div><label class="form-label">Start date *</label><input id="nh-hire-start" class="form-input" type="date"></div>
@@ -1340,6 +1623,7 @@
                   <option value="terminated">terminated</option>
                   <option value="quit">quit</option>
                   <option value="rescinded">rescinded</option>
+                  <option value="resigned">resigned</option>
                 </select>
               </div>
               <div><label class="form-label">Status note</label><input id="nh-hire-note" class="form-input" type="text"></div>
@@ -1350,18 +1634,20 @@
             <button class="btn-primary" type="button" id="nh-hire-save">Save</button>
           </div>
         </div>`;
-      document.body.appendChild(modal);
-      modal.addEventListener('click', (e) => { if (e.target === modal) closeHireModal(); });
-      document.getElementById('nh-hire-x').addEventListener('click', closeHireModal);
-      document.getElementById('nh-hire-cancel').addEventListener('click', closeHireModal);
-      document.getElementById('nh-hire-save').addEventListener('click', saveHireModal);
-    }
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeHireModal(); });
+    document.getElementById('nh-hire-x').addEventListener('click', closeHireModal);
+    document.getElementById('nh-hire-cancel').addEventListener('click', closeHireModal);
+    document.getElementById('nh-hire-save').addEventListener('click', saveHireModal);
     const emp = id ? employees.find((e) => e.id === id) : null;
+    const cityOpts = [...new Set([...CITY_CENTER_OPTIONS, ...employees.map((e) => e.city_center).filter(Boolean)])].sort((a, b) => a.localeCompare(b));
+    document.getElementById('nh-city-dl').innerHTML = cityOpts.map((c) => `<option value="${esc(c)}">`).join('');
     document.getElementById('nh-hire-title').textContent = emp ? 'Edit hire' : 'Add new hire';
     document.getElementById('nh-hire-id').value = emp?.id || '';
     document.getElementById('nh-hire-name').value = emp?.full_name || '';
-    document.getElementById('nh-hire-division').value = emp?.region || '';
-    document.getElementById('nh-hire-role').value = emp?.employee_type || 'technician';
+    document.getElementById('nh-hire-division').value = normalizeRegion(emp?.region) || emp?.region || '';
+    document.getElementById('nh-hire-role').value = normalizePosition(emp?.employee_type);
+    document.getElementById('nh-hire-city').value = emp?.city_center || '';
     document.getElementById('nh-hire-start').value = (emp?.start_date || '').slice(0, 10);
     document.getElementById('nh-hire-boot').value = (emp?.bootcamp_start_date || '').slice(0, 10);
     document.getElementById('nh-hire-status').value = emp?.status || 'active';
@@ -1376,8 +1662,9 @@
   async function saveHireModal() {
     const id = document.getElementById('nh-hire-id').value;
     const full_name = document.getElementById('nh-hire-name').value.trim();
-    const region = document.getElementById('nh-hire-division').value.trim();
-    const employee_type = document.getElementById('nh-hire-role').value;
+    const region = normalizeRegion(document.getElementById('nh-hire-division').value.trim());
+    const employee_type = normalizePosition(document.getElementById('nh-hire-role').value);
+    const city_center = document.getElementById('nh-hire-city').value.trim() || null;
     const start_date = document.getElementById('nh-hire-start').value || null;
     const bootcamp_start_date = document.getElementById('nh-hire-boot').value || null;
     const status = document.getElementById('nh-hire-status').value;
@@ -1387,9 +1674,26 @@
       return;
     }
     const supabase = client();
-    const payload = { full_name, region, employee_type, start_date, bootcamp_start_date, status, status_note };
+    const payload = { full_name, region, employee_type, city_center, start_date, bootcamp_start_date, status, status_note };
+    async function writeEmp(kind) {
+      if (kind === 'update') {
+        let { error } = await supabase.from('employees').update(payload).eq('id', id);
+        if (error && /city_center/i.test(error.message || '')) {
+          const { city_center: _c, ...rest } = payload;
+          ({ error } = await supabase.from('employees').update(rest).eq('id', id));
+        }
+        return error;
+      }
+      let { data: created, error } = await supabase.from('employees').insert(payload).select(SELECT_COLS).single();
+      if (error && /city_center/i.test(error.message || '')) {
+        const { city_center: _c, ...rest } = payload;
+        ({ data: created, error } = await supabase.from('employees').insert(rest).select(SELECT_COLS.replace(', city_center', '')).single());
+        if (created) created.city_center = city_center;
+      }
+      return { created, error };
+    }
     if (id) {
-      const { error } = await supabase.from('employees').update(payload).eq('id', id);
+      const error = await writeEmp('update');
       if (error) { alert('Could not update employee: ' + error.message); return; }
       const emp = employees.find((e) => e.id === id);
       if (emp) Object.assign(emp, payload);
@@ -1402,7 +1706,7 @@
       if (bootItem && bootcamp_start_date) p.values[bootItem.id] = bootcamp_start_date;
       persist();
     } else {
-      const { data: created, error } = await supabase.from('employees').insert(payload).select(SELECT_COLS).single();
+      const { created, error } = await writeEmp('insert');
       if (error) { alert('Could not create employee: ' + error.message); return; }
       employees.unshift(created);
       selectedHireId = created.id;
@@ -1605,6 +1909,7 @@
     if (view === 'detail' && selectedHireId) renderDetail(root);
     else if (view === 'template') renderTemplate(root);
     else if (view === 'roster') renderRoster(root);
+    else if (view === 'archive') renderArchive(root);
     else if (view === 'todo') renderTodo(root);
     else renderDashboard(root);
   }

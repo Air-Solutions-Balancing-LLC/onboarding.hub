@@ -220,6 +220,7 @@ CREATE TABLE IF NOT EXISTS public.employees (
   full_name TEXT NOT NULL,
   preferred_name TEXT,
   region TEXT,
+  city_center TEXT,
   referred_by TEXT,
   home_address_line1 TEXT,
   home_address_line2 TEXT,
@@ -410,6 +411,9 @@ SELECT
   start_date,
   NULL::numeric AS pct_complete
 FROM public.employees;
+
+-- Existing DBs created before city_center was added
+ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS city_center TEXT;
 
 CREATE INDEX IF NOT EXISTS employees_employee_number_idx ON public.employees (employee_number);
 CREATE INDEX IF NOT EXISTS employees_status_idx ON public.employees (status);
