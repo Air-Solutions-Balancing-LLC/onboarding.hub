@@ -555,8 +555,7 @@
           <div class="nh-todo-hire">${esc(e.hire.name)} <span class="nh-muted-inline">· ${esc(e.hire.division || '')}</span></div>
           <div class="nh-todo-task">${esc(e.item.label)}</div>
           <div class="nh-todo-meta">
-            <span class="nh-role-chip">${esc(e.item.role)}</span>
-            <span class="nh-owner-chip">${esc(e.who || 'Unassigned')}</span>
+            <span class="nh-person-role"><span class="nh-owner-chip">${esc(e.who || 'Unassigned')}</span><span class="nh-role-chip">${esc(e.item.role)}</span></span>
             <span class="nh-due ${dueCls}">Due ${esc(fmtDate(e.due))}</span>
             <span class="nh-type">${esc(e.item.inputType)}</span>
           </div>
@@ -882,7 +881,7 @@
     }
     return `
       <div class="nh-task-row ${mine ? 'mine' : ''} ${filled ? 'filled' : 'open'} ${overdue ? 'overdue' : ''}">
-        <div class="nh-task-assignee">
+        <div class="nh-task-assignee" title="${esc(who || 'Unassigned')} · ${esc(it.role)}">
           <select class="form-input nh-assignee" data-assignee="${esc(it.id)}" title="Assigned person">
             ${people.map((p) => `<option value="${esc(p)}" ${who === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}
           </select>
@@ -1018,8 +1017,7 @@
                   <div>
                     <div class="nh-field-label" style="font-size:13px;font-weight:600;color:#1e293b">${esc(it.label)}</div>
                     <div class="nh-todo-meta">
-                      <span class="nh-role-chip">${esc(it.role)}</span>
-                      <span class="nh-owner-chip">${esc(it.assignee)}</span>
+                      <span class="nh-person-role"><span class="nh-owner-chip">${esc(it.assignee)}</span><span class="nh-role-chip">${esc(it.role)}</span></span>
                       <span class="nh-type">${esc(it.inputType)}</span>
                       <span class="nh-due">${esc(it.dueAnchor)} ${it.dueOffsetDays >= 0 ? '+' : ''}${it.dueOffsetDays}d</span>
                       ${it.dependsOnPrior && adminMode ? '<span class="nh-dep-badge">Depends on prior task</span>' : ''}
