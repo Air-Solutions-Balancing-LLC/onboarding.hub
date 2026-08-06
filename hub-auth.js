@@ -88,14 +88,38 @@
     if (emailEl && session?.user?.email) emailEl.textContent = session.user.email;
   }
 
-  function setAdminNavVisible(isAdmin) {
-    const btn = document.getElementById('nav-admin');
-    if (btn) btn.style.display = isAdmin ? '' : 'none';
+  // Extra Hub tabs (Resources, Responsibilities, Orientation, Weekly) are Paula-only.
+  const PAULA_EMAILS = [
+    'paula.quintero@airadigmsolutions.com',
+    'pquintero@airadigmsolutions.com',
+    'paula@airadigmsolutions.com'
+  ];
+
+  function isPaulaUser(user) {
+    const u = user || window.hubCurrentUser;
+    if (!u) return false;
+    const email = String(u.email || '').trim().toLowerCase();
+    const name = String(u.full_name || '').trim().toLowerCase();
+    if (PAULA_EMAILS.includes(email)) return true;
+    if (email.startsWith('paula.quintero@') || email.startsWith('pquintero@')) return true;
+    if (name.includes('paula') && name.includes('quintero')) return true;
+    return false;
+  }
+
+  function applyNavVisibility() {
+    const signedIn = !!window.hubCurrentUser;
+    const paula = isPaulaUser();
+    // Everyone on the allowlist can use Checklist + Admin
+    const adminBtn = document.getElementById('nav-admin');
+    if (adminBtn) adminBtn.style.display = signedIn ? '' : 'none';
+    document.querySelectorAll('[data-paula-only]').forEach((el) => {
+      el.style.display = paula ? '' : 'none';
+    });
   }
 
   async function loadAppUser(session) {
     window.hubCurrentUser = null;
-    setAdminNavVisible(false);
+    applyNavVisibility();
     const email = (session?.user?.email || '').trim().toLowerCase();
     if (!email) return { ok: false, reason: 'missing_email' };
 
@@ -117,13 +141,13 @@
     }
 
     window.hubCurrentUser = data;
-    setAdminNavVisible(data.role === 'admin');
+    applyNavVisibility();
     return { ok: true, user: data };
   }
 
   async function denyAccess(message) {
     window.hubCurrentUser = null;
-    setAdminNavVisible(false);
+    applyNavVisibility();
     accessDenyMessage = message || accessDenyMessage;
     showAuthScreen(accessDenyMessage);
     try {
@@ -155,7 +179,7 @@
   async function signOut() {
     await supabase.auth.signOut();
     window.hubCurrentUser = null;
-    setAdminNavVisible(false);
+    applyNavVisibility();
     showAuthScreen();
   }
 
@@ -212,7 +236,7 @@
       if (event === 'SIGNED_IN' && session) await onAuthenticated(session);
       if (event === 'SIGNED_OUT') {
         window.hubCurrentUser = null;
-        setAdminNavVisible(false);
+        applyNavVisibility();
         showAuthScreen(accessDenyMessage);
       }
     });
@@ -225,5 +249,11 @@
     signOut,
     getClient: () => supabase,
     isAdmin: () => !!(window.hubCurrentUser && window.hubCurrentUser.role === 'admin'),
+    // Any allowlisted user can open Admin (user mgmt + checklist process)
+    canAccessAdmin: () => !!window.hubCurrentUser,
+    // Paula-only tabs: Resources, Responsibilities, Orientation, Weekly Tasks
+    isPaula: () => isPaulaUser(),
+    canAccessHubExtras: () => isPaulaUser(),
+    applyNavVisibility
   };
 })();

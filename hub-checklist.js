@@ -3,8 +3,9 @@
   const STORAGE_KEY = 'new_hire_checklist';
   const ROLE_PREF_KEY = 'nh_role_pref';
   const PERSON_PREF_KEY = 'nh_person_pref';
+  // start_date = Orientation date (due-date anchor). work_start_date = Start date (techs for now).
   const SELECT_COLS =
-    'id, full_name, employee_number, employee_type, status, status_note, region, city_center, start_date, bootcamp_start_date, company_email, assigned_pm';
+    'id, full_name, employee_number, employee_type, status, status_note, region, city_center, start_date, work_start_date, bootcamp_start_date, company_email, assigned_pm';
 
   let data = null; // { version, roles, sections, items, progress }
   let employees = [];
@@ -72,6 +73,7 @@
         options: old.options && old.options.length ? old.options : bi.options,
         dueOffsetDays: old.dueOffsetDays != null ? old.dueOffsetDays : bi.dueOffsetDays,
         dueAnchor: old.dueAnchor || bi.dueAnchor,
+        dueDaysBefore: old.dueDaysBefore != null ? old.dueDaysBefore : bi.dueDaysBefore,
         sensitive: old.sensitive != null ? old.sensitive : bi.sensitive,
         dependsOnPrior: !!(old.dependsOnPrior || old.dependsOnTaskId || bi.dependsOnPrior || bi.dependsOnTaskId),
         dependsOnTaskId: old.dependsOnTaskId || bi.dependsOnTaskId || null,
@@ -85,13 +87,13 @@
       if (oi.id && String(oi.id).startsWith('t') && oi.label && oi.role && !items.find((i) => i.id === oi.id)) {
         items.push(Object.assign({
           role: 'HR', assignee: 'Lisa', inputType: 'text', options: [],
-          dueOffsetDays: -7, dueAnchor: 'start', sensitive: false,
+          dueOffsetDays: 0, dueAnchor: 'orientation', dueDaysBefore: 0, sensitive: false,
           dependsOnPrior: false, dependsOnTaskId: null, checklistSteps: [], link: '',
           order: items.length + 1
         }, oi));
       }
     });
-    // Normalize dependency flags
+    // Normalize dependency flags + due-date fields
     items.forEach((it) => {
       if (it.dependsOnTaskId && !items.find((x) => x.id === it.dependsOnTaskId)) {
         it.dependsOnTaskId = null;
@@ -99,6 +101,7 @@
       it.dependsOnPrior = !!it.dependsOnTaskId || !!it.dependsOnPrior;
       if (!it.dependsOnPrior) it.dependsOnTaskId = null;
       it.link = (it.link && String(it.link).trim()) || '';
+      normalizeItemDue(it);
     });
 
     // progress: prefer progress map; migrate legacy hires[].values if present
@@ -237,7 +240,8 @@
       division: emp.region || '',
       cityCenter: emp.city_center || '',
       role: emp.employee_type || '',
-      startDate: emp.start_date || '',
+      startDate: emp.start_date || '', // Orientation date
+      workStartDate: emp.work_start_date || '',
       bootcampDate: emp.bootcamp_start_date || '',
       status: emp.status || 'active',
       statusNote: emp.status_note || '',
@@ -257,12 +261,88 @@
     return employees.map(empToHire);
   }
 
+  const DUE_ANCHORS = [
+    { value: 'orientation', label: 'Orientation date' },
+    { value: 'work_start', label: 'Start date' },
+    { value: 'bootcamp', label: 'Bootcamp date' }
+  ];
+
+  function normalizeDueAnchor(anchor) {
+    const a = String(anchor || '').toLowerCase();
+    if (a === 'bootcamp') return 'bootcamp';
+    if (a === 'work_start' || a === 'work' || a === 'employment' || a === 'start_date') return 'work_start';
+    // legacy "start" meant Orientation (stored in start_date)
+    return 'orientation';
+  }
+
+  function daysBeforeOf(item) {
+    if (!item) return 0;
+    if (item.dueDaysBefore != null && item.dueDaysBefore !== '') {
+      return Math.max(0, parseInt(item.dueDaysBefore, 10) || 0);
+    }
+    const off = parseInt(item.dueOffsetDays, 10) || 0;
+    // Legacy: negative offset = days before; positive (days after) kept via dueOffsetDays until edited
+    return off < 0 ? -off : 0;
+  }
+
+  function normalizeItemDue(it) {
+    if (!it) return it;
+    it.dueAnchor = normalizeDueAnchor(it.dueAnchor);
+    if (it.dueDaysBefore == null || it.dueDaysBefore === '') {
+      const off = parseInt(it.dueOffsetDays, 10);
+      if (!Number.isNaN(off) && off < 0) it.dueDaysBefore = -off;
+      else if (!Number.isNaN(off) && off > 0) {
+        // keep legacy "days after" as negative days-before equivalent via offset only
+        it.dueDaysBefore = 0;
+      } else {
+        it.dueDaysBefore = 0;
+      }
+    } else {
+      it.dueDaysBefore = Math.max(0, parseInt(it.dueDaysBefore, 10) || 0);
+    }
+    // Canonical storage: days before → negative offset (unless legacy positive offset and daysBefore still 0)
+    const off = parseInt(it.dueOffsetDays, 10) || 0;
+    if (it.dueDaysBefore > 0 || off <= 0) {
+      it.dueOffsetDays = -it.dueDaysBefore;
+    }
+    return it;
+  }
+
+  function dueAnchorLabel(anchor) {
+    const a = normalizeDueAnchor(anchor);
+    return (DUE_ANCHORS.find((x) => x.value === a) || DUE_ANCHORS[0]).label;
+  }
+
+  function dueRuleLabel(item) {
+    const days = daysBeforeOf(item);
+    const base = dueAnchorLabel(item && item.dueAnchor);
+    if (days === 0) return `On ${base}`;
+    return `${days} day${days === 1 ? '' : 's'} before ${base}`;
+  }
+
   function dueDateFor(hire, item) {
-    const anchor = item.dueAnchor === 'bootcamp'
-      ? (parseDate(hire.bootcampDate) || parseDate(hire.startDate))
-      : parseDate(hire.startDate);
-    if (!anchor) return null;
-    return addDays(anchor, item.dueOffsetDays || 0);
+    const anchor = normalizeDueAnchor(item && item.dueAnchor);
+    let base = null;
+    if (anchor === 'bootcamp') {
+      base = parseDate(hire.bootcampDate) || parseDate(hire.startDate);
+    } else if (anchor === 'work_start') {
+      base = parseDate(hire.workStartDate) || parseDate(hire.startDate);
+    } else {
+      base = parseDate(hire.startDate); // Orientation date
+    }
+    if (!base) return null;
+    // Prefer days-before model; fall back to legacy offset (supports old "days after")
+    if (item.dueDaysBefore != null && item.dueDaysBefore !== '') {
+      return addDays(base, -daysBeforeOf(item));
+    }
+    return addDays(base, item.dueOffsetDays || 0);
+  }
+
+  function dueAnchorOptionsHtml(selected) {
+    const cur = normalizeDueAnchor(selected);
+    return DUE_ANCHORS.map((a) =>
+      `<option value="${esc(a.value)}" ${a.value === cur ? 'selected' : ''}>${esc(a.label)}</option>`
+    ).join('');
   }
 
   function isFilled(item, val, hire) {
@@ -305,9 +385,22 @@
     return data.items.filter((i) => i.sectionId === sectionId).sort((a, b) => (a.order || 0) - (b.order || 0));
   }
 
-  function hireProgress(hire, roleFilter) {
-    let items = data.items;
-    if (roleFilter && roleFilter !== 'all') items = items.filter((i) => i.role === roleFilter);
+  function matchesRolePersonFilter(hire, item, roleFilter, personFilter) {
+    const role = roleFilter != null ? roleFilter : filters.role;
+    const person = personFilter != null ? personFilter : filters.person;
+    if (role && role !== 'all' && item.role !== role) return false;
+    if (person && person !== 'all' && assigneeOf(hire, item) !== person) return false;
+    return true;
+  }
+
+  function itemsForHireFilter(hire, items, roleFilter, personFilter) {
+    return (items || data.items || []).filter((it) =>
+      matchesRolePersonFilter(hire, it, roleFilter, personFilter)
+    );
+  }
+
+  function hireProgress(hire, roleFilter, personFilter) {
+    const items = itemsForHireFilter(hire, data.items, roleFilter, personFilter);
     const total = items.length;
     let done = 0;
     items.forEach((it) => { if (isFilled(it, hire.values?.[it.id], hire)) done++; });
@@ -499,18 +592,21 @@
     loading = true;
     loadError = null;
     render();
+    let selectCols = SELECT_COLS;
     let { data: rows, error } = await supabase
       .from('employees')
-      .select(SELECT_COLS)
+      .select(selectCols)
       .order('employee_number', { ascending: false, nullsFirst: false });
-    // Older DBs may not have city_center yet — fall back without it
-    if (error && /city_center/i.test(error.message || '')) {
-      const fallback = SELECT_COLS.replace(', city_center', '');
+    // Older DBs may be missing newer profile columns
+    if (error && /(city_center|work_start_date)/i.test(error.message || '')) {
+      selectCols = SELECT_COLS.replace(', city_center', '').replace(', work_start_date', '');
       ({ data: rows, error } = await supabase
         .from('employees')
-        .select(fallback)
+        .select(selectCols)
         .order('employee_number', { ascending: false, nullsFirst: false }));
-      if (!error && rows) rows = rows.map((r) => Object.assign({ city_center: null }, r));
+      if (!error && rows) {
+        rows = rows.map((r) => Object.assign({ city_center: null, work_start_date: null }, r));
+      }
     }
     if (error) {
       loading = false;
@@ -634,12 +730,20 @@
     return true;
   }
 
-  function sectionProgress(hire, sectionId) {
-    const items = itemsForSection(sectionId);
+  function sectionProgress(hire, sectionId, roleFilter, personFilter) {
+    const items = itemsForHireFilter(hire, itemsForSection(sectionId), roleFilter, personFilter);
     const total = items.length;
     let done = 0;
     items.forEach((it) => { if (isFilled(it, hire.values?.[it.id], hire)) done++; });
     return { done, total, pct: total ? Math.round((done / total) * 100) : 0 };
+  }
+
+  function filterScopeLabel() {
+    if (filters.person && filters.person !== 'all') {
+      return `${filters.person}${filters.role !== 'all' ? ` (${filters.role})` : ''}`;
+    }
+    if (filters.role && filters.role !== 'all') return `${filters.role} role`;
+    return 'all roles';
   }
 
   function pctClass(pct) {
@@ -701,8 +805,8 @@
     });
     root.querySelector('#nh-btn-add')?.addEventListener('click', () => openHireModal());
     root.querySelector('#nh-btn-template')?.addEventListener('click', () => {
-      // Process editing lives in Admin for full team control
-      if (window.HubAuth && HubAuth.isAdmin && HubAuth.isAdmin()) {
+      // Process editing lives in Admin for the whole team
+      if (window.HubAuth && HubAuth.canAccessAdmin && HubAuth.canAccessAdmin()) {
         const adminBtn = document.getElementById('nav-admin');
         showPage('admin', adminBtn);
         setTimeout(() => {
@@ -716,7 +820,7 @@
   }
 
   function renderTodo(root) {
-    setPageSub('Pick your role (HR / Admin / PM / Logistics / Training). Due dates use each hire’s start date (bootcamp tasks use bootcamp date).');
+    setPageSub('Pick your role (HR / Admin / PM / Logistics / Training). Due dates use Orientation date (bootcamp tasks use Bootcamp date).');
     const entries = todoEntries();
     const overdue = entries.filter((e) => e.bucket === 'overdue').length;
     const week = entries.filter((e) => e.bucket === 'week' || e.bucket === 'overdue').length;
@@ -738,7 +842,7 @@
           <button class="wt-filter-btn ${filters.todoScope === 'open' ? 'active' : ''}" data-scope="open">Open</button>
           <button class="wt-filter-btn ${filters.todoScope === 'all' ? 'active' : ''}" data-scope="all">All</button>
           <button class="wt-filter-btn ${filters.todoScope === 'done' ? 'active' : ''}" data-scope="done">Done</button>
-          <button class="wt-filter-btn ${filters.hireWindow === 'onboarding' ? 'active' : ''}" data-hire-window="onboarding" title="Start date within last 120 days or next 60 days">Onboarding window</button>
+          <button class="wt-filter-btn ${filters.hireWindow === 'onboarding' ? 'active' : ''}" data-hire-window="onboarding" title="Orientation date within last 120 days or next 60 days">Onboarding window</button>
           <button class="wt-filter-btn ${filters.hireWindow === 'all' ? 'active' : ''}" data-hire-window="all">All active hires</button>
         </div>
         <div class="nh-muted">Roster from employees · showing ${Math.min(shown.length, entries.length)} of ${entries.length}</div>
@@ -853,7 +957,7 @@
   }
 
   function renderDashboard(root) {
-    setPageSub('Active hires only — change Status to Terminated / Quit / Rescinded / Resigned to move someone to Archive.');
+    setPageSub(`Progress counts use My role / Person filters — currently showing tasks for ${filterScopeLabel()}. Status changes still move hires to Archive.`);
     ensureData();
     const s = stats();
     const rows = filteredEmployees();
@@ -865,7 +969,7 @@
         <div class="nh-stat"><div class="nh-stat-label">Total Employees</div><div class="nh-stat-num">${s.total}</div></div>
         <div class="nh-stat"><div class="nh-stat-label">Active</div><div class="nh-stat-num nh-stat-green">${s.active}</div></div>
         <div class="nh-stat"><div class="nh-stat-label">Archived</div><div class="nh-stat-num nh-stat-red">${s.inactive}</div></div>
-        <div class="nh-stat"><div class="nh-stat-label">Technicians</div><div class="nh-stat-num nh-stat-amber">${s.technicians}</div></div>
+        <div class="nh-stat"><div class="nh-stat-label">Filter</div><div class="nh-stat-num" style="font-size:14px">${esc(filterScopeLabel())}</div></div>
       </div>
       <div class="nh-toolbar">
         <input type="search" class="nh-search" id="nh-search" placeholder="Search by name, email, or #..." value="${esc(filters.q)}" />
@@ -882,7 +986,9 @@
               <th>Position</th>
               <th>Region</th>
               <th>City center</th>
+              <th>Orientation</th>
               <th>Start</th>
+              <th>Bootcamp</th>
               <th>Status</th>
               <th>Overall</th>
               ${sections.map((sec) => `<th title="${esc(sec.title)}" class="nh-sec-col">${esc(sec.id)}</th>`).join('')}
@@ -891,7 +997,7 @@
             <tr class="nh-sheet-subhead">
               <th class="nh-sticky"></th>
               <th class="nh-sticky nh-sticky-2"></th>
-              <th colspan="6" class="nh-muted">Profile</th>
+              <th colspan="8" class="nh-muted">Profile</th>
               ${sections.map((sec) => `<th class="nh-sec-sub">${esc(sec.title)}</th>`).join('')}
               <th></th>
             </tr>
@@ -909,21 +1015,23 @@
                 <td>${regionSelect(emp.id, emp.region)}</td>
                 <td>${cityCenterSelect(emp.id, emp.city_center)}</td>
                 <td>${esc(emp.start_date || '—')}</td>
+                <td>${esc(emp.work_start_date || '—')}</td>
+                <td>${esc(emp.bootcamp_start_date || '—')}</td>
                 <td>${statusSelect(emp.id, emp.status)}</td>
-                <td><span class="nh-pct ${pctClass(overall.pct)}" title="${overall.done}/${overall.total}">${overall.pct}%</span></td>
+                <td><span class="nh-pct ${pctClass(overall.pct)}" title="${overall.done}/${overall.total} for ${esc(filterScopeLabel())}">${overall.done}/${overall.total}</span></td>
                 ${sections.map((sec) => {
                   const sp = sectionProgress(hire, sec.id);
                   return `<td class="nh-sec-cell">
-                    <button type="button" class="nh-pct ${pctClass(sp.pct)}" data-open-hire="${esc(emp.id)}" title="${esc(sec.title)}: ${sp.done}/${sp.total}">${sp.done}/${sp.total}</button>
+                    <button type="button" class="nh-pct ${pctClass(sp.pct)}" data-open-hire="${esc(emp.id)}" title="${esc(sec.title)} · ${esc(filterScopeLabel())}: ${sp.done}/${sp.total}">${sp.done}/${sp.total}</button>
                   </td>`;
                 }).join('')}
                 <td><button class="btn-xs primary" type="button" data-open-hire="${esc(emp.id)}">Open</button></td>
               </tr>`;
-            }).join('') : `<tr><td colspan="${9 + sections.length}" class="nh-empty">No employees found</td></tr>`}
+            }).join('') : `<tr><td colspan="${11 + sections.length}" class="nh-empty">No employees found</td></tr>`}
           </tbody>
         </table>
       </div>
-      <p class="nh-footnote">${rows.length} active hires · columns A–J match spreadsheet sections · non-active Status moves to Archive</p>`;
+      <p class="nh-footnote">${rows.length} active hires · A–J counts are for ${esc(filterScopeLabel())} · choose All roles to see full totals</p>`;
 
     bindRosterChrome(root);
   }
@@ -950,7 +1058,7 @@
       <div class="nh-table-wrap">
         <table class="nh-table">
           <thead>
-            <tr><th>#</th><th>Name</th><th>Position</th><th>Region</th><th>City center</th><th>Start Date</th><th>Status</th><th>Progress</th></tr>
+            <tr><th>#</th><th>Name</th><th>Position</th><th>Region</th><th>City center</th><th>Orientation</th><th>Start</th><th>Bootcamp</th><th>Status</th><th>Progress</th></tr>
           </thead>
           <tbody>
             ${rows.length ? rows.map((emp) => {
@@ -963,10 +1071,12 @@
                 <td>${regionSelect(emp.id, emp.region)}</td>
                 <td>${cityCenterSelect(emp.id, emp.city_center)}</td>
                 <td>${esc(emp.start_date || '—')}</td>
+                <td>${esc(emp.work_start_date || '—')}</td>
+                <td>${esc(emp.bootcamp_start_date || '—')}</td>
                 <td>${statusSelect(emp.id, emp.status)}</td>
                 <td><button class="btn-xs primary" type="button" data-open-hire="${esc(emp.id)}">${pr.done}/${pr.total}</button></td>
               </tr>`;
-            }).join('') : `<tr><td colspan="8" class="nh-empty">No employees found</td></tr>`}
+            }).join('') : `<tr><td colspan="10" class="nh-empty">No employees found</td></tr>`}
           </tbody>
         </table>
       </div>
@@ -1001,7 +1111,7 @@
       <div class="nh-table-wrap">
         <table class="nh-table">
           <thead>
-            <tr><th>#</th><th>Name</th><th>Position</th><th>Region</th><th>City center</th><th>Start Date</th><th>Status</th><th>Progress</th><th></th></tr>
+            <tr><th>#</th><th>Name</th><th>Position</th><th>Region</th><th>City center</th><th>Orientation</th><th>Start</th><th>Bootcamp</th><th>Status</th><th>Progress</th><th></th></tr>
           </thead>
           <tbody>
             ${rows.length ? rows.map((emp) => {
@@ -1014,11 +1124,13 @@
                 <td>${regionSelect(emp.id, emp.region)}</td>
                 <td>${cityCenterSelect(emp.id, emp.city_center)}</td>
                 <td>${esc(emp.start_date || '—')}</td>
+                <td>${esc(emp.work_start_date || '—')}</td>
+                <td>${esc(emp.bootcamp_start_date || '—')}</td>
                 <td>${statusSelect(emp.id, emp.status)}</td>
                 <td><button class="btn-xs primary" type="button" data-open-hire="${esc(emp.id)}">${pr.done}/${pr.total}</button></td>
                 <td><button class="btn-xs danger" type="button" data-del-emp="${esc(emp.id)}" title="Permanently delete">Delete</button></td>
               </tr>`;
-            }).join('') : `<tr><td colspan="9" class="nh-empty">No archived hires</td></tr>`}
+            }).join('') : `<tr><td colspan="11" class="nh-empty">No archived hires</td></tr>`}
           </tbody>
         </table>
       </div>
@@ -1044,14 +1156,15 @@
     const hire = hires().find((h) => h.id === selectedHireId);
     if (!hire) { view = 'dashboard'; return renderDashboard(root); }
     const archived = isArchivedStatus(hire.status);
+    const p = hireProgress(hire);
+    const scoped = filterScopeLabel();
     setPageSub(archived
       ? 'Archived hire — set Status back to Active on Archive to restore, or Delete from Archive.'
-      : 'Each task is one row (assignee first). Section bars: white = not started, blue = in progress, green = complete. Past-due dates turn red.');
-    const p = hireProgress(hire);
+      : `Showing tasks for ${scoped} (${p.done}/${p.total}). Change My role / Person to widen or narrow the list.`);
 
     const sectionsHtml = data.sections.map((sec) => {
-      // Always show every task in the section (full spreadsheet visibility)
-      const items = itemsForSection(sec.id);
+      const items = itemsForHireFilter(hire, itemsForSection(sec.id));
+      if (!items.length && (filters.role !== 'all' || filters.person !== 'all')) return '';
       const expanded = openSections[sec.id] === true;
       const spDone = items.filter((it) => isFilled(it, hire.values?.[it.id], hire)).length;
       const spOpen = items.length - spDone;
@@ -1076,7 +1189,7 @@
                 <span>Value</span>
                 <span>Status</span>
               </div>
-              ${items.map((it) => fieldRow(hire, it)).join('') || '<div class="nh-empty-block">No tasks in this section.</div>'}
+              ${items.map((it) => fieldRow(hire, it)).join('') || '<div class="nh-empty-block">No tasks in this section for this filter.</div>'}
             </div>
           </div>
         </div>`;
@@ -1087,9 +1200,9 @@
         <button class="btn-secondary" type="button" id="nh-back">${archived ? '← Archive' : '← Dashboard'}</button>
         <div class="nh-detail-actions">
           <label class="nh-check-label"><input type="checkbox" id="nh-reveal" ${revealSensitive ? 'checked' : ''}> Show sensitive</label>
-          <select id="nh-role-d" class="form-input" style="width:140px" title="Highlight tasks for this role">
-            <option value="all" ${filters.role === 'all' ? 'selected' : ''}>Highlight: all</option>
-            ${(data.roles || []).map((r) => `<option value="${esc(r.id)}" ${filters.role === r.id ? 'selected' : ''}>Highlight: ${esc(r.label)}</option>`).join('')}
+          <select id="nh-role-d" class="form-input" style="width:140px" title="Filter tasks by role">
+            <option value="all" ${filters.role === 'all' ? 'selected' : ''}>Role: all</option>
+            ${(data.roles || []).map((r) => `<option value="${esc(r.id)}" ${filters.role === r.id ? 'selected' : ''}>Role: ${esc(r.label)}</option>`).join('')}
           </select>
           <button class="btn-secondary" type="button" id="nh-edit-hire">Edit profile</button>
           ${archived ? `<button class="btn-xs danger" type="button" id="nh-del-hire">Delete</button>` : ''}
@@ -1103,9 +1216,10 @@
             <label class="nh-check-label">Region ${regionSelect(hire.id, hire.division)}</label>
             <label class="nh-check-label">City center ${cityCenterSelect(hire.id, hire.cityCenter)}</label>
           </div>
-          <div class="nh-profile-meta">
-            <span>Start ${esc(hire.startDate || 'TBD')}</span>
-            ${hire.bootcampDate ? `<span>· Bootcamp ${esc(hire.bootcampDate)}</span>` : ''}
+          <div class="nh-profile-meta nh-date-meta">
+            <span><strong>Orientation date</strong> ${esc(hire.startDate || 'TBD')}</span>
+            <span><strong>Start date</strong> ${esc(hire.workStartDate || 'TBD')}</span>
+            <span><strong>Bootcamp date</strong> ${esc(hire.bootcampDate || 'TBD')}</span>
             ${hire.assignedPm ? `<span>· PM ${esc(hire.assignedPm)}</span>` : ''}
           </div>
           <div class="nh-bar-legend">
@@ -1118,11 +1232,11 @@
           <span class="${statusBadgeClass(hire.status)}">${esc(hire.status || '—')}</span>
           <div class="nh-prog big">
             <div class="nh-prog-bar"><span style="width:${p.pct}%"></span></div>
-            <div class="nh-prog-label">${p.done} done / ${p.total - p.done} open · ${p.pct}%</div>
+            <div class="nh-prog-label">${p.done}/${p.total} for ${esc(scoped)} · ${p.pct}%</div>
           </div>
         </div>
       </div>
-      ${sectionsHtml}`;
+      ${sectionsHtml || `<div class="nh-empty-block">No tasks assigned to ${esc(scoped)} for this hire.</div>`}`;
 
     root.querySelector('#nh-back').addEventListener('click', () => {
       view = archived ? 'archive' : 'dashboard';
@@ -1139,7 +1253,9 @@
     bindProfileSelects(root);
     root.querySelector('#nh-role-d').addEventListener('change', (e) => {
       filters.role = e.target.value;
+      filters.person = 'all';
       localStorage.setItem(ROLE_PREF_KEY, filters.role);
+      localStorage.setItem(PERSON_PREF_KEY, 'all');
       render();
     });
     root.querySelector('#nh-reveal').addEventListener('change', (e) => {
@@ -1359,15 +1475,16 @@
     const supabase = client();
     if (!supabase) throw new Error('Not signed in');
     const body = {};
-    ['region', 'city_center', 'start_date', 'bootcamp_start_date', 'assigned_pm', 'full_name', 'status', 'status_note', 'employee_type'].forEach((k) => {
+    ['region', 'city_center', 'start_date', 'work_start_date', 'bootcamp_start_date', 'assigned_pm', 'full_name', 'status', 'status_note', 'employee_type'].forEach((k) => {
       if (patch[k] !== undefined) body[k] = patch[k] || null;
     });
     if (!Object.keys(body).length) return;
     let { error } = await supabase.from('employees').update(body).eq('id', id);
-    if (error && body.city_center !== undefined && /city_center/i.test(error.message || '')) {
-      delete body.city_center;
+    if (error && /(city_center|work_start_date)/i.test(error.message || '')) {
+      if (/city_center/i.test(error.message || '')) delete body.city_center;
+      if (/work_start_date/i.test(error.message || '')) delete body.work_start_date;
       if (!Object.keys(body).length) {
-        throw new Error('Run ALTER TABLE employees ADD COLUMN city_center TEXT; in Supabase, then try again.');
+        throw new Error('Run the employees column ALTERs in supabase-schema.sql, then try again.');
       }
       ({ error } = await supabase.from('employees').update(body).eq('id', id));
     }
@@ -1466,6 +1583,36 @@
         });
         sel.addEventListener('click', (e) => e.stopPropagation());
       });
+      root.querySelectorAll('[data-due-anchor]').forEach((sel) => {
+        sel.addEventListener('change', () => {
+          const id = sel.getAttribute('data-due-anchor');
+          const it = data.items.find((i) => i.id === id);
+          if (!it) return;
+          it.dueAnchor = normalizeDueAnchor(sel.value);
+          normalizeItemDue(it);
+          persist();
+          processAdminOpen[it.sectionId] = true;
+          if (onRefresh) onRefresh();
+        });
+        sel.addEventListener('click', (e) => e.stopPropagation());
+      });
+      root.querySelectorAll('[data-due-before]').forEach((inp) => {
+        const commit = () => {
+          const id = inp.getAttribute('data-due-before');
+          const it = data.items.find((i) => i.id === id);
+          if (!it) return;
+          it.dueDaysBefore = Math.max(0, parseInt(inp.value, 10) || 0);
+          it.dueOffsetDays = -it.dueDaysBefore;
+          normalizeItemDue(it);
+          inp.value = String(it.dueDaysBefore);
+          persist();
+          processAdminOpen[it.sectionId] = true;
+          const meta = inp.closest('.nh-template-row')?.querySelector('.nh-due');
+          if (meta) meta.textContent = dueRuleLabel(it);
+        };
+        inp.addEventListener('change', commit);
+        inp.addEventListener('click', (e) => e.stopPropagation());
+      });
     }
   }
 
@@ -1490,13 +1637,14 @@
             <div class="nh-process-cat-actions">
               <button class="btn-primary" type="button" data-add-section="${esc(sec.id)}">+ Add task to ${esc(sec.id)}</button>
               <span class="nh-muted">${adminMode
-                ? 'Check “Depends on another task first”, then pick the prerequisite task from the list.'
-                : 'Assignee, role, field type, and due offset from start/bootcamp date'}</span>
+                ? 'Due date = selected date minus “days before”. Default is 0 days before Orientation. Set dependency if a task must wait on another.'
+                : 'Assignee, role, field type, and due date from Orientation / Start / Bootcamp'}</span>
             </div>
             <div class="nh-template-list">
               ${items.length ? items.map((it) => {
                 const depOn = !!(it.dependsOnPrior || it.dependsOnTaskId);
                 const depLabel = it.dependsOnTaskId ? taskLabelById(it.dependsOnTaskId) : '';
+                const daysBefore = daysBeforeOf(it);
                 return `
                 <div class="nh-template-row${depOn ? ' nh-has-dependency' : ''}">
                   <div>
@@ -1504,11 +1652,23 @@
                     <div class="nh-todo-meta">
                       <span class="nh-person-role"><span class="nh-owner-chip">${esc(it.assignee)}</span><span class="nh-role-chip">${esc(it.role)}</span></span>
                       <span class="nh-type">${esc(it.inputType)}</span>
-                      <span class="nh-due">${esc(it.dueAnchor)} ${it.dueOffsetDays >= 0 ? '+' : ''}${it.dueOffsetDays}d</span>
+                      <span class="nh-due">${esc(dueRuleLabel(it))}</span>
                       ${normalizeSteps(it).length ? `<span class="nh-steps-chip">${normalizeSteps(it).length}-step check-off</span>` : ''}
                       ${taskLinkHtml(it) || ''}
                       ${depOn && adminMode ? `<span class="nh-dep-badge">${depLabel ? 'Depends on: ' + esc(depLabel) : 'Pick prerequisite…'}</span>` : ''}
                     </div>
+                    ${adminMode ? `
+                      <div class="nh-due-inline">
+                        <label class="nh-check-label">Based on
+                          <select class="form-input nh-due-anchor" data-due-anchor="${esc(it.id)}" title="Date used to calculate due date">
+                            ${dueAnchorOptionsHtml(it.dueAnchor)}
+                          </select>
+                        </label>
+                        <label class="nh-check-label">Days before
+                          <input class="form-input nh-due-before" type="number" min="0" step="1" value="${daysBefore}" data-due-before="${esc(it.id)}" title="Days before the selected date (0 = same day)">
+                        </label>
+                      </div>
+                    ` : ''}
                   </div>
                   <div class="nh-template-actions">
                     ${adminMode ? `
@@ -1535,6 +1695,16 @@
     }).join('');
   }
 
+  function resetAllDueDefaults() {
+    ensureData();
+    (data.items || []).forEach((it) => {
+      it.dueAnchor = 'orientation';
+      it.dueDaysBefore = 0;
+      it.dueOffsetDays = 0;
+    });
+    persist();
+  }
+
   function renderProcessAdmin(root) {
     if (!root) return;
     ensureData();
@@ -1544,8 +1714,17 @@
     });
     const total = (data.items || []).length;
     root.innerHTML = `
-      <p class="user-mgmt-subtitle" style="margin-bottom:12px">${total} tasks across ${(data.sections || []).length} categories. Expand a category to edit or add tasks. The dependency checkbox appears only here in Admin.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <p class="user-mgmt-subtitle" style="margin:0">${total} tasks across ${(data.sections || []).length} categories. Due date = chosen date minus days before (default: 0 days before Orientation).</p>
+        <button type="button" class="btn-secondary" id="nh-reset-dues">Reset all dues → 0 days before Orientation</button>
+      </div>
       ${processSectionsHtml({ adminMode: true })}`;
+    root.querySelector('#nh-reset-dues')?.addEventListener('click', () => {
+      if (!confirm('Set every task to 0 days before Orientation date? You can still change individual tasks after.')) return;
+      resetAllDueDefaults();
+      renderProcessAdmin(root);
+      if (document.getElementById('page-checklist')?.classList.contains('active')) render();
+    });
     bindProcessEditor(root, {
       adminMode: true,
       onRefresh: () => renderProcessAdmin(root)
@@ -1613,8 +1792,12 @@
               <datalist id="nh-city-dl"></datalist>
             </div>
             <div class="form-row-2">
-              <div><label class="form-label">Start date *</label><input id="nh-hire-start" class="form-input" type="date"></div>
-              <div><label class="form-label">Bootcamp start</label><input id="nh-hire-boot" class="form-input" type="date"></div>
+              <div><label class="form-label">Orientation date *</label><input id="nh-hire-start" class="form-input" type="date"></div>
+              <div><label class="form-label">Start date</label><input id="nh-hire-work-start" class="form-input" type="date" title="For technicians for now; office start rules later"></div>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Bootcamp date</label>
+              <input id="nh-hire-boot" class="form-input" type="date">
             </div>
             <div class="form-row-2">
               <div><label class="form-label">Status</label>
@@ -1649,6 +1832,7 @@
     document.getElementById('nh-hire-role').value = normalizePosition(emp?.employee_type);
     document.getElementById('nh-hire-city').value = emp?.city_center || '';
     document.getElementById('nh-hire-start').value = (emp?.start_date || '').slice(0, 10);
+    document.getElementById('nh-hire-work-start').value = (emp?.work_start_date || '').slice(0, 10);
     document.getElementById('nh-hire-boot').value = (emp?.bootcamp_start_date || '').slice(0, 10);
     document.getElementById('nh-hire-status').value = emp?.status || 'active';
     document.getElementById('nh-hire-note').value = emp?.status_note || '';
@@ -1665,30 +1849,40 @@
     const region = normalizeRegion(document.getElementById('nh-hire-division').value.trim());
     const employee_type = normalizePosition(document.getElementById('nh-hire-role').value);
     const city_center = document.getElementById('nh-hire-city').value.trim() || null;
-    const start_date = document.getElementById('nh-hire-start').value || null;
+    const start_date = document.getElementById('nh-hire-start').value || null; // Orientation date
+    const work_start_date = document.getElementById('nh-hire-work-start').value || null;
     const bootcamp_start_date = document.getElementById('nh-hire-boot').value || null;
     const status = document.getElementById('nh-hire-status').value;
     const status_note = document.getElementById('nh-hire-note').value.trim() || null;
     if (!full_name || !region || !start_date) {
-      alert('Name, region, and start date are required (due dates depend on start date).');
+      alert('Name, region, and Orientation date are required (task due dates use Orientation date).');
       return;
     }
     const supabase = client();
-    const payload = { full_name, region, employee_type, city_center, start_date, bootcamp_start_date, status, status_note };
+    const payload = { full_name, region, employee_type, city_center, start_date, work_start_date, bootcamp_start_date, status, status_note };
+    function stripMissingCols(errMsg, obj) {
+      const next = Object.assign({}, obj);
+      if (/city_center/i.test(errMsg || '')) delete next.city_center;
+      if (/work_start_date/i.test(errMsg || '')) delete next.work_start_date;
+      return next;
+    }
     async function writeEmp(kind) {
       if (kind === 'update') {
         let { error } = await supabase.from('employees').update(payload).eq('id', id);
-        if (error && /city_center/i.test(error.message || '')) {
-          const { city_center: _c, ...rest } = payload;
-          ({ error } = await supabase.from('employees').update(rest).eq('id', id));
+        if (error && /(city_center|work_start_date)/i.test(error.message || '')) {
+          ({ error } = await supabase.from('employees').update(stripMissingCols(error.message, payload)).eq('id', id));
         }
         return error;
       }
       let { data: created, error } = await supabase.from('employees').insert(payload).select(SELECT_COLS).single();
-      if (error && /city_center/i.test(error.message || '')) {
-        const { city_center: _c, ...rest } = payload;
-        ({ data: created, error } = await supabase.from('employees').insert(rest).select(SELECT_COLS.replace(', city_center', '')).single());
-        if (created) created.city_center = city_center;
+      if (error && /(city_center|work_start_date)/i.test(error.message || '')) {
+        const rest = stripMissingCols(error.message, payload);
+        const cols = SELECT_COLS.replace(', city_center', '').replace(', work_start_date', '');
+        ({ data: created, error } = await supabase.from('employees').insert(rest).select(cols).single());
+        if (created) {
+          created.city_center = created.city_center ?? city_center;
+          created.work_start_date = created.work_start_date ?? work_start_date;
+        }
       }
       return { created, error };
     }
@@ -1786,13 +1980,20 @@
                 <option value="select">Dropdown</option><option value="checkbox">Checklist</option>
               </select>
             </div>
-            <div><label class="form-label">Due offset (days)</label><input id="nh-item-offset" class="form-input" type="number" value="-7"></div>
+            <div><label class="form-label">Dropdown options (comma-sep)</label><input id="nh-item-options" class="form-input" type="text" placeholder="Yes, No, N/A"></div>
           </div>
           <div class="form-row-2">
-            <div><label class="form-label">Due anchor</label>
-              <select id="nh-item-anchor" class="form-input"><option value="start">Start date</option><option value="bootcamp">Bootcamp date</option></select>
+            <div><label class="form-label">Due date based on</label>
+              <select id="nh-item-anchor" class="form-input">
+                <option value="orientation" selected>Orientation date</option>
+                <option value="work_start">Start date</option>
+                <option value="bootcamp">Bootcamp date</option>
+              </select>
             </div>
-            <div><label class="form-label">Dropdown options (comma-sep)</label><input id="nh-item-options" class="form-input" type="text" placeholder="Yes, No, N/A"></div>
+            <div><label class="form-label">Days before that date</label>
+              <input id="nh-item-days-before" class="form-input" type="number" min="0" step="1" value="0">
+              <p class="nh-muted" style="margin:6px 0 0">Default is 0 days before Orientation (due on Orientation day).</p>
+            </div>
           </div>
           <div class="form-row">
             <label class="form-label">Link (optional)</label>
@@ -1837,8 +2038,9 @@
     document.getElementById('nh-item-role').value = it?.role || 'HR';
     document.getElementById('nh-item-assignee').value = it?.assignee || '';
     document.getElementById('nh-item-type').value = it?.inputType || 'text';
-    document.getElementById('nh-item-offset').value = it?.dueOffsetDays != null ? it.dueOffsetDays : -7;
-    document.getElementById('nh-item-anchor').value = it?.dueAnchor || 'start';
+    if (it) normalizeItemDue(it);
+    document.getElementById('nh-item-anchor').value = normalizeDueAnchor(it?.dueAnchor || 'orientation');
+    document.getElementById('nh-item-days-before').value = it ? daysBeforeOf(it) : 0;
     document.getElementById('nh-item-options').value = (it?.options || []).join(', ');
     document.getElementById('nh-item-link').value = it?.link || '';
     const steps = normalizeSteps(it || {});
@@ -1861,8 +2063,9 @@
     const role = document.getElementById('nh-item-role').value;
     const assignee = document.getElementById('nh-item-assignee').value.trim();
     const inputType = document.getElementById('nh-item-type').value;
-    const dueOffsetDays = parseInt(document.getElementById('nh-item-offset').value, 10) || 0;
-    const dueAnchor = document.getElementById('nh-item-anchor').value;
+    const dueAnchor = normalizeDueAnchor(document.getElementById('nh-item-anchor').value);
+    const dueDaysBefore = Math.max(0, parseInt(document.getElementById('nh-item-days-before').value, 10) || 0);
+    const dueOffsetDays = -dueDaysBefore;
     const options = document.getElementById('nh-item-options').value.split(',').map((s) => s.trim()).filter(Boolean);
     const link = document.getElementById('nh-item-link').value.trim();
     const checklistSteps = collectItemStepsFromEditor().map((s, i) => ({
@@ -1874,16 +2077,17 @@
       const it = data.items.find((i) => i.id === id);
       Object.assign(it, {
         sectionId, label, role, assignee, owner: assignee, inputType, options,
-        dueOffsetDays, dueAnchor, checklistSteps, link
+        dueOffsetDays, dueDaysBefore, dueAnchor, checklistSteps, link
       });
+      normalizeItemDue(it);
     } else {
       const maxOrder = data.items.reduce((m, i) => Math.max(m, i.order || 0), 0);
-      data.items.push({
+      data.items.push(normalizeItemDue({
         id: uid('t'), sectionId, label, role, assignee, owner: assignee,
-        inputType, options, dueOffsetDays, dueAnchor, order: maxOrder + 1,
+        inputType, options, dueOffsetDays, dueDaysBefore, dueAnchor, order: maxOrder + 1,
         sensitive: false, dependsOnPrior: false, dependsOnTaskId: null,
         checklistSteps, link
-      });
+      }));
       processAdminOpen[sectionId] = true;
     }
     persist();

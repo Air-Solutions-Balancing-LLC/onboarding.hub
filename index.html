@@ -268,6 +268,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .nh-process-admin .nh-template-row { padding: 10px 12px; align-items: flex-start; }
 .nh-process-admin .nh-template-actions { flex-wrap: wrap; justify-content: flex-end; max-width: 280px; }
 .nh-dep-block { display: flex; flex-direction: column; gap: 6px; min-width: 220px; max-width: 280px; }
+.nh-due-inline { display: flex; flex-wrap: wrap; gap: 10px 14px; margin-top: 8px; align-items: center; }
+.nh-due-inline .nh-check-label { gap: 6px; }
+.nh-due-inline .nh-due-anchor { width: 160px; font-size: 12px; padding: 5px 8px; }
+.nh-due-inline .nh-due-before { width: 72px; font-size: 12px; padding: 5px 8px; }
 .nh-dep-check {
   display: flex; align-items: flex-start; gap: 6px;
   font-size: 11px; font-weight: 600; color: #475569;
@@ -616,6 +620,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .nh-profile-select { max-width: 150px; text-transform: none; }
 .nh-profile-selects { display: flex; flex-wrap: wrap; gap: 10px 14px; margin: 8px 0; align-items: center; }
 .nh-profile-selects .nh-check-label { gap: 6px; }
+.nh-date-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 6px; }
+.nh-date-meta strong { color: #64748b; font-weight: 600; margin-right: 4px; }
 .nh-pct { display: inline-block; min-width: 44px; padding: 3px 6px; border-radius: 6px; font-size: 11px; font-weight: 700; border: none; cursor: pointer; font-family: inherit; }
 .nh-pct-done { background: #dcfce7; color: #166534; }
 .nh-pct-mid { background: #dbeafe; color: #1d4ed8; }
@@ -669,11 +675,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   </div>
   <div class="nav-links">
     <button class="nav-link nav-checklist active" onclick="showPage('checklist',this)">New Hire Checklist</button>
-    <button class="nav-link nav-resp" onclick="showPage('responsibilities',this)">Responsibilities</button>
     <button class="nav-link nav-admin" id="nav-admin" style="display:none" onclick="showPage('admin',this)">Admin</button>
-    <button class="nav-link nav-orient" onclick="showPage('orientation',this)">Orientation &amp; Bootcamp 2026</button>
-    <button class="nav-link nav-weekly" onclick="showPage('weekly',this)">Weekly Tasks</button>
-    <button class="nav-link" onclick="showPage('resources',this)">Resources</button>
+    <button class="nav-link nav-resp" data-paula-only style="display:none" onclick="showPage('responsibilities',this)">Responsibilities</button>
+    <button class="nav-link nav-orient" data-paula-only style="display:none" onclick="showPage('orientation',this)">Orientation &amp; Bootcamp 2026</button>
+    <button class="nav-link nav-weekly" data-paula-only style="display:none" onclick="showPage('weekly',this)">Weekly Tasks</button>
+    <button class="nav-link" data-paula-only style="display:none" onclick="showPage('resources',this)">Resources</button>
     <div class="nav-user">
       <span id="nav-user-email" class="nav-user-email"></span>
       <button class="btn-signout" type="button" onclick="HubAuth.signOut()">Sign out</button>
@@ -1094,10 +1100,18 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 // ═══════════════════════════════════════════════
 // NAVIGATION
 // ═══════════════════════════════════════════════
+const PAULA_ONLY_PAGES = ['resources', 'responsibilities', 'orientation', 'weekly'];
+
 function showPage(id, btn) {
   try {
-    if (id === 'admin' && !(window.HubAuth && HubAuth.isAdmin())) {
-      alert('Admin access is limited to users with the Admin role.');
+    if (id === 'admin' && !(window.HubAuth && HubAuth.canAccessAdmin && HubAuth.canAccessAdmin())) {
+      alert('Please sign in to open Admin.');
+      return;
+    }
+    if (PAULA_ONLY_PAGES.includes(id) && !(window.HubAuth && HubAuth.canAccessHubExtras && HubAuth.canAccessHubExtras())) {
+      alert('That tab is only available to Paula Quintero.');
+      const checklistBtn = document.querySelector('.nav-link.nav-checklist');
+      showPage('checklist', checklistBtn);
       return;
     }
     const page = document.getElementById('page-' + id);
@@ -2241,6 +2255,7 @@ window.applyHubData = function(data) {
 };
 
 window.startHubApp = function() {
+  if (window.HubAuth && HubAuth.applyNavVisibility) HubAuth.applyNavVisibility();
   renderResources();
   calMonth = new Date().getMonth();
   const calSel = document.getElementById('cal-month-select');

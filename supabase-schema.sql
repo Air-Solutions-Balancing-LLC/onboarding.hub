@@ -235,7 +235,8 @@ CREATE TABLE IF NOT EXISTS public.employees (
   birth_month_day TEXT,
   preferred_airport TEXT,
   airplane_preference TEXT,
-  start_date DATE,
+  start_date DATE, -- Orientation date (Day 1 of orientation; due-date anchor)
+  work_start_date DATE, -- Employment/start date (techs for now; office later)
   bootcamp_start_date DATE,
   assigned_pm TEXT,
   assigned_lead_tech TEXT,
@@ -412,8 +413,9 @@ SELECT
   NULL::numeric AS pct_complete
 FROM public.employees;
 
--- Existing DBs created before city_center was added
+-- Existing DBs created before these profile columns were added
 ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS city_center TEXT;
+ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS work_start_date DATE;
 
 CREATE INDEX IF NOT EXISTS employees_employee_number_idx ON public.employees (employee_number);
 CREATE INDEX IF NOT EXISTS employees_status_idx ON public.employees (status);
