@@ -799,25 +799,40 @@
     return 'nh-pct-zero';
   }
 
-  function roleBar() {
+  function rolePeopleChips(roleId) {
+    if (roleId === 'all') {
+      return '<span class="nh-role-people-names nh-muted">Everyone</span>';
+    }
+    const people = peopleForRole(roleId);
+    if (!people.length) {
+      return '<span class="nh-role-people-names nh-muted">No people in this role</span>';
+    }
+    const chips = [
+      `<button type="button" class="nh-person-chip ${filters.person === 'all' ? 'active' : ''}" data-person="all">All</button>`,
+      ...people.map((p) =>
+        `<button type="button" class="nh-person-chip ${filters.person === p ? 'active' : ''}" data-person="${esc(p)}">${esc(p)}</button>`
+      ),
+    ];
+    return `<span class="nh-role-people-names">${chips.join('')}</span>`;
+  }
+
+  function roleBar(opts) {
+    const showRoleFilter = !!(opts && opts.showRoleFilter);
     const roles = data.roles || [];
-    const people = peopleForRole(filters.role);
-    return `
-      <div class="nh-rolebar">
-        <div class="nh-rolebar-left">
-          <label class="nh-check-label">View role
-            <select id="nh-role" class="form-input" style="width:140px;margin-left:6px">
+    const roleFilterHtml = showRoleFilter
+      ? `<div class="nh-rolebar-left">
+          <label class="nh-check-label">Role
+            <select id="nh-role" class="form-input nh-role-select">
               <option value="all" ${filters.role === 'all' ? 'selected' : ''}>All roles</option>
               ${roles.map((r) => `<option value="${esc(r.id)}" ${filters.role === r.id ? 'selected' : ''}>${esc(r.label)}</option>`).join('')}
             </select>
           </label>
-          <label class="nh-check-label">Person
-            <select id="nh-person" class="form-input" style="width:150px;margin-left:6px">
-              <option value="all">${filters.role === 'all' ? 'Everyone' : 'Everyone in role'}</option>
-              ${people.map((p) => `<option value="${esc(p)}" ${filters.person === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}
-            </select>
-          </label>
-        </div>
+          ${rolePeopleChips(filters.role)}
+        </div>`
+      : '<div class="nh-rolebar-left"></div>';
+    return `
+      <div class="nh-rolebar">
+        ${roleFilterHtml}
         <div class="nh-rolebar-right">
           <button class="btn-secondary ${view === 'dashboard' ? 'nh-tab-on' : ''}" type="button" data-view="dashboard">Dashboard</button>
           <button class="btn-secondary ${view === 'todo' ? 'nh-tab-on' : ''}" type="button" data-view="todo">My To-Do</button>
@@ -837,10 +852,12 @@
       localStorage.setItem(PERSON_PREF_KEY, 'all');
       render();
     });
-    root.querySelector('#nh-person')?.addEventListener('change', (e) => {
-      filters.person = e.target.value;
-      localStorage.setItem(PERSON_PREF_KEY, filters.person);
-      render();
+    root.querySelectorAll('[data-person]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        filters.person = btn.getAttribute('data-person') || 'all';
+        localStorage.setItem(PERSON_PREF_KEY, filters.person);
+        render();
+      });
     });
     root.querySelectorAll('[data-view]').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -866,13 +883,12 @@
   }
 
   function renderTodo(root) {
-    setPageSub('Use the role buttons to view any team’s to-do list. Person filter narrows to one assignee. Due dates use Orientation / Bootcamp dates.');
+    setPageSub('Open tasks by due window. Role / person filter is set on Dashboard and applies here too. Due dates use Orientation / Bootcamp dates.');
     const entries = todoEntries();
     const overdue = entries.filter((e) => e.bucket === 'overdue').length;
     const week = entries.filter((e) => e.bucket === 'week' || e.bucket === 'overdue').length;
     const open = entries.filter((e) => !e.done).length;
     const shown = entries.slice(0, todoLimit);
-    const roles = data.roles || [];
 
     root.innerHTML = `
       ${roleBar()}
@@ -881,15 +897,6 @@
         <div class="stat"><div class="stat-num amber">${week}</div><div class="stat-label">Due in 7 days</div></div>
         <div class="stat"><div class="stat-num">${open}</div><div class="stat-label">Open for ${esc(filterScopeLabel())}</div></div>
         <div class="stat"><div class="stat-num green">${entries.filter((e) => e.done).length}</div><div class="stat-label">Shown complete</div></div>
-      </div>
-      <div class="nh-toolbar nh-toolbar-plain">
-        <div class="nh-toolbar-left nh-role-filters">
-          <span class="nh-muted" style="margin-right:4px">Role:</span>
-          <button class="wt-filter-btn ${filters.role === 'all' ? 'active' : ''}" type="button" data-todo-role="all">All roles</button>
-          ${roles.map((r) =>
-            `<button class="wt-filter-btn ${filters.role === r.id ? 'active' : ''}" type="button" data-todo-role="${esc(r.id)}">${esc(r.label)}</button>`
-          ).join('')}
-        </div>
       </div>
       <div class="nh-toolbar nh-toolbar-plain">
         <div class="nh-toolbar-left">
@@ -904,21 +911,11 @@
         <div class="nh-muted">Showing ${Math.min(shown.length, entries.length)} of ${entries.length} · ${esc(filterScopeLabel())}</div>
       </div>
       <div class="nh-todo-list">
-        ${shown.length ? shown.map(todoRow).join('') : '<div class="nh-empty-block">No tasks for this filter. Try Open, another role, or Roster.</div>'}
+        ${shown.length ? shown.map(todoRow).join('') : '<div class="nh-empty-block">No tasks for this filter. Try Open, or set Role on Dashboard.</div>'}
       </div>
       ${entries.length > todoLimit ? `<div style="margin-top:12px;text-align:center"><button class="btn-secondary" type="button" id="nh-todo-more">Show more (${entries.length - todoLimit} left)</button></div>` : ''}`;
 
     bindRoleBar(root);
-    root.querySelectorAll('[data-todo-role]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        filters.role = btn.getAttribute('data-todo-role') || 'all';
-        filters.person = 'all';
-        localStorage.setItem(ROLE_PREF_KEY, filters.role);
-        localStorage.setItem(PERSON_PREF_KEY, 'all');
-        todoLimit = 80;
-        render();
-      });
-    });
     root.querySelectorAll('[data-scope]').forEach((btn) => {
       btn.addEventListener('click', () => {
         filters.todoScope = btn.getAttribute('data-scope');
@@ -1023,14 +1020,14 @@
   }
 
   function renderDashboard(root) {
-    setPageSub(`Progress counts use My role / Person filters — currently showing tasks for ${filterScopeLabel()}. Status changes still move hires to Archive.`);
+    setPageSub(`Use the Role dropdown to filter progress — currently showing tasks for ${filterScopeLabel()}. Status changes still move hires to Archive.`);
     ensureData();
     const s = stats();
     const rows = filteredEmployees();
     const sections = data.sections || [];
 
     root.innerHTML = `
-      ${roleBar()}
+      ${roleBar({ showRoleFilter: true })}
       <div class="nh-stats">
         <div class="nh-stat"><div class="nh-stat-label">Total Employees</div><div class="nh-stat-num">${s.total}</div></div>
         <div class="nh-stat"><div class="nh-stat-label">Active</div><div class="nh-stat-num nh-stat-green">${s.active}</div></div>
@@ -1278,7 +1275,7 @@
     const scoped = filterScopeLabel();
     setPageSub(archived
       ? 'Archived hire — set Status back to Active on Archive to restore, or Delete from Archive.'
-      : `Showing tasks for ${scoped} (${p.done}/${p.total}). Change My role / Person to widen or narrow the list.`);
+      : `Showing tasks for ${scoped} (${p.done}/${p.total}). Change Role on Dashboard to widen or narrow the list.`);
 
     const sectionsHtml = data.sections.map((sec) => {
       const items = itemsForHireFilter(hire, itemsForSection(sec.id));
