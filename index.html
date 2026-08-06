@@ -549,13 +549,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .nh-prog-bar span { display: block; height: 100%; background: #1a2540; border-radius: 99px; }
 .nh-prog-label { font-size: 11px; color: #64748b; margin-top: 4px; }
 .nh-section { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 10px; overflow: hidden; }
-.nh-section-head { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border: none; border-bottom: 1px solid transparent; cursor: pointer; text-align: left; font-family: inherit; }
+.nh-section-head { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border: none; border-bottom: 1px solid transparent; text-align: left; font-family: inherit; }
 .nh-section.open .nh-section-head { border-bottom-color: rgba(15,23,42,.08); }
 .nh-section-head.static { cursor: default; border-bottom-color: #e2e8f0; background: #f8fafc; }
+.nh-section-toggle { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; background: none; border: none; padding: 0; cursor: pointer; font: inherit; color: inherit; text-align: left; }
 .nh-section-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .nh-section-title { font-size: 14px; font-weight: 700; }
-.nh-section-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.nh-section-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
 .nh-section-counts { font-size: 12px; font-weight: 600; white-space: nowrap; }
+.nh-sec-date { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: inherit; white-space: nowrap; }
+.nh-sec-date .nh-sec-date-input { width: 138px; font-size: 12px; padding: 4px 6px; border-radius: 6px; border: 1px solid rgba(15,23,42,.18); background: #fff; color: #1e293b; font-family: inherit; }
+.nh-sec-date .nh-sec-date-input.nh-saving { opacity: .55; }
 .nh-chevron { font-size: 14px; width: 16px; text-align: center; flex-shrink: 0; }
 .nh-section-body { padding: 0; }
 /* Staff bar colors: white / blue / green */
@@ -618,6 +622,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .nh-status-select { font-size: 11px; font-family: inherit; padding: 4px 6px; border-radius: 6px; border: 1px solid #e2e8f0; background: #fff; color: #334155; text-transform: capitalize; max-width: 120px; }
 .nh-status-select.nh-saving { opacity: .55; }
 .nh-profile-select { max-width: 150px; text-transform: none; }
+.nh-city-input { max-width: 160px; font-size: 12px; padding: 5px 8px; }
 .nh-profile-selects { display: flex; flex-wrap: wrap; gap: 10px 14px; margin: 8px 0; align-items: center; }
 .nh-profile-selects .nh-check-label { gap: 6px; }
 .nh-date-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 6px; }

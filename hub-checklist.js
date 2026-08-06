@@ -5,7 +5,7 @@
   const PERSON_PREF_KEY = 'nh_person_pref';
   // start_date = Orientation date (due-date anchor). work_start_date = Start date (techs for now).
   const SELECT_COLS =
-    'id, full_name, employee_number, employee_type, status, status_note, region, city_center, start_date, work_start_date, bootcamp_start_date, company_email, assigned_pm';
+    'id, full_name, preferred_name, employee_number, employee_type, status, status_note, region, city_center, start_date, work_start_date, bootcamp_start_date, company_email, assigned_pm';
 
   let data = null; // { version, roles, sections, items, progress }
   let employees = [];
@@ -21,13 +21,14 @@
     'Rocky Mountain',
     'Intermountain',
     'Pacific',
-    'National'
+    'National',
+    'KES'
   ];
   // value stored in employees.employee_type
   const POSITION_OPTIONS = [
-    { value: 'technician', label: 'TAB technician' },
-    { value: 'kes_installer', label: 'KES installer' },
-    { value: 'office_staff', label: 'office staff' }
+    { value: 'technician', label: 'TAB Technician' },
+    { value: 'kes_installer', label: 'KES Installer' },
+    { value: 'office_staff', label: 'Office Staff' }
   ];
   // Fill in when the team confirms the official list
   const CITY_CENTER_OPTIONS = [];
@@ -236,7 +237,9 @@
 
     return {
       id: emp.id,
-      name: emp.full_name,
+      name: displayHireName(emp),
+      fullName: emp.full_name || '',
+      preferredName: emp.preferred_name || '',
       division: emp.region || '',
       cityCenter: emp.city_center || '',
       role: emp.employee_type || '',
@@ -254,6 +257,26 @@
       checklists: p.checklists,
       _emp: emp
     };
+  }
+
+  function parseGoesByFromFullName(full) {
+    const raw = String(full || '').trim();
+    const m = raw.match(/^(.*?)\s*\(\s*Goes\s+by\s+(.+?)\s*\)\s*$/i);
+    if (!m) return { full_name: raw, preferred_name: '' };
+    return { full_name: m[1].trim(), preferred_name: m[2].trim() };
+  }
+
+  function displayHireName(emp) {
+    if (!emp) return '';
+    let full = String(emp.full_name || emp.name || '').trim();
+    let goes = String(emp.preferred_name || '').trim();
+    const parsed = parseGoesByFromFullName(full);
+    if (parsed.preferred_name) {
+      full = parsed.full_name;
+      if (!goes) goes = parsed.preferred_name;
+    }
+    if (goes && goes.toLowerCase() !== full.toLowerCase()) return `${full} (${goes})`;
+    return full;
   }
 
   function hires() {
@@ -508,6 +531,11 @@
     if (!raw) return '';
     const hit = REGION_OPTIONS.find((r) => r.toLowerCase() === raw.toLowerCase());
     if (hit) return hit;
+    const lower = raw.toLowerCase();
+    // Old titles like "KES Assistant Project Manager" → KES only
+    if (lower === 'kes' || lower.startsWith('kes ') || lower.startsWith('kes/') || lower.includes(' kes ')) {
+      return 'KES';
+    }
     // common aliases from older data
     const aliases = {
       'mid atlantic': 'Mid-Atlantic',
@@ -516,7 +544,7 @@
       'pacific coast': 'Pacific',
       'rocky mountains': 'Rocky Mountain'
     };
-    return aliases[raw.toLowerCase()] || raw;
+    return aliases[lower] || raw;
   }
 
   function optionSelect(empId, field, value, options, extraClass) {
@@ -535,14 +563,12 @@
   }
 
   function regionSelect(empId, region) {
-    return optionSelect(empId, 'region', normalizeRegion(region), REGION_OPTIONS);
+    // Always show the normalized region so old values like "KES Assistant…" become just KES
+    return optionSelect(empId, 'region', normalizeRegion(region) || '', REGION_OPTIONS);
   }
 
   function cityCenterSelect(empId, city) {
-    const cur = city || '';
-    const fromData = [...new Set(employees.map((e) => e.city_center).filter(Boolean))];
-    const opts = [...new Set([...CITY_CENTER_OPTIONS, ...fromData])].sort((a, b) => a.localeCompare(b));
-    return optionSelect(empId, 'city_center', cur, opts);
+    return `<input class="form-input nh-profile-select nh-city-input" type="text" data-emp-field="city_center" data-emp-id="${esc(empId)}" value="${esc(city || '')}" placeholder="City center" title="City center">`;
   }
 
   function filteredEmployees() {
@@ -551,6 +577,8 @@
       const matchSearch =
         !q ||
         (e.full_name || '').toLowerCase().includes(q) ||
+        (e.preferred_name || '').toLowerCase().includes(q) ||
+        displayHireName(e).toLowerCase().includes(q) ||
         (e.company_email || '').toLowerCase().includes(q) ||
         String(e.employee_number ?? '').includes(q);
       // Dashboard / Roster: active only (archived hires live in Archive)
@@ -565,6 +593,8 @@
       const matchSearch =
         !q ||
         (e.full_name || '').toLowerCase().includes(q) ||
+        (e.preferred_name || '').toLowerCase().includes(q) ||
+        displayHireName(e).toLowerCase().includes(q) ||
         (e.company_email || '').toLowerCase().includes(q) ||
         String(e.employee_number ?? '').includes(q);
       const matchFilter = filters.archiveStatus === 'all' || e.status === filters.archiveStatus;
@@ -598,14 +628,17 @@
       .select(selectCols)
       .order('employee_number', { ascending: false, nullsFirst: false });
     // Older DBs may be missing newer profile columns
-    if (error && /(city_center|work_start_date)/i.test(error.message || '')) {
-      selectCols = SELECT_COLS.replace(', city_center', '').replace(', work_start_date', '');
+    if (error && /(city_center|work_start_date|preferred_name)/i.test(error.message || '')) {
+      selectCols = SELECT_COLS
+        .replace(', city_center', '')
+        .replace(', work_start_date', '')
+        .replace(', preferred_name', '');
       ({ data: rows, error } = await supabase
         .from('employees')
         .select(selectCols)
         .order('employee_number', { ascending: false, nullsFirst: false }));
       if (!error && rows) {
-        rows = rows.map((r) => Object.assign({ city_center: null, work_start_date: null }, r));
+        rows = rows.map((r) => Object.assign({ city_center: null, work_start_date: null, preferred_name: null }, r));
       }
     }
     if (error) {
@@ -674,29 +707,32 @@
   }
 
   function bindProfileSelects(root) {
-    root.querySelectorAll('[data-emp-field]').forEach((sel) => {
-      sel.addEventListener('change', async () => {
-        const id = sel.getAttribute('data-emp-id');
-        const field = sel.getAttribute('data-emp-field');
+    root.querySelectorAll('[data-emp-field]').forEach((el) => {
+      const commit = async () => {
+        const id = el.getAttribute('data-emp-id');
+        const field = el.getAttribute('data-emp-field');
         const emp = employees.find((e) => e.id === id);
         if (!emp || !field) return;
         const prev = emp[field];
-        let next = sel.value || null;
+        let next = (el.value || '').trim() || null;
         if (field === 'employee_type') next = normalizePosition(next || 'technician');
         if (field === 'region') next = normalizeRegion(next) || null;
+        if ((prev || null) === next) return;
         emp[field] = next;
-        sel.classList.add('nh-saving');
+        el.classList.add('nh-saving');
         try {
           await syncEmployeePatch(id, { [field]: next });
           if (field === 'region') syncRegionProgress(id, next || '');
         } catch (e) {
           emp[field] = prev;
-          sel.value = prev || '';
+          el.value = prev || '';
           alert('Could not update ' + field.replace(/_/g, ' ') + ': ' + (e.message || e));
         }
-        sel.classList.remove('nh-saving');
-        if (view === 'roster' || view === 'dashboard' || view === 'archive') render();
-      });
+        el.classList.remove('nh-saving');
+        if (field !== 'city_center' && (view === 'roster' || view === 'dashboard' || view === 'archive')) render();
+      };
+      el.addEventListener('change', commit);
+      if (el.tagName === 'INPUT') el.addEventListener('blur', commit);
     });
   }
 
@@ -1009,7 +1045,7 @@
               return `<tr>
                 <td class="nh-sticky nh-muted">${esc(emp.employee_number ?? '—')}</td>
                 <td class="nh-sticky nh-sticky-2 nh-name">
-                  <button type="button" class="nh-linkish" data-open-hire="${esc(emp.id)}">${esc(emp.full_name)}</button>
+                  <button type="button" class="nh-linkish" data-open-hire="${esc(emp.id)}">${esc(displayHireName(emp))}</button>
                 </td>
                 <td>${positionSelect(emp.id, emp.employee_type)}</td>
                 <td>${regionSelect(emp.id, emp.region)}</td>
@@ -1066,7 +1102,7 @@
               const pr = hireProgress(hire);
               return `<tr>
                 <td class="nh-muted">${esc(emp.employee_number ?? '—')}</td>
-                <td class="nh-name"><button type="button" class="nh-linkish" data-open-hire="${esc(emp.id)}">${esc(emp.full_name)}</button></td>
+                <td class="nh-name"><button type="button" class="nh-linkish" data-open-hire="${esc(emp.id)}">${esc(displayHireName(emp))}</button></td>
                 <td>${positionSelect(emp.id, emp.employee_type)}</td>
                 <td>${regionSelect(emp.id, emp.region)}</td>
                 <td>${cityCenterSelect(emp.id, emp.city_center)}</td>
@@ -1119,7 +1155,7 @@
               const pr = hireProgress(hire);
               return `<tr>
                 <td class="nh-muted">${esc(emp.employee_number ?? '—')}</td>
-                <td class="nh-name"><button type="button" class="nh-linkish" data-open-hire="${esc(emp.id)}">${esc(emp.full_name)}</button></td>
+                <td class="nh-name"><button type="button" class="nh-linkish" data-open-hire="${esc(emp.id)}">${esc(displayHireName(emp))}</button></td>
                 <td>${positionSelect(emp.id, emp.employee_type)}</td>
                 <td>${regionSelect(emp.id, emp.region)}</td>
                 <td>${cityCenterSelect(emp.id, emp.city_center)}</td>
@@ -1145,6 +1181,58 @@
     return 'nh-bar-white';
   }
 
+  function sectionBarDateControl(sec, hire) {
+    const title = String(sec.title || '');
+    const isBoot = sec.id === 'I' || (/bootcamp/i.test(title) && !/orientation/i.test(title));
+    const isOrient = sec.id === 'H' || /orientation/i.test(title);
+    if (isBoot) {
+      return `<label class="nh-sec-date">
+        <span>Bootcamp date</span>
+        <input type="date" class="form-input nh-sec-date-input" data-hire-date="bootcamp_start_date" data-hire-id="${esc(hire.id)}" value="${esc((hire.bootcampDate || '').slice(0, 10))}">
+      </label>`;
+    }
+    if (isOrient) {
+      return `<label class="nh-sec-date">
+        <span>Orientation date</span>
+        <input type="date" class="form-input nh-sec-date-input" data-hire-date="start_date" data-hire-id="${esc(hire.id)}" value="${esc((hire.startDate || '').slice(0, 10))}">
+      </label>`;
+    }
+    return '';
+  }
+
+  async function saveHireKeyDate(hireId, field, value) {
+    const emp = employees.find((e) => e.id === hireId);
+    if (!emp) return;
+    const prev = emp[field];
+    const next = value || null;
+    emp[field] = next;
+    try {
+      await syncEmployeePatch(hireId, { [field]: next });
+    } catch (e) {
+      emp[field] = prev;
+      alert('Could not save date: ' + (e.message || e));
+      return false;
+    }
+    ensureData();
+    const p = progressOf(hireId);
+    if (field === 'start_date') {
+      const startItem = data.items.find((i) => /START DATE/i.test(i.label));
+      if (startItem) {
+        if (next) p.values[startItem.id] = next;
+        else delete p.values[startItem.id];
+      }
+    }
+    if (field === 'bootcamp_start_date') {
+      const bootItem = data.items.find((i) => /First Day of BOOTCAMP/i.test(i.label));
+      if (bootItem) {
+        if (next) p.values[bootItem.id] = next;
+        else delete p.values[bootItem.id];
+      }
+    }
+    persist();
+    return true;
+  }
+
   function isPastDue(due, filled) {
     if (!due || filled) return false;
     const today = new Date();
@@ -1164,22 +1252,25 @@
 
     const sectionsHtml = data.sections.map((sec) => {
       const items = itemsForHireFilter(hire, itemsForSection(sec.id));
-      if (!items.length && (filters.role !== 'all' || filters.person !== 'all')) return '';
+      const dateCtrl = sectionBarDateControl(sec, hire);
+      // Keep Orientation / Bootcamp bars visible so dates can be set even when role filter hides tasks
+      if (!items.length && !dateCtrl && (filters.role !== 'all' || filters.person !== 'all')) return '';
       const expanded = openSections[sec.id] === true;
       const spDone = items.filter((it) => isFilled(it, hire.values?.[it.id], hire)).length;
       const spOpen = items.length - spDone;
-      const barCls = sectionBarClass(spDone, items.length);
+      const barCls = sectionBarClass(spDone, items.length || (dateCtrl ? 1 : 0));
       return `
         <div class="nh-section ${expanded ? 'open' : ''} ${barCls}">
-          <button type="button" class="nh-section-head ${barCls}" data-toggle-sec="${esc(sec.id)}">
-            <div class="nh-section-left">
+          <div class="nh-section-head ${barCls}">
+            <button type="button" class="nh-section-toggle" data-toggle-sec="${esc(sec.id)}">
               <span class="nh-chevron">${expanded ? '▾' : '▸'}</span>
               <div class="nh-section-title">${esc(sec.id)}. ${esc(sec.title)}</div>
-            </div>
+            </button>
             <div class="nh-section-right">
+              ${dateCtrl}
               <span class="nh-section-counts"><strong>${spDone}</strong> done / <strong>${spOpen}</strong> open</span>
             </div>
-          </button>
+          </div>
           <div class="nh-section-body" ${expanded ? '' : 'hidden'}>
             <div class="nh-task-table">
               <div class="nh-task-head">
@@ -1222,11 +1313,6 @@
             <span><strong>Bootcamp date</strong> ${esc(hire.bootcampDate || 'TBD')}</span>
             ${hire.assignedPm ? `<span>· PM ${esc(hire.assignedPm)}</span>` : ''}
           </div>
-          <div class="nh-bar-legend">
-            <span class="nh-leg nh-bar-white">Not started</span>
-            <span class="nh-leg nh-bar-blue">In progress</span>
-            <span class="nh-leg nh-bar-green">Complete</span>
-          </div>
         </div>
         <div class="nh-profile-right">
           <span class="${statusBadgeClass(hire.status)}">${esc(hire.status || '—')}</span>
@@ -1267,6 +1353,24 @@
         const id = btn.getAttribute('data-toggle-sec');
         openSections[id] = openSections[id] !== true;
         render();
+      });
+    });
+    root.querySelectorAll('[data-hire-date]').forEach((inp) => {
+      inp.addEventListener('click', (e) => e.stopPropagation());
+      inp.addEventListener('change', async () => {
+        inp.classList.add('nh-saving');
+        const ok = await saveHireKeyDate(
+          inp.getAttribute('data-hire-id'),
+          inp.getAttribute('data-hire-date'),
+          inp.value
+        );
+        inp.classList.remove('nh-saving');
+        if (ok) render();
+        else {
+          const emp = employees.find((e) => e.id === inp.getAttribute('data-hire-id'));
+          const field = inp.getAttribute('data-hire-date');
+          inp.value = emp && emp[field] ? String(emp[field]).slice(0, 10) : '';
+        }
       });
     });
     root.querySelectorAll('[data-field]').forEach((el) => {
@@ -1475,14 +1579,15 @@
     const supabase = client();
     if (!supabase) throw new Error('Not signed in');
     const body = {};
-    ['region', 'city_center', 'start_date', 'work_start_date', 'bootcamp_start_date', 'assigned_pm', 'full_name', 'status', 'status_note', 'employee_type'].forEach((k) => {
+    ['region', 'city_center', 'start_date', 'work_start_date', 'bootcamp_start_date', 'assigned_pm', 'full_name', 'preferred_name', 'status', 'status_note', 'employee_type'].forEach((k) => {
       if (patch[k] !== undefined) body[k] = patch[k] || null;
     });
     if (!Object.keys(body).length) return;
     let { error } = await supabase.from('employees').update(body).eq('id', id);
-    if (error && /(city_center|work_start_date)/i.test(error.message || '')) {
+    if (error && /(city_center|work_start_date|preferred_name)/i.test(error.message || '')) {
       if (/city_center/i.test(error.message || '')) delete body.city_center;
       if (/work_start_date/i.test(error.message || '')) delete body.work_start_date;
+      if (/preferred_name/i.test(error.message || '')) delete body.preferred_name;
       if (!Object.keys(body).length) {
         throw new Error('Run the employees column ALTERs in supabase-schema.sql, then try again.');
       }
@@ -1771,12 +1876,16 @@
           <div class="modal-body">
             <input type="hidden" id="nh-hire-id">
             <div class="form-row"><label class="form-label">Full name *</label><input id="nh-hire-name" class="form-input" type="text"></div>
+            <div class="form-row">
+              <label class="form-label">Goes By</label>
+              <input id="nh-hire-goes-by" class="form-input" type="text" placeholder="Name they go by (shown in parentheses)">
+            </div>
             <div class="form-row-2">
               <div><label class="form-label">Position *</label>
                 <select id="nh-hire-role" class="form-input">
-                  <option value="technician">TAB technician</option>
-                  <option value="kes_installer">KES installer</option>
-                  <option value="office_staff">office staff</option>
+                  <option value="technician">TAB Technician</option>
+                  <option value="kes_installer">KES Installer</option>
+                  <option value="office_staff">Office Staff</option>
                 </select>
               </div>
               <div><label class="form-label">Region *</label>
@@ -1827,7 +1936,13 @@
     document.getElementById('nh-city-dl').innerHTML = cityOpts.map((c) => `<option value="${esc(c)}">`).join('');
     document.getElementById('nh-hire-title').textContent = emp ? 'Edit hire' : 'Add new hire';
     document.getElementById('nh-hire-id').value = emp?.id || '';
-    document.getElementById('nh-hire-name').value = emp?.full_name || '';
+    const parsedName = parseGoesByFromFullName(emp?.full_name || '');
+    const fullForForm = emp?.preferred_name
+      ? (/\(\s*Goes\s+by\s+/i.test(emp.full_name || '') ? parsedName.full_name : (emp.full_name || ''))
+      : (parsedName.preferred_name ? parsedName.full_name : (emp?.full_name || ''));
+    const goesForForm = emp?.preferred_name || parsedName.preferred_name || '';
+    document.getElementById('nh-hire-name').value = fullForForm;
+    document.getElementById('nh-hire-goes-by').value = goesForForm;
     document.getElementById('nh-hire-division').value = normalizeRegion(emp?.region) || emp?.region || '';
     document.getElementById('nh-hire-role').value = normalizePosition(emp?.employee_type);
     document.getElementById('nh-hire-city').value = emp?.city_center || '';
@@ -1845,7 +1960,14 @@
 
   async function saveHireModal() {
     const id = document.getElementById('nh-hire-id').value;
-    const full_name = document.getElementById('nh-hire-name').value.trim();
+    let full_name = document.getElementById('nh-hire-name').value.trim();
+    let preferred_name = document.getElementById('nh-hire-goes-by').value.trim() || null;
+    // If full name still contains legacy "(Goes by …)", split it cleanly
+    const embedded = parseGoesByFromFullName(full_name);
+    if (embedded.preferred_name) {
+      full_name = embedded.full_name;
+      if (!preferred_name) preferred_name = embedded.preferred_name;
+    }
     const region = normalizeRegion(document.getElementById('nh-hire-division').value.trim());
     const employee_type = normalizePosition(document.getElementById('nh-hire-role').value);
     const city_center = document.getElementById('nh-hire-city').value.trim() || null;
@@ -1859,29 +1981,34 @@
       return;
     }
     const supabase = client();
-    const payload = { full_name, region, employee_type, city_center, start_date, work_start_date, bootcamp_start_date, status, status_note };
+    const payload = { full_name, preferred_name, region, employee_type, city_center, start_date, work_start_date, bootcamp_start_date, status, status_note };
     function stripMissingCols(errMsg, obj) {
       const next = Object.assign({}, obj);
       if (/city_center/i.test(errMsg || '')) delete next.city_center;
       if (/work_start_date/i.test(errMsg || '')) delete next.work_start_date;
+      if (/preferred_name/i.test(errMsg || '')) delete next.preferred_name;
       return next;
     }
     async function writeEmp(kind) {
       if (kind === 'update') {
         let { error } = await supabase.from('employees').update(payload).eq('id', id);
-        if (error && /(city_center|work_start_date)/i.test(error.message || '')) {
+        if (error && /(city_center|work_start_date|preferred_name)/i.test(error.message || '')) {
           ({ error } = await supabase.from('employees').update(stripMissingCols(error.message, payload)).eq('id', id));
         }
         return error;
       }
       let { data: created, error } = await supabase.from('employees').insert(payload).select(SELECT_COLS).single();
-      if (error && /(city_center|work_start_date)/i.test(error.message || '')) {
+      if (error && /(city_center|work_start_date|preferred_name)/i.test(error.message || '')) {
         const rest = stripMissingCols(error.message, payload);
-        const cols = SELECT_COLS.replace(', city_center', '').replace(', work_start_date', '');
+        const cols = SELECT_COLS
+          .replace(', city_center', '')
+          .replace(', work_start_date', '')
+          .replace(', preferred_name', '');
         ({ data: created, error } = await supabase.from('employees').insert(rest).select(cols).single());
         if (created) {
           created.city_center = created.city_center ?? city_center;
           created.work_start_date = created.work_start_date ?? work_start_date;
+          created.preferred_name = created.preferred_name ?? preferred_name;
         }
       }
       return { created, error };
