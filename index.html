@@ -24,9 +24,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .nav-link.active.nav-weekly { background: #93c5fd; color: #1a2540; }
 .page { display: none; }
 .page.active { display: block; }
-.main { padding: 28px 24px; max-width: 1400px; margin: 0 auto; }
-.page-title { font-size: 24px; font-weight: 600; color: #1e293b; margin-bottom: 4px; }
-.page-sub { font-size: 13px; color: #64748b; margin-bottom: 22px; }
+.main { padding: 3px 2px; max-width: none; margin: 0; width: 100%; }
+.page-title { font-size: 24px; font-weight: 600; color: #1e293b; margin-bottom: 0; }
+.page-sub { font-size: 13px; color: #64748b; margin-bottom: 2px; }
 .btn-primary { background: #1a2540; color: #fff; border: none; border-radius: 7px; padding: 8px 18px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; }
 .btn-primary:hover { background: #263454; }
 .btn-secondary { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 7px; padding: 8px 16px; font-size: 13px; cursor: pointer; color: #334155; font-family: inherit; }
@@ -260,7 +260,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
 /* ── ADMIN (Atlas-style user management) ── */
 .page-admin { background: #eef0f3; min-height: calc(100vh - 56px); }
-.page-admin .main { max-width: 1100px; padding: 1.5rem 1rem 2.5rem; }
+.page-admin .main { max-width: none; padding: 3px 2px 6px; }
 .nh-process-admin { margin-top: 1.25rem; }
 .nh-process-admin .nh-section { margin-bottom: 0.75rem; }
 .nh-process-admin .nh-section-head { cursor: pointer; }
@@ -476,15 +476,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
 /* ── NEW HIRE CHECKLIST ── */
 .page-checklist { background: #f8fafc; min-height: calc(100vh - 56px); }
-.page-checklist .main { max-width: 1400px; }
-.nh-stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 18px; }
+.page-checklist .main { max-width: none; padding: 3px 2px; }
+.nh-stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 4px; margin-bottom: 2px; }
 .nh-stat { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
 .nh-stat-label { font-size: 11px; color: #64748b; font-weight: 500; margin-bottom: 4px; }
 .nh-stat-num { font-size: 26px; font-weight: 700; color: #1E3A5F; line-height: 1.1; }
 .nh-stat-green { color: #16a34a; }
 .nh-stat-red { color: #dc2626; }
 .nh-stat-amber { color: #ea580c; }
-.nh-toolbar { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.nh-toolbar { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 4px 6px; margin-bottom: 2px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: space-between; }
 .nh-search { flex: 1; min-width: 220px; max-width: 320px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; font-size: 13px; font-family: inherit; outline: none; }
 .nh-search:focus { border-color: #1E3A5F; box-shadow: 0 0 0 3px rgba(30,58,95,.12); }
 .nh-filters { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -515,7 +515,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .nh-stats-todo { grid-template-columns: repeat(4, minmax(0,1fr)); }
 .nh-stats-todo .stat { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; }
 .nh-stats-todo .stat-label { font-size: 11px; color: #64748b; margin-top: 4px; }
-.nh-rolebar { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; }
+.nh-rolebar { display: flex; justify-content: space-between; gap: 6px; flex-wrap: wrap; margin-bottom: 2px; align-items: center; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 4px 6px; }
 .nh-rolebar-left, .nh-rolebar-right { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .nh-tab-on { background: #1a2540 !important; color: #fff !important; border-color: #1a2540 !important; }
 .nh-role-filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
