@@ -427,6 +427,23 @@
     return map[role] || 'all';
   }
 
+  function isHubAdminUser(appUser) {
+    const role = String(appUser?.role || '').toLowerCase().trim();
+    return role === 'admin';
+  }
+
+  function primaryRoleForPerson(personName) {
+    if (!personName || personName === 'all') return null;
+    const key = normalizeNameKey(personName);
+    const roles = data.roles || [];
+    for (let i = 0; i < roles.length; i++) {
+      const hit = (roles[i].people || []).find((p) => normalizeNameKey(p) === key);
+      if (hit) return roles[i].id;
+    }
+    const item = (data.items || []).find((it) => normalizeNameKey(it.assignee || '') === key);
+    return item ? item.role : null;
+  }
+
   function matchChecklistPerson(appUser, roleId) {
     const full = String(appUser?.full_name || '').trim();
     if (!full) return 'all';
@@ -447,9 +464,19 @@
     const user = window.hubCurrentUser;
     if (!user) return;
     if (userDefaultsApplied && !force) return;
-    const roleId = mapAppUserToChecklistRole(user);
-    filters.role = roleId;
-    filters.person = matchChecklistPerson(user, roleId);
+    // Named owners (Ana, Lisa, …) open on their own role + name.
+    // Hub admins who are not a named checklist person (Brian) get the full overview.
+    const matched = matchChecklistPerson(user, 'all');
+    if (matched !== 'all') {
+      filters.role = primaryRoleForPerson(matched) || mapAppUserToChecklistRole(user);
+      filters.person = matched;
+    } else if (isHubAdminUser(user)) {
+      filters.role = 'all';
+      filters.person = 'all';
+    } else {
+      filters.role = mapAppUserToChecklistRole(user);
+      filters.person = 'all';
+    }
     localStorage.setItem(ROLE_PREF_KEY, filters.role);
     localStorage.setItem(PERSON_PREF_KEY, filters.person);
     userDefaultsApplied = true;
@@ -460,11 +487,6 @@
     selectedHireId = hireId;
     openSections = {};
     (data.sections || []).forEach((s) => { openSections[s.id] = false; });
-    // Keep role filter; default person chip to signed-in user when possible
-    applySignedInUserDefaults(false);
-    if (filters.person === 'all' && window.hubCurrentUser) {
-      filters.person = matchChecklistPerson(window.hubCurrentUser, filters.role);
-    }
     view = 'detail';
     try {
       history.pushState(
@@ -963,40 +985,45 @@
     return 'nh-pct-zero';
   }
 
-  function rolePeopleChips(roleId) {
-    if (roleId === 'all') {
-      return '<span class="nh-role-people-names nh-muted">Everyone</span>';
-    }
-    const people = peopleForRole(roleId);
+  function rolePeopleChips() {
+    const people = peopleForRole('all');
     if (!people.length) {
-      return '<span class="nh-role-people-names nh-muted">No people in this role</span>';
+      return '<span class="nh-person-chips nh-muted">No assignees yet</span>';
     }
     const chips = [
-      `<button type="button" class="nh-person-chip ${filters.person === 'all' ? 'active' : ''}" data-person="all">All</button>`,
+      `<button type="button" class="nh-person-chip ${filters.person === 'all' ? 'active' : ''}" data-person="all">Everyone</button>`,
       ...people.map((p) =>
         `<button type="button" class="nh-person-chip ${filters.person === p ? 'active' : ''}" data-person="${esc(p)}">${esc(p)}</button>`
       ),
     ];
-    return `<span class="nh-role-people-names">${chips.join('')}</span>`;
+    return `<div class="nh-person-chips">${chips.join('')}</div>`;
+  }
+
+  function roleFilterControls(selectId) {
+    const roles = data.roles || [];
+    return `
+      <div class="nh-filter-panel">
+        <div class="nh-filter-group">
+          <span class="nh-filter-label">Role</span>
+          <select id="${esc(selectId)}" class="form-input nh-role-select" title="Filter tasks by role">
+            <option value="all" ${filters.role === 'all' ? 'selected' : ''}>All roles</option>
+            ${roles.map((r) => `<option value="${esc(r.id)}" ${filters.role === r.id ? 'selected' : ''}>${esc(r.label)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="nh-filter-divider" aria-hidden="true"></div>
+        <div class="nh-filter-group nh-filter-people">
+          <span class="nh-filter-label">Person</span>
+          ${rolePeopleChips()}
+        </div>
+        <div class="nh-filter-scope">Viewing <strong>${esc(filterScopeLabel())}</strong></div>
+      </div>`;
   }
 
   function roleBar(opts) {
     const showRoleFilter = !!(opts && opts.showRoleFilter);
-    const roles = data.roles || [];
-    const roleFilterHtml = showRoleFilter
-      ? `<div class="nh-rolebar-left">
-          <label class="nh-check-label">Role
-            <select id="nh-role" class="form-input nh-role-select">
-              <option value="all" ${filters.role === 'all' ? 'selected' : ''}>All roles</option>
-              ${roles.map((r) => `<option value="${esc(r.id)}" ${filters.role === r.id ? 'selected' : ''}>${esc(r.label)}</option>`).join('')}
-            </select>
-          </label>
-          ${rolePeopleChips(filters.role)}
-        </div>`
-      : '<div class="nh-rolebar-left"></div>';
     return `
       <div class="nh-rolebar">
-        ${roleFilterHtml}
+        ${showRoleFilter ? roleFilterControls('nh-role') : '<div class="nh-rolebar-left"></div>'}
         <div class="nh-rolebar-right">
           <button class="btn-secondary ${view === 'dashboard' ? 'nh-tab-on' : ''}" type="button" data-view="dashboard">Dashboard</button>
           <button class="btn-secondary ${view === 'todo' ? 'nh-tab-on' : ''}" type="button" data-view="todo">My To-Do</button>
@@ -1009,30 +1036,43 @@
       </div>`;
   }
 
-  function syncPersonToSignedInUser(roleId) {
-    if (!window.hubCurrentUser) {
-      filters.person = 'all';
-      localStorage.setItem(PERSON_PREF_KEY, 'all');
+  function syncPersonAfterRoleChange(roleId) {
+    const people = peopleForRole(roleId === 'all' ? 'all' : roleId);
+    if (filters.person !== 'all' && people.includes(filters.person)) {
+      localStorage.setItem(PERSON_PREF_KEY, filters.person);
       return;
     }
-    filters.person = matchChecklistPerson(window.hubCurrentUser, roleId);
+    const me = window.hubCurrentUser ? matchChecklistPerson(window.hubCurrentUser, roleId === 'all' ? 'all' : roleId) : 'all';
+    // Keep a named owner's own chip when their role is selected; otherwise Everyone
+    filters.person = (me !== 'all' && people.includes(me)) ? me : 'all';
     localStorage.setItem(PERSON_PREF_KEY, filters.person);
+  }
+
+  function bindPersonChips(root) {
+    root.querySelectorAll('[data-person]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const person = btn.getAttribute('data-person') || 'all';
+        filters.person = person;
+        // Jump to that person's role so their tasks actually show
+        if (person !== 'all') {
+          const roleOf = primaryRoleForPerson(person);
+          if (roleOf) filters.role = roleOf;
+        }
+        localStorage.setItem(PERSON_PREF_KEY, filters.person);
+        localStorage.setItem(ROLE_PREF_KEY, filters.role);
+        render();
+      });
+    });
   }
 
   function bindRoleBar(root) {
     root.querySelector('#nh-role')?.addEventListener('change', (e) => {
       filters.role = e.target.value;
       localStorage.setItem(ROLE_PREF_KEY, filters.role);
-      syncPersonToSignedInUser(filters.role);
+      syncPersonAfterRoleChange(filters.role);
       render();
     });
-    root.querySelectorAll('[data-person]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        filters.person = btn.getAttribute('data-person') || 'all';
-        localStorage.setItem(PERSON_PREF_KEY, filters.person);
-        render();
-      });
-    });
+    bindPersonChips(root);
     root.querySelectorAll('[data-view]').forEach((btn) => {
       btn.addEventListener('click', () => {
         view = btn.getAttribute('data-view');
@@ -1259,7 +1299,7 @@
   }
 
   function renderDashboard(root) {
-    setPageSub(`Use the Role dropdown to filter progress — currently showing tasks for ${filterScopeLabel()}. Status changes still move hires to Archive.`);
+    setPageSub(`Filter by Role and Person — currently viewing ${filterScopeLabel()}. Named owners open on their own tasks; admins see everyone by default.`);
     ensureData();
     const s = stats();
     const rows = filteredEmployees();
@@ -1562,16 +1602,8 @@
           ${archived ? `<button class="btn-xs danger" type="button" id="nh-del-hire">Delete</button>` : ''}
         </div>
       </div>
-      <div class="nh-rolebar nh-detail-filters">
-        <div class="nh-rolebar-left">
-          <label class="nh-check-label">Role
-            <select id="nh-role-d" class="form-input nh-role-select" title="Show only this role’s tasks">
-              <option value="all" ${filters.role === 'all' ? 'selected' : ''}>All roles</option>
-              ${(data.roles || []).map((r) => `<option value="${esc(r.id)}" ${filters.role === r.id ? 'selected' : ''}>${esc(r.label)}</option>`).join('')}
-            </select>
-          </label>
-          ${rolePeopleChips(filters.role)}
-        </div>
+      <div class="nh-detail-filters">
+        ${roleFilterControls('nh-role-d')}
       </div>
       <div class="nh-profile">
         <div>
@@ -1618,16 +1650,10 @@
     root.querySelector('#nh-role-d').addEventListener('change', (e) => {
       filters.role = e.target.value;
       localStorage.setItem(ROLE_PREF_KEY, filters.role);
-      syncPersonToSignedInUser(filters.role);
+      syncPersonAfterRoleChange(filters.role);
       render();
     });
-    root.querySelectorAll('[data-person]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        filters.person = btn.getAttribute('data-person') || 'all';
-        localStorage.setItem(PERSON_PREF_KEY, filters.person);
-        render();
-      });
-    });
+    bindPersonChips(root);
     root.querySelector('#nh-reveal').addEventListener('change', (e) => {
       revealSensitive = e.target.checked;
       render();
