@@ -2303,12 +2303,34 @@
     await loadEmployees();
   }
 
+  function getOrientPickerPeople() {
+    ensureData();
+    return employees
+      .filter((e) => (e.status || 'active') === 'active')
+      .map((e) => {
+        const pos = POSITION_OPTIONS.find((p) => p.value === e.employee_type);
+        return {
+          id: e.id,
+          name: displayHireName(e),
+          region: e.region || '',
+          cityCenter: e.city_center || '',
+          position: pos ? pos.label : (e.employee_type || ''),
+          employeeType: e.employee_type || ''
+        };
+      })
+      .sort((a, b) =>
+        String(a.region || '').localeCompare(String(b.region || '')) ||
+        String(a.name || '').localeCompare(String(b.name || ''))
+      );
+  }
+
   window.HubChecklist = {
     mount,
     loadEmployees,
     applyRemote,
     render,
     mountProcessAdmin,
-    openItemModal
+    openItemModal,
+    getOrientPickerPeople
   };
 })();

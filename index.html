@@ -44,6 +44,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .form-row { margin-bottom: 14px; }
 .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
 .form-label { font-size: 12px; color: #64748b; margin-bottom: 5px; display: block; font-weight: 500; }
+.tech-picker-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; min-height: 8px; }
+.tech-picker-chip { display: inline-flex; align-items: center; gap: 6px; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 5px 8px 5px 10px; font-size: 12px; color: #1e293b; max-width: 100%; }
+.tech-picker-chip strong { font-weight: 600; }
+.tech-picker-chip .tech-meta { color: #64748b; font-weight: 500; }
+.tech-picker-chip button { border: none; background: transparent; color: #94a3b8; cursor: pointer; font-size: 14px; line-height: 1; padding: 0 2px; }
+.tech-picker-chip button:hover { color: #b91c1c; }
+.tech-picker-hint { font-size: 11px; color: #94a3b8; margin-top: 6px; }
 .form-input { width: 100%; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 7px; padding: 8px 12px; font-size: 13px; color: #1e293b; outline: none; font-family: inherit; transition: border-color .15s; }
 .form-input:focus { border-color: #94a3b8; }
 .form-input.error { border-color: #dc2626; }
@@ -871,7 +878,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div class="modal-head"><span class="modal-title" id="orient-modal-title">New Orientation Group</span><button class="modal-close" onclick="closeOrientModal()">×</button></div>
     <div class="modal-body">
       <div class="form-row"><label class="form-label">Orientation date *</label><input id="og-date" class="form-input" type="date"></div>
-      <div class="form-row"><label class="form-label">Technician names (one per line) *</label><textarea id="og-techs" class="form-input" rows="3" placeholder="John Smith&#10;Jane Doe"></textarea></div>
+      <div class="form-row">
+        <label class="form-label">Technicians *</label>
+        <div id="og-tech-chips" class="tech-picker-chips"></div>
+        <select id="og-tech-picker" class="form-input" onchange="addOrientTechFromPicker(this)">
+          <option value="">+ Add from New Hire Checklist…</option>
+        </select>
+        <div class="tech-picker-hint">Dropdown shows name, TAB position, and region so you know where each person is from.</div>
+      </div>
       <div style="margin-top:16px;padding-top:14px;border-top:1px solid #f1f5f9">
         <div style="font-size:13px;font-weight:600;color:#1e293b;margin-bottom:4px">Additional tasks for this group</div>
         <div style="font-size:11px;color:#94a3b8;margin-bottom:10px">These tasks will also be added to Weekly Tasks. Once saved, they'll be included in future groups you create.</div>
@@ -889,7 +903,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div class="modal-head"><span class="modal-title" id="bc-modal-title">New Bootcamp Group</span><button class="modal-close" onclick="closeBootcampModal()">×</button></div>
     <div class="modal-body">
       <div class="form-row"><label class="form-label">Bootcamp start date *</label><input id="bc-date" class="form-input" type="date"></div>
-      <div class="form-row"><label class="form-label">Technician names (one per line) *</label><textarea id="bc-techs" class="form-input" rows="3" placeholder="John Smith&#10;Jane Doe"></textarea></div>
+      <div class="form-row">
+        <label class="form-label">Technicians *</label>
+        <div id="bc-tech-chips" class="tech-picker-chips"></div>
+        <select id="bc-tech-picker" class="form-input" onchange="addBcTechFromPicker(this)">
+          <option value="">+ Add from New Hire Checklist…</option>
+        </select>
+        <div class="tech-picker-hint">Dropdown shows name, TAB position, and region so you know where each person is from.</div>
+      </div>
       <div style="margin-top:16px;padding-top:14px;border-top:1px solid #f1f5f9">
         <div style="font-size:13px;font-weight:600;color:#1e293b;margin-bottom:4px">Additional tasks for this group</div>
         <div style="font-size:11px;color:#94a3b8;margin-bottom:10px">These tasks will also be added to Weekly Tasks. Once saved, they'll be included in future groups you create.</div>
@@ -1547,21 +1568,185 @@ function saveNote() {
 }
 
 // ── Orient modal / extra tasks ──
-function openOrientModal(id) {
+let selectedOrientTechs = [];
+let selectedBcTechs = [];
+
+function normalizeGroupTech(t) {
+  if (!t) return null;
+  if (typeof t === 'string') {
+    const name = t.trim();
+    if (!name) return null;
+    return { id: '', name, region: '', position: '', cityCenter: '' };
+  }
+  const name = String(t.name || '').trim();
+  if (!name) return null;
+  return {
+    id: t.id || '',
+    name,
+    region: t.region || '',
+    position: t.position || '',
+    cityCenter: t.cityCenter || t.city_center || ''
+  };
+}
+
+function techDisplayLabel(t) {
+  const tech = normalizeGroupTech(t);
+  if (!tech) return '';
+  const bits = [tech.region, tech.position].filter(Boolean);
+  return bits.length ? `${tech.name} — ${bits.join(' · ')}` : tech.name;
+}
+
+function techListLabel(techs) {
+  return (techs || []).map((t) => techDisplayLabel(t) || (typeof t === 'string' ? t : t.name)).filter(Boolean).join(', ');
+}
+
+function techNameList(techs) {
+  return (techs || []).map((t) => (typeof t === 'string' ? t : t.name)).map((s) => String(s || '').trim()).filter(Boolean);
+}
+
+function escapeAttr(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
+async function ensurePickerPeopleLoaded() {
+  if (getPickerPeople().length) return;
+  if (window.HubChecklist && typeof HubChecklist.loadEmployees === 'function') {
+    try { await HubChecklist.loadEmployees(); } catch (e) { /* keep going with whatever is cached */ }
+  }
+}
+
+function getPickerPeople() {
+  if (window.HubChecklist && typeof HubChecklist.getOrientPickerPeople === 'function') {
+    return HubChecklist.getOrientPickerPeople() || [];
+  }
+  return [];
+}
+
+function renderTechChips(containerId, techs, removeFnName) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!techs.length) {
+    el.innerHTML = '<span class="nh-muted" style="font-size:12px">No technicians selected yet.</span>';
+    return;
+  }
+  el.innerHTML = techs.map((t, i) => {
+    const tech = normalizeGroupTech(t);
+    const meta = [tech.region, tech.position].filter(Boolean).join(' · ');
+    return `<span class="tech-picker-chip">
+      <strong>${escapeAttr(tech.name)}</strong>
+      ${meta ? `<span class="tech-meta">${escapeAttr(meta)}</span>` : ''}
+      <button type="button" title="Remove" onclick="${removeFnName}(${i})">×</button>
+    </span>`;
+  }).join('');
+}
+
+function fillTechPicker(selectId, selectedTechs) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  const people = getPickerPeople();
+  const selectedIds = new Set(selectedTechs.map((t) => t.id).filter(Boolean));
+  const selectedNames = new Set(selectedTechs.map((t) => String(t.name || '').toLowerCase()));
+  const available = people.filter((p) => {
+    if (p.id && selectedIds.has(p.id)) return false;
+    if (selectedNames.has(String(p.name || '').toLowerCase())) return false;
+    return true;
+  });
+
+  // Group options by region for easier scanning
+  const byRegion = {};
+  available.forEach((p) => {
+    const key = p.region || 'No region';
+    if (!byRegion[key]) byRegion[key] = [];
+    byRegion[key].push(p);
+  });
+  const regions = Object.keys(byRegion).sort((a, b) => a.localeCompare(b));
+
+  let opts = '<option value="">+ Add from New Hire Checklist…</option>';
+  if (!people.length) {
+    opts += '<option value="" disabled>No active hires found — add them in New Hire Checklist</option>';
+  } else if (!available.length) {
+    opts += '<option value="" disabled>All listed hires are already added</option>';
+  } else {
+    regions.forEach((region) => {
+      opts += `<optgroup label="${escapeAttr(region)}">`;
+      byRegion[region].forEach((p) => {
+        const label = [p.name, p.position].filter(Boolean).join(' · ');
+        const payload = encodeURIComponent(JSON.stringify({
+          id: p.id,
+          name: p.name,
+          region: p.region || '',
+          position: p.position || '',
+          cityCenter: p.cityCenter || ''
+        }));
+        opts += `<option value="${payload}">${escapeAttr(label)}</option>`;
+      });
+      opts += '</optgroup>';
+    });
+  }
+  sel.innerHTML = opts;
+  sel.value = '';
+}
+
+function addOrientTechFromPicker(sel) {
+  if (!sel || !sel.value) return;
+  try {
+    const person = JSON.parse(decodeURIComponent(sel.value));
+    const tech = normalizeGroupTech(person);
+    if (!tech) return;
+    const exists = selectedOrientTechs.some((t) =>
+      (tech.id && t.id === tech.id) || String(t.name).toLowerCase() === String(tech.name).toLowerCase()
+    );
+    if (!exists) selectedOrientTechs.push(tech);
+  } catch (e) { /* ignore bad option */ }
+  renderTechChips('og-tech-chips', selectedOrientTechs, 'removeOrientTech');
+  fillTechPicker('og-tech-picker', selectedOrientTechs);
+}
+
+function removeOrientTech(i) {
+  selectedOrientTechs.splice(i, 1);
+  renderTechChips('og-tech-chips', selectedOrientTechs, 'removeOrientTech');
+  fillTechPicker('og-tech-picker', selectedOrientTechs);
+}
+
+function addBcTechFromPicker(sel) {
+  if (!sel || !sel.value) return;
+  try {
+    const person = JSON.parse(decodeURIComponent(sel.value));
+    const tech = normalizeGroupTech(person);
+    if (!tech) return;
+    const exists = selectedBcTechs.some((t) =>
+      (tech.id && t.id === tech.id) || String(t.name).toLowerCase() === String(tech.name).toLowerCase()
+    );
+    if (!exists) selectedBcTechs.push(tech);
+  } catch (e) { /* ignore bad option */ }
+  renderTechChips('bc-tech-chips', selectedBcTechs, 'removeBcTech');
+  fillTechPicker('bc-tech-picker', selectedBcTechs);
+}
+
+function removeBcTech(i) {
+  selectedBcTechs.splice(i, 1);
+  renderTechChips('bc-tech-chips', selectedBcTechs, 'removeBcTech');
+  fillTechPicker('bc-tech-picker', selectedBcTechs);
+}
+
+async function openOrientModal(id) {
   editingOrientGroupId = id || null;
   document.getElementById('orient-modal-title').textContent = id ? 'Edit Orientation Group' : 'New Orientation Group';
   document.getElementById('orient-save-btn').textContent = id ? 'Save changes' : 'Create group';
+  await ensurePickerPeopleLoaded();
   if (id) {
     const g = orientGroups.find(x => x.id === id);
     if (!g) return;
     const parts = g.orientDate.split('-');
     document.getElementById('og-date').valueAsDate = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
-    document.getElementById('og-techs').value = g.techs.join('\n');
+    selectedOrientTechs = (g.techs || []).map(normalizeGroupTech).filter(Boolean);
   } else {
     const d = new Date(); d.setDate(d.getDate()+(1+7-d.getDay())%7||7);
     document.getElementById('og-date').valueAsDate = d;
-    document.getElementById('og-techs').value = '';
+    selectedOrientTechs = [];
   }
+  renderTechChips('og-tech-chips', selectedOrientTechs, 'removeOrientTech');
+  fillTechPicker('og-tech-picker', selectedOrientTechs);
   // Load extra templates
   renderOrientExtraTasks(orientExtraTemplates.map(t => ({...t})));
   document.getElementById('orient-modal').classList.add('open');
@@ -1592,7 +1777,11 @@ function addOrientExtraTask() {
   div.querySelector('input').focus();
 }
 
-function closeOrientModal() { document.getElementById('orient-modal').classList.remove('open'); editingOrientGroupId = null; }
+function closeOrientModal() {
+  document.getElementById('orient-modal').classList.remove('open');
+  editingOrientGroupId = null;
+  selectedOrientTechs = [];
+}
 
 function toDateKey(d) { return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
 function prevWD(d,n){let r=new Date(d),c=0;while(c<n){r.setDate(r.getDate()-1);if(r.getDay()!==0&&r.getDay()!==6)c++;}return r;}
@@ -1608,11 +1797,16 @@ function getOrientDates(oDate) {
 
 function saveOrientGroup() {
   const ds = document.getElementById('og-date').value;
-  const tr = document.getElementById('og-techs').value.trim();
-  if (!ds||!tr) { alert('Please fill in all fields.'); return; }
+  if (!ds || !selectedOrientTechs.length) { alert('Please pick an orientation date and at least one technician.'); return; }
 
   const oDate = new Date(ds+'T12:00:00');
-  const techs = tr.split('\n').map(s=>s.trim()).filter(Boolean);
+  const techs = selectedOrientTechs.map((t) => ({
+    id: t.id || '',
+    name: t.name,
+    region: t.region || '',
+    position: t.position || '',
+    cityCenter: t.cityCenter || ''
+  }));
   const dates = getOrientDates(oDate);
 
   // Gather extra tasks from modal
@@ -1657,7 +1851,7 @@ function saveOrientGroup() {
   }
   HubAuth.save('orient_groups', orientGroups);
   const tagged = eventTasks.map(t => ({...t, name:'🎓 '+t.name}));
-  addEventTasksToWeekly(tagged, 'Orientation '+toDateKey(oDate)+' — '+techs.join(', '), 'Orientation', groupId);
+  addEventTasksToWeekly(tagged, 'Orientation '+toDateKey(oDate)+' — '+techNameList(techs).join(', '), 'Orientation', groupId);
   closeOrientModal(); renderOrientCalendar(); renderOrientGroups();
 }
 
@@ -1675,7 +1869,7 @@ function renderOrientGroups() {
   el.innerHTML = orientGroups.map(g => `
     <div class="group-card">
       <div class="group-header">
-        <div><div class="group-name">🎓 Orientation — ${g.orientDate}</div><div class="group-techs">Techs: ${g.techs.join(', ')}</div></div>
+        <div><div class="group-name">🎓 Orientation — ${g.orientDate}</div><div class="group-techs">Techs: ${techListLabel(g.techs)}</div></div>
         <div style="display:flex;gap:6px">
           <button class="btn-sm" onclick="openOrientModal('${g.id}')" style="background:#e0e7ff;color:#4f46e5;border:none">Edit</button>
           <button class="btn-sm danger" onclick="deleteOrientGroup('${g.id}')">Delete</button>
@@ -1722,21 +1916,24 @@ function renderBcCalendar() {
   grid.innerHTML = html;
 }
 
-function openBootcampModal(id) {
+async function openBootcampModal(id) {
   editingBcGroupId = id || null;
   document.getElementById('bc-modal-title').textContent = id ? 'Edit Bootcamp Group' : 'New Bootcamp Group';
   document.getElementById('bc-save-btn').textContent = id ? 'Save changes' : 'Create group';
+  await ensurePickerPeopleLoaded();
   if (id) {
     const g = bootcampGroups.find(x => x.id === id);
     if (!g) return;
     const parts = g.bootcampDate.split('-');
     document.getElementById('bc-date').valueAsDate = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
-    document.getElementById('bc-techs').value = g.techs.join('\n');
+    selectedBcTechs = (g.techs || []).map(normalizeGroupTech).filter(Boolean);
   } else {
     const d = new Date(); d.setDate(d.getDate()+(1+7-d.getDay())%7||7);
     document.getElementById('bc-date').valueAsDate = d;
-    document.getElementById('bc-techs').value = '';
+    selectedBcTechs = [];
   }
+  renderTechChips('bc-tech-chips', selectedBcTechs, 'removeBcTech');
+  fillTechPicker('bc-tech-picker', selectedBcTechs);
   renderBcExtraTasks(bcExtraTemplates.map(t => ({...t})));
   document.getElementById('bootcamp-modal').classList.add('open');
 }
@@ -1765,15 +1962,24 @@ function addBcExtraTask() {
   div.querySelector('input').focus();
 }
 
-function closeBootcampModal() { document.getElementById('bootcamp-modal').classList.remove('open'); editingBcGroupId = null; }
+function closeBootcampModal() {
+  document.getElementById('bootcamp-modal').classList.remove('open');
+  editingBcGroupId = null;
+  selectedBcTechs = [];
+}
 
 function saveBootcampGroup() {
   const ds = document.getElementById('bc-date').value;
-  const tr = document.getElementById('bc-techs').value.trim();
-  if (!ds||!tr) { alert('Please fill in all fields.'); return; }
+  if (!ds || !selectedBcTechs.length) { alert('Please pick a bootcamp date and at least one technician.'); return; }
 
   const bcDate = new Date(ds+'T12:00:00');
-  const techs = tr.split('\n').map(s=>s.trim()).filter(Boolean);
+  const techs = selectedBcTechs.map((t) => ({
+    id: t.id || '',
+    name: t.name,
+    region: t.region || '',
+    position: t.position || '',
+    cityCenter: t.cityCenter || ''
+  }));
 
   const monBefore = new Date(bcDate);
   while (monBefore.getDay() !== 1) monBefore.setDate(monBefore.getDate()-1);
@@ -1821,7 +2027,7 @@ function saveBootcampGroup() {
     bootcampGroups.push(group);
   }
   HubAuth.save('bootcamp_groups', bootcampGroups);
-  addEventTasksToWeekly(eventTasks, `Bootcamp ${toDateKey(bcDate)} — ${techs.join(', ')}`, 'Bootcamp', groupId);
+  addEventTasksToWeekly(eventTasks, `Bootcamp ${toDateKey(bcDate)} — ${techNameList(techs).join(', ')}`, 'Bootcamp', groupId);
   closeBootcampModal(); renderBcCalendar(); renderBootcampGroups();
 }
 
@@ -1854,7 +2060,7 @@ function renderBootcampGroups() {
       <div class="bc-header">
         <div>
           <div class="bc-name">🚀 Bootcamp — ${g.bootcampDate}</div>
-          <div class="bc-date">Techs: ${g.techs.join(', ')}</div>
+          <div class="bc-date">Techs: ${techListLabel(g.techs)}</div>
           <div class="bc-date" style="color:#7c3aed;margin-top:2px">Prep: Mon ${monDate} → Fri ${friDate}</div>
         </div>
         <div style="display:flex;gap:6px;align-items:center">
