@@ -675,10 +675,20 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .nh-sheet { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; }
 .nh-sheet th, .nh-sheet td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; border-right: 1px solid #f8fafc; white-space: nowrap; vertical-align: middle; }
 .nh-sheet thead th { position: sticky; top: 0; z-index: 3; background: #f8fafc; color: #64748b; font-weight: 700; text-align: left; box-shadow: inset 0 -1px 0 #e2e8f0; }
-.nh-sheet .nh-sheet-subhead th { top: 34px; font-weight: 500; font-size: 10px; color: #94a3b8; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
+.nh-sheet .nh-sheet-filters th { top: 34px; z-index: 3; background: #f1f5f9; font-weight: 500; padding: 6px 8px; box-shadow: inset 0 -1px 0 #e2e8f0; }
+.nh-sheet .nh-sheet-subhead th { top: 72px; font-weight: 500; font-size: 10px; color: #94a3b8; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
 .nh-sheet .nh-sticky { position: sticky; left: 0; z-index: 2; background: #fff; }
 .nh-sheet thead .nh-sticky { z-index: 4; background: #f8fafc; }
+.nh-sheet .nh-sheet-filters .nh-sticky { background: #f1f5f9; }
 .nh-sheet .nh-sticky-2 { left: 48px; min-width: 160px; box-shadow: 2px 0 4px rgba(15,23,42,.04); }
+.nh-col-filter {
+  width: 100%; min-width: 72px; max-width: 140px; box-sizing: border-box;
+  font-size: 11px; font-family: inherit; color: #334155;
+  border: 1px solid #e2e8f0; border-radius: 6px; background: #fff;
+  padding: 4px 6px; outline: none;
+}
+.nh-col-filter:focus { border-color: #1E3A5F; box-shadow: 0 0 0 2px rgba(30,58,95,.12); }
+.nh-sheet-filters .nh-sticky-2 .nh-col-filter { max-width: 180px; min-width: 120px; }
 .nh-sheet .nh-sec-col { text-align: center; min-width: 52px; }
 .nh-sheet .nh-sec-sub { text-align: center; max-width: 72px; }
 .nh-sheet .nh-sec-cell { text-align: center; padding: 4px 6px; }

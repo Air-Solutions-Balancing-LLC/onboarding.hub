@@ -43,7 +43,25 @@
   let processAdminOpen = {}; // category expand state in Admin
   let selectedHireId = null;
   let openSections = {};
-  let filters = { q: '', status: 'active', role: 'HR', person: 'all', todoScope: 'week', hireWindow: 'onboarding', archiveStatus: 'all' };
+  let filters = {
+    q: '',
+    status: 'active',
+    role: 'HR',
+    person: 'all',
+    todoScope: 'week',
+    hireWindow: 'onboarding',
+    archiveStatus: 'all',
+    cols: {
+      name: '',
+      position: '',
+      region: '',
+      city_center: '',
+      orientation: '',
+      start: '',
+      bootcamp: '',
+      status: ''
+    }
+  };
   let revealSensitive = false;
   let saveTimer = null;
   let loading = true;
@@ -597,6 +615,7 @@
 
   function filteredEmployees() {
     const q = filters.q.trim().toLowerCase();
+    const c = filters.cols || {};
     return employees.filter((e) => {
       const matchSearch =
         !q ||
@@ -606,7 +625,28 @@
         (e.company_email || '').toLowerCase().includes(q) ||
         String(e.employee_number ?? '').includes(q);
       // Dashboard / Roster: active only (archived hires live in Archive)
-      return matchSearch && (e.status || 'active') === 'active';
+      if (!(matchSearch && (e.status || 'active') === 'active')) return false;
+
+      const nameQ = (c.name || '').trim().toLowerCase();
+      if (nameQ) {
+        const hay = `${displayHireName(e)} ${e.full_name || ''} ${e.preferred_name || ''}`.toLowerCase();
+        if (!hay.includes(nameQ)) return false;
+      }
+      if (c.position && normalizePosition(e.employee_type) !== c.position) return false;
+      if (c.region) {
+        const reg = normalizeRegion(e.region) || e.region || '';
+        if (String(reg).toLowerCase() !== String(c.region).toLowerCase()) return false;
+      }
+      const cityQ = (c.city_center || '').trim().toLowerCase();
+      if (cityQ && !(e.city_center || '').toLowerCase().includes(cityQ)) return false;
+      const orientQ = (c.orientation || '').trim().toLowerCase();
+      if (orientQ && !(e.start_date || '').toLowerCase().includes(orientQ)) return false;
+      const startQ = (c.start || '').trim().toLowerCase();
+      if (startQ && !(e.work_start_date || '').toLowerCase().includes(startQ)) return false;
+      const bootQ = (c.bootcamp || '').trim().toLowerCase();
+      if (bootQ && !(e.bootcamp_start_date || '').toLowerCase().includes(bootQ)) return false;
+      if (c.status && (e.status || 'active') !== c.status) return false;
+      return true;
     });
   }
 
@@ -986,10 +1026,76 @@
       </div>`;
   }
 
+  function colFilterInput(key, placeholder) {
+    const val = (filters.cols && filters.cols[key]) || '';
+    return `<input type="search" class="nh-col-filter" data-col-filter="${esc(key)}" placeholder="${esc(placeholder)}" value="${esc(val)}" />`;
+  }
+
+  function colFilterSelect(key, options, allLabel) {
+    const val = (filters.cols && filters.cols[key]) || '';
+    return `<select class="nh-col-filter" data-col-filter="${esc(key)}">
+      <option value="">${esc(allLabel || 'All')}</option>
+      ${options.map((o) => {
+        const v = typeof o === 'string' ? o : o.value;
+        const label = typeof o === 'string' ? o : o.label;
+        return `<option value="${esc(v)}" ${v === val ? 'selected' : ''}>${esc(label)}</option>`;
+      }).join('')}
+    </select>`;
+  }
+
+  function dashboardColFilterRow(sections) {
+    const c = filters.cols || {};
+    return `<tr class="nh-sheet-filters">
+      <th class="nh-sticky"></th>
+      <th class="nh-sticky nh-sticky-2">${colFilterInput('name', 'Filter name…')}</th>
+      <th>${colFilterSelect('position', POSITION_OPTIONS, 'All positions')}</th>
+      <th>${colFilterSelect('region', REGION_OPTIONS, 'All regions')}</th>
+      <th>${colFilterInput('city_center', 'City…')}</th>
+      <th>${colFilterInput('orientation', 'YYYY-MM-DD')}</th>
+      <th>${colFilterInput('start', 'YYYY-MM-DD')}</th>
+      <th>${colFilterInput('bootcamp', 'YYYY-MM-DD')}</th>
+      <th>${colFilterSelect('status', STATUS_OPTIONS.map((s) => ({ value: s, label: formatStatusLabel(s) })), 'All statuses')}</th>
+      <th></th>
+      ${sections.map(() => '<th></th>').join('')}
+      <th>${Object.values(c).some(Boolean) ? '<button type="button" class="btn-xs" id="nh-clear-col-filters" title="Clear column filters">Clear</button>' : ''}</th>
+    </tr>`;
+  }
+
+  function bindColFilters(root) {
+    const restoreFocus = (key, isSelect) => {
+      const el = root.querySelector(`[data-col-filter="${key}"]`) || document.querySelector(`[data-col-filter="${key}"]`);
+      if (!el) return;
+      el.focus();
+      if (!isSelect && typeof el.setSelectionRange === 'function') {
+        const len = el.value.length;
+        el.setSelectionRange(len, len);
+      }
+    };
+    root.querySelectorAll('[data-col-filter]').forEach((el) => {
+      const key = el.getAttribute('data-col-filter');
+      const handler = () => {
+        if (!filters.cols) filters.cols = {};
+        filters.cols[key] = el.value || '';
+        render();
+        restoreFocus(key, el.tagName === 'SELECT');
+      };
+      if (el.tagName === 'SELECT') el.addEventListener('change', handler);
+      else el.addEventListener('input', handler);
+    });
+    root.querySelector('#nh-clear-col-filters')?.addEventListener('click', () => {
+      filters.cols = {
+        name: '', position: '', region: '', city_center: '',
+        orientation: '', start: '', bootcamp: '', status: ''
+      };
+      render();
+    });
+  }
+
   function bindRosterChrome(root) {
     bindRoleBar(root);
     bindStatusSelects(root);
     bindProfileSelects(root);
+    bindColFilters(root);
     root.querySelector('#nh-search')?.addEventListener('input', (e) => {
       filters.q = e.target.value;
       render();
@@ -1071,6 +1177,7 @@
               ${sections.map((sec) => `<th title="${esc(sec.title)}" class="nh-sec-col">${esc(sec.id)}</th>`).join('')}
               <th></th>
             </tr>
+            ${dashboardColFilterRow(sections)}
             <tr class="nh-sheet-subhead">
               <th class="nh-sticky"></th>
               <th class="nh-sticky nh-sticky-2"></th>
