@@ -893,6 +893,7 @@
           <button class="btn-secondary ${view === 'roster' ? 'nh-tab-on' : ''}" type="button" data-view="roster">Roster</button>
           <button class="btn-secondary ${view === 'archive' ? 'nh-tab-on' : ''}" type="button" data-view="archive">Archive</button>
           <button class="btn-secondary" type="button" id="nh-btn-template">Manage process</button>
+          <button class="btn-secondary" type="button" id="nh-btn-archive-old" title="Keep new Jul–Sep 2026 cohort Active; archive others at 100% complete">Archive older hires</button>
           <button class="btn-primary" type="button" id="nh-btn-add">+ Add new hire</button>
         </div>
       </div>`;
@@ -921,6 +922,12 @@
       });
     });
     root.querySelector('#nh-btn-add')?.addEventListener('click', () => openHireModal());
+    root.querySelector('#nh-btn-archive-old')?.addEventListener('click', async () => {
+      const btn = root.querySelector('#nh-btn-archive-old');
+      if (btn) btn.disabled = true;
+      try { await archiveOlderHiresKeepNew(); }
+      finally { if (btn) btn.disabled = false; }
+    });
     root.querySelector('#nh-btn-template')?.addEventListener('click', () => {
       // Process editing lives in Admin for the whole team
       if (window.HubAuth && HubAuth.canAccessAdmin && HubAuth.canAccessAdmin()) {
@@ -1971,7 +1978,10 @@
     root.innerHTML = `
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px">
         <p class="user-mgmt-subtitle" style="margin:0">${total} tasks across ${(data.sections || []).length} categories. Due date = chosen date minus days before (default: 0 days before Orientation).</p>
-        <button type="button" class="btn-secondary" id="nh-reset-dues">Reset all dues → 0 days before Orientation</button>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <button type="button" class="btn-secondary" id="nh-archive-old-hires" title="Keep Jul–Sep 2026 new cohort Active; archive everyone else at 100% complete">Archive older hires (keep new cohort)</button>
+          <button type="button" class="btn-secondary" id="nh-reset-dues">Reset all dues → 0 days before Orientation</button>
+        </div>
       </div>
       ${processSectionsHtml({ adminMode: true })}`;
     root.querySelector('#nh-reset-dues')?.addEventListener('click', () => {
@@ -1979,6 +1989,12 @@
       resetAllDueDefaults();
       renderProcessAdmin(root);
       if (document.getElementById('page-checklist')?.classList.contains('active')) render();
+    });
+    root.querySelector('#nh-archive-old-hires')?.addEventListener('click', async () => {
+      const btn = root.querySelector('#nh-archive-old-hires');
+      if (btn) btn.disabled = true;
+      try { await archiveOlderHiresKeepNew(); }
+      finally { if (btn) btn.disabled = false; }
     });
     bindProcessEditor(root, {
       adminMode: true,
@@ -1990,6 +2006,124 @@
     ensureData();
     if (!data || !data.items?.length) data = seed();
     renderProcessAdmin(document.getElementById('nh-process-admin-root'));
+  }
+
+  // New-hire cohort to keep Active on Dashboard (from Updated File Sept. 2025 spreadsheet — Jul/Aug/Sep 2026 starts)
+  const KEEP_ACTIVE_NAMES = [
+    'Hakym Conejo',
+    'Jackson Price',
+    'James Bell',
+    'Joshua Kropf',
+    'Josh Kropf',
+    'James Ioime',
+    'Javed Mohammed',
+    'Clinton Duru',
+    'Ryan Dinger',
+    'Angel Leon Pagan',
+    'David Summiel IV',
+    'David Summiel',
+    'William Jordan Velandry',
+    'William Jordan',
+    'Ryan Esparza',
+    'Bilardo Artiga',
+    'Evan Smith',
+    'David Kobosky',
+    'Derrick Jackson',
+    'Chase Grahl',
+    'Zachary Shealy'
+  ];
+
+  function normalizeNameKey(name) {
+    return String(name || '')
+      .toLowerCase()
+      .replace(/\(goes\s+by[^)]*\)/gi, ' ')
+      .replace(/goes\s+by\s+/gi, ' ')
+      .replace(/\([^)]*\)/g, ' ')
+      .replace(/["']/g, '')
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function hireMatchesKeepList(emp) {
+    const keys = KEEP_ACTIVE_NAMES.map(normalizeNameKey);
+    const candidates = [
+      emp.full_name,
+      emp.preferred_name,
+      displayHireName(emp),
+      parseGoesByFromFullName(emp.full_name || '').full_name
+    ].map(normalizeNameKey).filter(Boolean);
+    return candidates.some((c) => keys.some((k) => c === k || c.includes(k) || k.includes(c)));
+  }
+
+  function markHireProgressComplete(empId) {
+    ensureData();
+    const p = progressOf(empId);
+    (data.items || []).forEach((item) => {
+      const steps = normalizeSteps(item);
+      if (steps.length) {
+        if (!p.checklists[item.id]) p.checklists[item.id] = {};
+        steps.forEach((s) => { p.checklists[item.id][s.id] = true; });
+        p.values[item.id] = true;
+        return;
+      }
+      if (item.inputType === 'checkbox') {
+        p.values[item.id] = true;
+        return;
+      }
+      if (isFilled(item, p.values[item.id])) return;
+      if (item.inputType === 'date') {
+        p.values[item.id] = fmtDate(new Date());
+      } else {
+        p.values[item.id] = 'Done';
+      }
+    });
+  }
+
+  async function archiveOlderHiresKeepNew() {
+    ensureData();
+    if (!employees.length) {
+      try { await loadEmployees(); } catch (e) { /* ignore */ }
+    }
+    if (!employees.length) {
+      alert('No employees loaded yet. Open New Hire Checklist first, then try again.');
+      return { archived: 0, kept: 0 };
+    }
+    const toArchive = employees.filter((e) => (e.status || 'active') === 'active' && !hireMatchesKeepList(e));
+    const kept = employees.filter((e) => (e.status || 'active') === 'active' && hireMatchesKeepList(e));
+    if (!toArchive.length) {
+      alert(`Nothing to archive. ${kept.length} active hire(s) already match the keep list.`);
+      return { archived: 0, kept: kept.length };
+    }
+    const ok = confirm(
+      `Archive ${toArchive.length} hire(s) and mark each as 100% complete?\n\n` +
+      `Keep Active on Dashboard (${kept.length}):\n` +
+      kept.map((e) => `• ${displayHireName(e)}`).join('\n') +
+      (kept.length ? '\n\n' : '\n') +
+      'Everyone else currently Active will move to Archive at 100% done.'
+    );
+    if (!ok) return { archived: 0, kept: kept.length };
+
+    let archived = 0;
+    const errors = [];
+    for (const emp of toArchive) {
+      const prev = emp.status;
+      emp.status = 'archived';
+      markHireProgressComplete(emp.id);
+      try {
+        await syncEmployeePatch(emp.id, { status: 'archived', status_note: emp.status_note || 'Archived — prior hire marked complete' });
+        archived += 1;
+      } catch (e) {
+        emp.status = prev;
+        errors.push(`${displayHireName(emp)}: ${e.message || e}`);
+      }
+    }
+    persist();
+    render();
+    const msg = `Archived ${archived} hire(s) at 100% complete. Kept ${kept.length} Active.`;
+    if (errors.length) alert(msg + '\n\nSome updates failed:\n' + errors.slice(0, 8).join('\n'));
+    else alert(msg);
+    return { archived, kept: kept.length, errors };
   }
 
   function refreshAfterProcessChange() {
@@ -2433,6 +2567,7 @@
     applyRemote,
     render,
     mountProcessAdmin,
-    openItemModal
+    openItemModal,
+    archiveOlderHiresKeepNew
   };
 })();
