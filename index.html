@@ -884,7 +884,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <select id="og-tech-picker" class="form-input" onchange="addOrientTechFromPicker(this)">
           <option value="">+ Add from New Hire Checklist…</option>
         </select>
-        <div class="tech-picker-hint">Dropdown shows name, TAB position, and region so you know where each person is from.</div>
+        <div class="tech-picker-hint">Choose a person — titles look like TAB New England Technician-Boston or TAB National Technician-Dallas.</div>
       </div>
       <div style="margin-top:16px;padding-top:14px;border-top:1px solid #f1f5f9">
         <div style="font-size:13px;font-weight:600;color:#1e293b;margin-bottom:4px">Additional tasks for this group</div>
@@ -909,7 +909,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <select id="bc-tech-picker" class="form-input" onchange="addBcTechFromPicker(this)">
           <option value="">+ Add from New Hire Checklist…</option>
         </select>
-        <div class="tech-picker-hint">Dropdown shows name, TAB position, and region so you know where each person is from.</div>
+        <div class="tech-picker-hint">Choose a person — titles look like TAB New England Technician-Boston or TAB National Technician-Dallas.</div>
       </div>
       <div style="margin-top:16px;padding-top:14px;border-top:1px solid #f1f5f9">
         <div style="font-size:13px;font-weight:600;color:#1e293b;margin-bottom:4px">Additional tasks for this group</div>
@@ -1580,20 +1580,31 @@ function normalizeGroupTech(t) {
   }
   const name = String(t.name || '').trim();
   if (!name) return null;
+  const region = t.region || '';
+  const cityCenter = t.cityCenter || t.city_center || '';
+  const employeeType = t.employeeType || t.employee_type || '';
+  let position = t.position || t.tabTitle || '';
+  // Rebuild TAB title from region/city when we have them (covers older saves + generic "TAB Technician")
+  if ((!position || /^TAB Technician$/i.test(position) || /^KES Installer$/i.test(position) || /^Office Staff$/i.test(position))
+      && (region || cityCenter || employeeType)
+      && window.HubChecklist && typeof HubChecklist.formatTabPositionTitle === 'function') {
+    position = HubChecklist.formatTabPositionTitle(employeeType || 'technician', region, cityCenter);
+  }
   return {
     id: t.id || '',
     name,
-    region: t.region || '',
-    position: t.position || '',
-    cityCenter: t.cityCenter || t.city_center || ''
+    region,
+    position,
+    cityCenter,
+    employeeType
   };
 }
 
 function techDisplayLabel(t) {
   const tech = normalizeGroupTech(t);
   if (!tech) return '';
-  const bits = [tech.region, tech.position].filter(Boolean);
-  return bits.length ? `${tech.name} — ${bits.join(' · ')}` : tech.name;
+  if (tech.position) return `${tech.name} — ${tech.position}`;
+  return tech.name;
 }
 
 function techListLabel(techs) {
@@ -1631,7 +1642,7 @@ function renderTechChips(containerId, techs, removeFnName) {
   }
   el.innerHTML = techs.map((t, i) => {
     const tech = normalizeGroupTech(t);
-    const meta = [tech.region, tech.position].filter(Boolean).join(' · ');
+    const meta = tech.position || [tech.region, tech.cityCenter].filter(Boolean).join(' · ');
     return `<span class="tech-picker-chip">
       <strong>${escapeAttr(tech.name)}</strong>
       ${meta ? `<span class="tech-meta">${escapeAttr(meta)}</span>` : ''}
@@ -1670,13 +1681,15 @@ function fillTechPicker(selectId, selectedTechs) {
     regions.forEach((region) => {
       opts += `<optgroup label="${escapeAttr(region)}">`;
       byRegion[region].forEach((p) => {
-        const label = [p.name, p.position].filter(Boolean).join(' · ');
+        const title = p.tabTitle || p.position || '';
+        const label = title ? `${p.name} — ${title}` : p.name;
         const payload = encodeURIComponent(JSON.stringify({
           id: p.id,
           name: p.name,
           region: p.region || '',
-          position: p.position || '',
-          cityCenter: p.cityCenter || ''
+          position: title,
+          cityCenter: p.cityCenter || '',
+          employeeType: p.employeeType || ''
         }));
         opts += `<option value="${payload}">${escapeAttr(label)}</option>`;
       });
@@ -1805,7 +1818,8 @@ function saveOrientGroup() {
     name: t.name,
     region: t.region || '',
     position: t.position || '',
-    cityCenter: t.cityCenter || ''
+    cityCenter: t.cityCenter || '',
+    employeeType: t.employeeType || ''
   }));
   const dates = getOrientDates(oDate);
 
@@ -1978,7 +1992,8 @@ function saveBootcampGroup() {
     name: t.name,
     region: t.region || '',
     position: t.position || '',
-    cityCenter: t.cityCenter || ''
+    cityCenter: t.cityCenter || '',
+    employeeType: t.employeeType || ''
   }));
 
   const monBefore = new Date(bcDate);

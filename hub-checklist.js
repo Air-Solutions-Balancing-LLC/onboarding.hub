@@ -2303,23 +2303,43 @@
     await loadEmployees();
   }
 
+  function formatTabPositionTitle(employeeType, region, cityCenter) {
+    const type = normalizePosition(employeeType || 'technician');
+    const regionLabel = String(region || '').trim();
+    const city = String(cityCenter || '').trim();
+    let base = 'TAB Technician';
+    if (type === 'kes_installer') {
+      base = regionLabel ? `KES ${regionLabel} Installer` : 'KES Installer';
+    } else if (type === 'office_staff') {
+      base = regionLabel ? `Office Staff — ${regionLabel}` : 'Office Staff';
+    } else {
+      // TAB Technician / National Account tech style: TAB {Region} Technician-{City}
+      base = regionLabel ? `TAB ${regionLabel} Technician` : 'TAB Technician';
+    }
+    if (city && type !== 'office_staff') return `${base}-${city}`;
+    if (city && type === 'office_staff') return `${base} (${city})`;
+    return base;
+  }
+
   function getOrientPickerPeople() {
     ensureData();
     return employees
       .filter((e) => (e.status || 'active') === 'active')
       .map((e) => {
-        const pos = POSITION_OPTIONS.find((p) => p.value === e.employee_type);
+        const tabTitle = formatTabPositionTitle(e.employee_type, e.region, e.city_center);
         return {
           id: e.id,
           name: displayHireName(e),
           region: e.region || '',
           cityCenter: e.city_center || '',
-          position: pos ? pos.label : (e.employee_type || ''),
+          position: tabTitle,
+          tabTitle,
           employeeType: e.employee_type || ''
         };
       })
       .sort((a, b) =>
         String(a.region || '').localeCompare(String(b.region || '')) ||
+        String(a.cityCenter || '').localeCompare(String(b.cityCenter || '')) ||
         String(a.name || '').localeCompare(String(b.name || ''))
       );
   }
@@ -2331,6 +2351,7 @@
     render,
     mountProcessAdmin,
     openItemModal,
-    getOrientPickerPeople
+    getOrientPickerPeople,
+    formatTabPositionTitle
   };
 })();
