@@ -133,25 +133,48 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .group-techs { font-size: 12px; color: #64748b; margin-bottom: 6px; }
 .group-tech-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
 .group-tech-chip { font-size: 11px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px 8px; color: #334155; }
-.group-tasks { display: flex; flex-direction: column; gap: 6px; }
+.group-tasks { display: flex; flex-direction: column; gap: 10px; }
 .group-task-chip { font-size: 10px; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px; padding: 2px 7px; color: #475569; }
+.og-phase { border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; background: #fff; }
+.og-phase > summary {
+  list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 12px 14px; font-size: 13px; font-weight: 700; user-select: none; letter-spacing: .01em;
+}
+.og-phase > summary::-webkit-details-marker { display: none; }
+.og-phase > summary::after { content: '▾'; font-size: 12px; opacity: .7; }
+.og-phase:not([open]) > summary::after { content: '▸'; }
+.og-phase-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.og-phase-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; border-radius: 4px; padding: 3px 7px; }
+.og-phase-title { font-size: 14px; }
+.og-phase-count { font-size: 11px; font-weight: 600; opacity: .8; }
+.og-phase-body { padding: 0 10px 10px; display: flex; flex-direction: column; gap: 6px; }
+.og-phase.before { border-color: #bfdbfe; }
+.og-phase.before > summary { background: #eff6ff; color: #1e3a8a; }
+.og-phase.before .og-phase-badge { background: #dbeafe; color: #1d4ed8; }
+.og-phase.during { border-color: #fdba74; }
+.og-phase.during > summary { background: #fff7ed; color: #9a3412; }
+.og-phase.during .og-phase-badge { background: #ffedd5; color: #c2410c; }
+.og-phase.after { border-color: #bbf7d0; }
+.og-phase.after > summary { background: #f0fdf4; color: #14532d; }
+.og-phase.after .og-phase-badge { background: #dcfce7; color: #15803d; }
 .og-date-section { border: 1px solid #e2e8f0; border-radius: 8px; background: #fafbfc; overflow: hidden; }
-.og-date-section + .og-date-section { margin-top: 0; }
 .og-date-section[open] { background: #fff; }
 .og-date-section > summary {
   list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  padding: 10px 12px; font-size: 13px; font-weight: 600; color: #1e293b; user-select: none;
+  padding: 9px 11px; font-size: 12px; font-weight: 600; color: #1e293b; user-select: none;
 }
 .og-date-section > summary::-webkit-details-marker { display: none; }
-.og-date-section > summary::after { content: '▾'; color: #94a3b8; font-size: 12px; transition: transform .15s; }
-.og-date-section:not([open]) > summary::after { transform: rotate(-90deg); }
+.og-date-section > summary::after { content: '▾'; color: #94a3b8; font-size: 11px; }
+.og-date-section:not([open]) > summary::after { content: '▸'; }
 .og-date-summary-left { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
-.og-date-count { font-size: 11px; font-weight: 600; color: #64748b; background: #f1f5f9; border-radius: 999px; padding: 2px 8px; }
+.og-date-count { font-size: 10px; font-weight: 600; color: #64748b; background: #f1f5f9; border-radius: 999px; padding: 2px 8px; }
+.og-date-section.is-orient-day { border-color: #fb923c; }
 .og-date-section.is-orient-day > summary { background: #fff7ed; }
 .og-date-section.is-orient-day .og-date-label { color: #c2410c; }
+.og-orient-day-tag { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #fff; background: #ea580c; border-radius: 4px; padding: 2px 6px; }
 .og-date-tasks { list-style: none; margin: 0; padding: 0 12px 10px; border-top: 1px solid #f1f5f9; }
 .og-date-tasks li {
-  font-size: 12px; color: #334155; line-height: 1.4; padding: 8px 0;
+  font-size: 12px; color: #334155; line-height: 1.45; padding: 8px 0;
   border-bottom: 1px solid #f8fafc; display: flex; gap: 8px; align-items: flex-start;
 }
 .og-date-tasks li:last-child { border-bottom: none; }
@@ -1938,7 +1961,7 @@ function deleteOrientGroup(id) {
 
 function parseOrientDateKey(dk) {
   const parts = String(dk || '').split('-').map(Number);
-  if (parts.length < 3 || parts.some((n) => !n && n !== 0)) return null;
+  if (parts.length < 3 || parts.some((n) => Number.isNaN(n))) return null;
   const d = new Date(parts[0], parts[1] - 1, parts[2]);
   return isNaN(d.getTime()) ? null : d;
 }
@@ -1947,6 +1970,30 @@ function formatOrientDateLabel(dk) {
   const d = parseOrientDateKey(dk);
   if (!d) return String(dk || 'TBD');
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function orientWeekBounds(orientDateKey) {
+  const o = parseOrientDateKey(orientDateKey);
+  if (!o) return null;
+  const mon = new Date(o);
+  const dow = mon.getDay();
+  mon.setDate(mon.getDate() - (dow === 0 ? 6 : dow - 1));
+  mon.setHours(0, 0, 0, 0);
+  const fri = new Date(mon);
+  fri.setDate(mon.getDate() + 4);
+  fri.setHours(23, 59, 59, 999);
+  return { mon, fri, orient: o };
+}
+
+function classifyOrientPhase(taskDateKey, orientDateKey) {
+  const bounds = orientWeekBounds(orientDateKey);
+  const t = parseOrientDateKey(taskDateKey);
+  if (!bounds || !t) return 'during';
+  const td = new Date(t);
+  td.setHours(12, 0, 0, 0);
+  if (td < bounds.mon) return 'before';
+  if (td > bounds.fri) return 'after';
+  return 'during';
 }
 
 function groupOrientTasksByDate(tasks) {
@@ -1972,37 +2019,80 @@ function groupOrientTasksByDate(tasks) {
     }));
 }
 
+function buildOrientPhaseSections(group) {
+  const byDate = groupOrientTasksByDate(group.tasks);
+  const phases = {
+    before: { id: 'before', badge: 'ANTES', title: 'Before Orientation', hint: 'Prep weeks leading up to orientation', dates: [] },
+    during: { id: 'during', badge: 'DURANTE', title: 'Orientation Week', hint: 'Monday–Friday of orientation week (includes Orientation Day)', dates: [] },
+    after: { id: 'after', badge: 'DESPUÉS', title: 'After Orientation', hint: 'Follow-up, systems, weekly ATA cadence, bootcamp path', dates: [] }
+  };
+  byDate.forEach((sec) => {
+    const phase = classifyOrientPhase(sec.date, group.orientDate);
+    phases[phase].dates.push(sec);
+  });
+  return [phases.before, phases.during, phases.after];
+}
+
+function renderOrientDateDetails(sec, orientDate, forceOpen) {
+  const isOrientDay = String(sec.date) === String(orientDate);
+  const openAttr = (forceOpen || isOrientDay) ? ' open' : '';
+  return `<details class="og-date-section${isOrientDay ? ' is-orient-day' : ''}"${openAttr}>
+    <summary>
+      <span class="og-date-summary-left">
+        <span class="og-date-label">${escapeAttr(sec.label)}</span>
+        ${isOrientDay ? '<span class="og-orient-day-tag">Orientation Day</span>' : ''}
+        <span class="og-date-count">${sec.tasks.length} task${sec.tasks.length === 1 ? '' : 's'}</span>
+      </span>
+    </summary>
+    <ul class="og-date-tasks">
+      ${sec.tasks.map((name) => `<li>${escapeAttr(name)}</li>`).join('')}
+    </ul>
+  </details>`;
+}
+
 function renderOrientGroups() {
   const el = document.getElementById('orient-groups-list');
   if (!orientGroups.length) { el.innerHTML='<div style="font-size:13px;color:#94a3b8;padding:12px 0">No orientation groups yet.</div>'; return; }
   el.innerHTML = orientGroups.map(g => {
     const techItems = (g.techs || []).map((t) => orientTechLabel(normalizeOrientTech(t) || t)).filter(Boolean);
-    const sections = groupOrientTasksByDate(g.tasks);
+    const phases = buildOrientPhaseSections(g);
     const techHtml = techItems.length
       ? `<div class="group-tech-list">${techItems.map((label) => `<span class="group-tech-chip">${escapeAttr(label)}</span>`).join('')}</div>`
       : '<div class="group-techs">No technicians listed</div>';
-    const sectionsHtml = sections.length
-      ? sections.map((sec) => {
-          const isOrientDay = String(sec.date) === String(g.orientDate);
-          const openAttr = isOrientDay ? ' open' : '';
-          return `<details class="og-date-section${isOrientDay ? ' is-orient-day' : ''}"${openAttr}>
-            <summary>
-              <span class="og-date-summary-left">
-                <span class="og-date-label">${escapeAttr(sec.label)}</span>
-                <span class="og-date-count">${sec.tasks.length} task${sec.tasks.length === 1 ? '' : 's'}</span>
-              </span>
-            </summary>
-            <ul class="og-date-tasks">
-              ${sec.tasks.map((name) => `<li>${escapeAttr(name)}</li>`).join('')}
-            </ul>
-          </details>`;
-        }).join('')
-      : '<div style="font-size:12px;color:#94a3b8">No tasks yet.</div>';
+    const phasesHtml = phases.map((phase) => {
+      const taskCount = phase.dates.reduce((n, d) => n + d.tasks.length, 0);
+      if (!taskCount) {
+        return `<details class="og-phase ${phase.id}" open>
+          <summary>
+            <span class="og-phase-left">
+              <span class="og-phase-badge">${phase.badge}</span>
+              <span class="og-phase-title">${phase.title}</span>
+              <span class="og-phase-count">0 tasks</span>
+            </span>
+          </summary>
+          <div class="og-phase-body"><div style="font-size:12px;color:#94a3b8;padding:4px 2px">${escapeAttr(phase.hint)} — no tasks in this phase.</div></div>
+        </details>`;
+      }
+      return `<details class="og-phase ${phase.id}" open>
+        <summary>
+          <span class="og-phase-left">
+            <span class="og-phase-badge">${phase.badge}</span>
+            <span class="og-phase-title">${phase.title}</span>
+            <span class="og-phase-count">${taskCount} task${taskCount === 1 ? '' : 's'} · ${phase.dates.length} day${phase.dates.length === 1 ? '' : 's'}</span>
+          </span>
+        </summary>
+        <div class="og-phase-body">
+          <div style="font-size:11px;color:#64748b;padding:0 2px 4px">${escapeAttr(phase.hint)}</div>
+          ${phase.dates.map((sec) => renderOrientDateDetails(sec, g.orientDate, true)).join('')}
+        </div>
+      </details>`;
+    }).join('');
     return `
     <div class="group-card">
       <div class="group-header">
         <div>
           <div class="group-name">🎓 Orientation — ${escapeAttr(formatOrientDateLabel(g.orientDate))}</div>
+          <div class="group-techs" style="margin-top:2px">Organized as Before · During · After</div>
         </div>
         <div style="display:flex;gap:6px">
           <button class="btn-sm" onclick="openOrientModal('${g.id}')" style="background:#e0e7ff;color:#4f46e5;border:none">Edit</button>
@@ -2011,8 +2101,7 @@ function renderOrientGroups() {
       </div>
       <div class="group-techs" style="margin-bottom:4px">Technicians</div>
       ${techHtml}
-      <div class="group-techs" style="margin-bottom:6px">Tasks by date</div>
-      <div class="group-tasks">${sectionsHtml}</div>
+      <div class="group-tasks">${phasesHtml}</div>
     </div>`;
   }).join('');
 }
