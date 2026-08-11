@@ -1790,11 +1790,9 @@ function renderOrientExtraTasks(tasks) {
 
 function orientDayOptionsHtml(selected) {
   const opts = [
-    ['thu2Before', 'Thu (2 weeks before)'],
-    ['fri2Before', 'Fri (2 weeks before)'],
-    ['mon2Before', 'Mon (~2 weeks before)'],
-    ['monBefore', 'Mon (week before)'],
+    ['thuBefore', 'Thu (week before)'],
     ['friBefore', 'Fri (week before)'],
+    ['monBefore', 'Mon (week before)'],
     ['monOrient', 'Mon (orient week)'],
     ['orientDay', 'Orientation day (Tue)'],
     ['wedOrient', 'Wed (RC active)'],
@@ -1803,8 +1801,14 @@ function orientDayOptionsHtml(selected) {
     ['wedAfter', 'Wed (week after)'],
     ['friAfter', 'Fri (week after)']
   ];
+  // Map legacy 2-weeks-before anchors to week-before options
+  const selectedNorm = ({
+    thu2Before: 'thuBefore',
+    fri2Before: 'friBefore',
+    mon2Before: 'monBefore'
+  })[selected] || selected;
   return opts.map(([v, label]) =>
-    `<option value="${v}" ${selected === v ? 'selected' : ''}>${label}</option>`
+    `<option value="${v}" ${selectedNorm === v ? 'selected' : ''}>${label}</option>`
   ).join('');
 }
 
@@ -1844,22 +1848,21 @@ function getOrientDates(oDate) {
   const friOrient = shiftDays(monOrient, 4);
 
   const monBefore = shiftDays(monOrient, -7);
+  const thuBefore = shiftDays(monBefore, 3);
   const friBefore = shiftDays(monBefore, 4);
-
-  const mon2Before = shiftDays(monOrient, -14);
-  const thu2Before = shiftDays(mon2Before, 3);
-  const fri2Before = shiftDays(mon2Before, 4);
 
   const monAfter = shiftDays(monOrient, 7);
   const wedAfter = shiftDays(monAfter, 2);
   const friAfter = shiftDays(monAfter, 4);
 
   return {
-    thu2Before,
-    fri2Before,
-    mon2Before,
-    monBefore,
+    // Week before (legacy 2-week keys map here too)
+    thuBefore,
     friBefore,
+    monBefore,
+    thu2Before: thuBefore,
+    fri2Before: friBefore,
+    mon2Before: monBefore,
     monOrient,
     tueOrient,
     wedOrient,
@@ -1894,7 +1897,9 @@ function saveOrientGroup() {
     const nameEl = el.querySelector('input[type="text"]');
     const dayEl = el.querySelector('select');
     if (nameEl && dayEl && nameEl.value.trim()) {
-      newExtras.push({ name: nameEl.value.trim(), dayRef: dayEl.value });
+      const rawRef = dayEl.value;
+      const dayRef = ({ thu2Before: 'thuBefore', fri2Before: 'friBefore', mon2Before: 'monBefore' })[rawRef] || rawRef;
+      newExtras.push({ name: nameEl.value.trim(), dayRef });
     }
   }
   // Save as new template (replaces old)
@@ -1903,12 +1908,10 @@ function saveOrientGroup() {
 
   // Timeline anchors relative to Orientation date (typically Tuesday)
   const BASE_TASKS = [
-    // 2 weeks before
-    { name: 'Brenda sends ORIENTATION email (track / reply as needed)', dayRef: 'thu2Before' },
-    { name: 'Send consolidated onboarding checklist (Reply All) + create calendar reminder', dayRef: 'fri2Before' },
-    { name: 'Prepare ATA accounts, enrollments (Basics, Getting Started, Safety) + Digital ATA Scores spreadsheets', dayRef: 'mon2Before' },
-
     // Week before
+    { name: 'Brenda sends ORIENTATION email (track / reply as needed)', dayRef: 'thuBefore' },
+    { name: 'Send consolidated onboarding checklist (Reply All) + create calendar reminder', dayRef: 'friBefore' },
+    { name: 'Prepare ATA accounts, enrollments (Basics, Getting Started, Safety) + Digital ATA Scores spreadsheets', dayRef: 'monBefore' },
     { name: 'Final OSHA / diplomas verification; add techs to Office Calendar + Anniversary Tracker', dayRef: 'monBefore' },
     { name: 'Reply All with final status + USPS tracking (iPad/PPE); send Orientation link to Ana/Joe + Tue 8:15–9:15 AM placeholder', dayRef: 'friBefore' },
 
@@ -2022,9 +2025,9 @@ function groupOrientTasksByDate(tasks) {
 function buildOrientPhaseSections(group) {
   const byDate = groupOrientTasksByDate(group.tasks);
   const phases = {
-    before: { id: 'before', badge: 'ANTES', title: 'Before Orientation', hint: 'Prep weeks leading up to orientation', dates: [] },
-    during: { id: 'during', badge: 'DURANTE', title: 'Orientation Week', hint: 'Monday–Friday of orientation week (includes Orientation Day)', dates: [] },
-    after: { id: 'after', badge: 'DESPUÉS', title: 'After Orientation', hint: 'Follow-up, systems, weekly ATA cadence, bootcamp path', dates: [] }
+    before: { id: 'before', badge: 'BEFORE', title: 'Before Orientation', hint: 'Prep during the week before orientation', dates: [] },
+    during: { id: 'during', badge: 'DURING', title: 'Orientation Week', hint: 'Monday–Friday of orientation week (includes Orientation Day)', dates: [] },
+    after: { id: 'after', badge: 'AFTER', title: 'After Orientation', hint: 'Follow-up, systems, weekly ATA cadence, bootcamp path', dates: [] }
   };
   byDate.forEach((sec) => {
     const phase = classifyOrientPhase(sec.date, group.orientDate);
