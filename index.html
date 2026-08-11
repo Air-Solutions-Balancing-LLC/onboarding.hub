@@ -1735,14 +1735,31 @@ function renderOrientExtraTasks(tasks) {
   container.innerHTML = tasks.map((t, i) => `
     <div class="extra-task-row" id="oet-${i}">
       <input class="form-input" type="text" value="${(t.name||'').replace(/"/g,'&quot;')}" placeholder="Task name" id="oet-name-${i}">
-      <select class="form-input" id="oet-day-${i}" style="width:130px;flex:none">
-        <option value="monBefore" ${t.dayRef==='monBefore'?'selected':''}>Mon (week before)</option>
-        <option value="friBefore" ${t.dayRef==='friBefore'?'selected':''}>Fri (week before)</option>
-        <option value="monOrient" ${t.dayRef==='monOrient'?'selected':''}>Mon (orient week)</option>
-        <option value="orientDay" ${t.dayRef==='orientDay'?'selected':''}>Orientation day</option>
+      <select class="form-input" id="oet-day-${i}" style="width:170px;flex:none">
+        ${orientDayOptionsHtml(t.dayRef)}
       </select>
       <button class="btn-remove-link" onclick="document.getElementById('oet-${i}').remove()">×</button>
     </div>`).join('');
+}
+
+function orientDayOptionsHtml(selected) {
+  const opts = [
+    ['thu2Before', 'Thu (2 weeks before)'],
+    ['fri2Before', 'Fri (2 weeks before)'],
+    ['mon2Before', 'Mon (~2 weeks before)'],
+    ['monBefore', 'Mon (week before)'],
+    ['friBefore', 'Fri (week before)'],
+    ['monOrient', 'Mon (orient week)'],
+    ['orientDay', 'Orientation day (Tue)'],
+    ['wedOrient', 'Wed (RC active)'],
+    ['friOrient', 'Fri (orient week)'],
+    ['monAfter', 'Mon (week after)'],
+    ['wedAfter', 'Wed (week after)'],
+    ['friAfter', 'Fri (week after)']
+  ];
+  return opts.map(([v, label]) =>
+    `<option value="${v}" ${selected === v ? 'selected' : ''}>${label}</option>`
+  ).join('');
 }
 
 function addOrientExtraTask() {
@@ -1750,7 +1767,7 @@ function addOrientExtraTask() {
   const i = container.children.length;
   const div = document.createElement('div');
   div.className = 'extra-task-row'; div.id = 'oet-' + i;
-  div.innerHTML = `<input class="form-input" type="text" placeholder="Task name" id="oet-name-${i}"><select class="form-input" id="oet-day-${i}" style="width:130px;flex:none"><option value="monBefore">Mon (week before)</option><option value="friBefore">Fri (week before)</option><option value="monOrient">Mon (orient week)</option><option value="orientDay">Orientation day</option></select><button class="btn-remove-link" onclick="this.parentElement.remove()">×</button>`;
+  div.innerHTML = `<input class="form-input" type="text" placeholder="Task name" id="oet-name-${i}"><select class="form-input" id="oet-day-${i}" style="width:170px;flex:none">${orientDayOptionsHtml('wedOrient')}</select><button class="btn-remove-link" onclick="this.parentElement.remove()">×</button>`;
   container.appendChild(div);
   div.querySelector('input').focus();
 }
@@ -1764,13 +1781,48 @@ function closeOrientModal() {
 function toDateKey(d) { return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
 function prevWD(d,n){let r=new Date(d),c=0;while(c<n){r.setDate(r.getDate()-1);if(r.getDay()!==0&&r.getDay()!==6)c++;}return r;}
 
+function shiftDays(d, n) {
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
+}
+
 function getOrientDates(oDate) {
+  // Monday of the orientation week
   const monOrient = new Date(oDate);
   const dow = monOrient.getDay();
-  monOrient.setDate(monOrient.getDate()-(dow===0?6:dow-1));
-  const monBefore = new Date(monOrient); monBefore.setDate(monOrient.getDate()-7);
-  const friBefore = new Date(monBefore); friBefore.setDate(monBefore.getDate()+4);
-  return { monBefore, friBefore, monOrient, orientDay: oDate };
+  monOrient.setDate(monOrient.getDate() - (dow === 0 ? 6 : dow - 1));
+
+  const tueOrient = shiftDays(monOrient, 1);
+  const wedOrient = shiftDays(monOrient, 2);
+  const friOrient = shiftDays(monOrient, 4);
+
+  const monBefore = shiftDays(monOrient, -7);
+  const friBefore = shiftDays(monBefore, 4);
+
+  const mon2Before = shiftDays(monOrient, -14);
+  const thu2Before = shiftDays(mon2Before, 3);
+  const fri2Before = shiftDays(mon2Before, 4);
+
+  const monAfter = shiftDays(monOrient, 7);
+  const wedAfter = shiftDays(monAfter, 2);
+  const friAfter = shiftDays(monAfter, 4);
+
+  return {
+    thu2Before,
+    fri2Before,
+    mon2Before,
+    monBefore,
+    friBefore,
+    monOrient,
+    tueOrient,
+    wedOrient,
+    friOrient,
+    orientDay: oDate,
+    monAfter,
+    wedAfter,
+    friAfter
+  };
 }
 
 function saveOrientGroup() {
@@ -1803,16 +1855,34 @@ function saveOrientGroup() {
   orientExtraTemplates = newExtras;
   HubAuth.save('orient_extra_templates', orientExtraTemplates);
 
+  // Timeline anchors relative to Orientation date (typically Tuesday)
   const BASE_TASKS = [
-    {name:"Reply ALL to Brenda's email — Onboarding checklists", dayRef:'monBefore'},
-    {name:"Prepare ATA accounts & Digital ATA Scores spreadsheets", dayRef:'monBefore'},
-    {name:"Final onboarding status update (Reply All)", dayRef:'friBefore'},
-    {name:"Send Orientation link to Ana & Joe (IT Onboarding)", dayRef:'monOrient'},
-    {name:"Schedule Meet & Greet with ATA Team", dayRef:'monOrient'},
-    {name:"Create ATA profiles — enroll in Safety, Getting Started, Basics", dayRef:'monOrient'},
-    {name:"Add techs to RC Channels", dayRef:'orientDay'},
-    {name:"Create TEAM in RC (PM + Brenda + new tech)", dayRef:'orientDay'},
-    {name:"Post confirmation in Orientation thread", dayRef:'orientDay'},
+    // 2 weeks before
+    { name: 'Brenda sends ORIENTATION email (track / reply as needed)', dayRef: 'thu2Before' },
+    { name: 'Send consolidated onboarding checklist (Reply All) + create calendar reminder', dayRef: 'fri2Before' },
+    { name: 'Prepare ATA accounts, enrollments (Basics, Getting Started, Safety) + Digital ATA Scores spreadsheets', dayRef: 'mon2Before' },
+
+    // Week before
+    { name: 'Final OSHA / diplomas verification; add techs to Office Calendar + Anniversary Tracker', dayRef: 'monBefore' },
+    { name: 'Reply All with final status + USPS tracking (iPad/PPE); send Orientation link to Ana/Joe + Tue 8:15–9:15 AM placeholder', dayRef: 'friBefore' },
+
+    // Orientation week
+    { name: 'Confirm iPad delivery + tech check-in; post Orientation link in RC; schedule Meet & Greet ATA (target Wednesday)', dayRef: 'monOrient' },
+    { name: 'ORIENTATION DAY — Tools testing 8:15 AM EST, IT Onboarding, enroll in ATA, create tracking spreadsheets', dayRef: 'orientDay' },
+
+    // RC active Wed–Fri — best time for recurring meetings
+    { name: 'Add techs to RC threads + create TEAM (PM + Brenda + tech)', dayRef: 'wedOrient' },
+    { name: 'Add techs to weekly + monthly recurring meetings (New Tech Update Wed / TTB Thu; survey tech ≠ Wednesday)', dayRef: 'wedOrient' },
+    { name: 'Post confirmation in Orientation thread; ask tech to confirm meeting attendance', dayRef: 'wedOrient' },
+
+    // Week after
+    { name: 'Update WEX / USA Balancing / QAD + Employee Location Map', dayRef: 'monAfter' },
+    { name: 'Weekly cadence — Mon: update ATA hours', dayRef: 'monAfter' },
+    { name: 'Weekly cadence — Wed: send ATA spreadsheet + deadline', dayRef: 'wedAfter' },
+    { name: 'Weekly cadence — Fri: review lesson progress', dayRef: 'friAfter' },
+
+    // Bootcamp path reminder (dates depend on bootcamp schedule)
+    { name: 'Bootcamp path reminder — 14 days out: hotels via Engine (non-NH only) + Brenda flights; 1 week out: verify ATA, pre-bootcamp questionnaire, final check', dayRef: 'monAfter' }
   ];
 
   const allTaskDefs = [...BASE_TASKS, ...newExtras];
