@@ -10,8 +10,16 @@
   let data = null; // { version, roles, sections, items, progress }
   let employees = [];
   let view = 'dashboard'; // dashboard | todo | roster | archive | detail | template
-  const STATUS_OPTIONS = ['active', 'terminated', 'quit', 'rescinded', 'resigned'];
-  const ARCHIVE_STATUSES = ['terminated', 'quit', 'rescinded', 'resigned'];
+  const STATUS_OPTIONS = ['active', 'archived', 'terminated', 'quit', 'rescinded', 'resigned'];
+  const ARCHIVE_STATUSES = ['archived', 'terminated', 'quit', 'rescinded', 'resigned'];
+  const STATUS_LABELS = {
+    active: 'Active',
+    archived: 'Archive',
+    terminated: 'Terminated',
+    quit: 'Quit',
+    rescinded: 'Rescinded',
+    resigned: 'Resigned'
+  };
   const REGION_OPTIONS = [
     'New England',
     'Mid-Atlantic',
@@ -501,12 +509,18 @@
   function statusBadgeClass(status) {
     const map = {
       active: 'nh-badge nh-badge-active',
+      archived: 'nh-badge nh-badge-muted',
       terminated: 'nh-badge nh-badge-danger',
       quit: 'nh-badge nh-badge-danger',
       resigned: 'nh-badge nh-badge-warn',
       rescinded: 'nh-badge nh-badge-muted',
     };
     return map[status] || 'nh-badge nh-badge-muted';
+  }
+
+  function formatStatusLabel(status) {
+    const key = String(status || '').toLowerCase();
+    return STATUS_LABELS[key] || String(status || '—').replace(/_/g, ' ');
   }
 
   function typeBadgeClass(type) {
@@ -674,7 +688,7 @@
     const cur = status || 'active';
     const opts = STATUS_OPTIONS.includes(cur) ? STATUS_OPTIONS : [cur, ...STATUS_OPTIONS];
     return `<select class="nh-status-select ${extraClass || ''}" data-status-emp="${esc(empId)}" title="Change status">
-      ${opts.map((s) => `<option value="${esc(s)}" ${s === cur ? 'selected' : ''}>${esc(s)}</option>`).join('')}
+      ${opts.map((s) => `<option value="${esc(s)}" ${s === cur ? 'selected' : ''}>${esc(formatStatusLabel(s))}</option>`).join('')}
     </select>`;
   }
 
@@ -1149,7 +1163,7 @@
   }
 
   function renderArchive(root) {
-    setPageSub('Archived hires (Terminated, Quit, Rescinded, Resigned). Set Status back to Active to restore, or Delete permanently.');
+    setPageSub('Archived hires (Archive, Terminated, Quit, Rescinded, Resigned). Set Status back to Active to restore, or Delete permanently.');
     ensureData();
     const s = stats();
     const rows = filteredArchivedEmployees();
@@ -1167,7 +1181,7 @@
         <input type="search" class="nh-search" id="nh-search" placeholder="Search archived by name, email, or #..." value="${esc(filters.q)}" />
         <div class="nh-filters">
           ${archiveFilters.map((f) =>
-            `<button type="button" class="nh-filter-btn${filters.archiveStatus === f ? ' active' : ''}" data-archive-filter="${f}">${f === 'all' ? 'all archived' : f}</button>`
+            `<button type="button" class="nh-filter-btn${filters.archiveStatus === f ? ' active' : ''}" data-archive-filter="${f}">${f === 'all' ? 'all archived' : formatStatusLabel(f)}</button>`
           ).join('')}
         </div>
       </div>
@@ -1333,6 +1347,7 @@
             <label class="nh-check-label">Position ${positionSelect(hire.id, hire.employeeType)}</label>
             <label class="nh-check-label">Region ${regionSelect(hire.id, hire.division)}</label>
             <label class="nh-check-label">City center ${cityCenterSelect(hire.id, hire.cityCenter)}</label>
+            <label class="nh-check-label">Status ${statusSelect(hire.id, hire.status)}</label>
           </div>
           <div class="nh-profile-meta nh-date-meta">
             <span><strong>Orientation date</strong> ${esc(hire.startDate || 'TBD')}</span>
@@ -1342,7 +1357,7 @@
           </div>
         </div>
         <div class="nh-profile-right">
-          <span class="${statusBadgeClass(hire.status)}">${esc(hire.status || '—')}</span>
+          <span class="${statusBadgeClass(hire.status)}">${esc(formatStatusLabel(hire.status))}</span>
           <div class="nh-prog big">
             <div class="nh-prog-bar"><span style="width:${p.pct}%"></span></div>
             <div class="nh-prog-label">${p.done}/${p.total} for ${esc(scoped)} · ${p.pct}%</div>
@@ -1364,6 +1379,7 @@
       }
     });
     bindProfileSelects(root);
+    bindStatusSelects(root);
     root.querySelector('#nh-role-d').addEventListener('change', (e) => {
       filters.role = e.target.value;
       filters.person = 'all';
@@ -1938,11 +1954,12 @@
             <div class="form-row-2">
               <div><label class="form-label">Status</label>
                 <select id="nh-hire-status" class="form-input">
-                  <option value="active">active</option>
-                  <option value="terminated">terminated</option>
-                  <option value="quit">quit</option>
-                  <option value="rescinded">rescinded</option>
-                  <option value="resigned">resigned</option>
+                  <option value="active">Active</option>
+                  <option value="archived">Archive</option>
+                  <option value="terminated">Terminated</option>
+                  <option value="quit">Quit</option>
+                  <option value="rescinded">Rescinded</option>
+                  <option value="resigned">Resigned</option>
                 </select>
               </div>
               <div><label class="form-label">Status note</label><input id="nh-hire-note" class="form-input" type="text"></div>
