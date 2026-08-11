@@ -10,6 +10,8 @@
   let data = null; // { version, roles, sections, items, progress }
   let employees = [];
   let view = 'dashboard'; // dashboard | todo | roster | archive | detail | template
+  let detailReturnView = 'dashboard';
+  let userDefaultsApplied = false;
   const STATUS_OPTIONS = ['active', 'archived', 'terminated', 'quit', 'rescinded', 'resigned'];
   const ARCHIVE_STATUSES = ['archived', 'terminated', 'quit', 'rescinded', 'resigned'];
   const STATUS_LABELS = {
@@ -409,6 +411,114 @@
 
   function assigneeOf(hire, item) {
     return (hire.assignees && hire.assignees[item.id]) || item.assignee || item.owner || '';
+  }
+
+  function mapAppUserToChecklistRole(appUser) {
+    const role = String(appUser?.role || '').toLowerCase().trim();
+    const map = {
+      admin: 'Admin',
+      pm: 'PM',
+      hr: 'HR',
+      logistics: 'Logistics',
+      training: 'Training',
+      accounting: 'HR',
+      technician: 'all'
+    };
+    return map[role] || 'all';
+  }
+
+  function matchChecklistPerson(appUser, roleId) {
+    const full = String(appUser?.full_name || '').trim();
+    if (!full) return 'all';
+    const people = peopleForRole(roleId === 'all' ? 'all' : roleId);
+    const fullKey = normalizeNameKey(full);
+    const first = fullKey.split(' ')[0];
+    const exact = people.find((p) => normalizeNameKey(p) === fullKey);
+    if (exact) return exact;
+    const byFirst = people.find((p) => {
+      const pk = normalizeNameKey(p);
+      return pk === first || pk.startsWith(first + ' ') || fullKey.includes(pk);
+    });
+    return byFirst || 'all';
+  }
+
+  function applySignedInUserDefaults(force) {
+    ensureData();
+    const user = window.hubCurrentUser;
+    if (!user) return;
+    if (userDefaultsApplied && !force) return;
+    const roleId = mapAppUserToChecklistRole(user);
+    filters.role = roleId;
+    filters.person = matchChecklistPerson(user, roleId);
+    localStorage.setItem(ROLE_PREF_KEY, filters.role);
+    localStorage.setItem(PERSON_PREF_KEY, filters.person);
+    userDefaultsApplied = true;
+  }
+
+  function openHireDetail(hireId) {
+    if (view !== 'detail') detailReturnView = view || 'dashboard';
+    selectedHireId = hireId;
+    openSections = {};
+    (data.sections || []).forEach((s) => { openSections[s.id] = false; });
+    // Keep role filter; default person chip to signed-in user when possible
+    applySignedInUserDefaults(false);
+    if (filters.person === 'all' && window.hubCurrentUser) {
+      filters.person = matchChecklistPerson(window.hubCurrentUser, filters.role);
+    }
+    view = 'detail';
+    try {
+      history.pushState(
+        { hubNh: true, view: 'detail', hireId, returnView: detailReturnView },
+        '',
+        window.location.pathname || '/'
+      );
+    } catch (e) { /* ignore */ }
+    render();
+  }
+
+  function leaveHireDetail(opts) {
+    const fromPop = !!(opts && opts.fromPopstate);
+    const archived = selectedHireId && isArchivedStatus((employees.find((e) => e.id === selectedHireId) || {}).status);
+    selectedHireId = null;
+    view = detailReturnView || (archived ? 'archive' : 'dashboard');
+    if (!fromPop) {
+      try {
+        history.pushState({ hubNh: true, view }, '', window.location.pathname || '/');
+      } catch (e) { /* ignore */ }
+    }
+    render();
+  }
+
+  function hubHistoryPath() {
+    return window.location.pathname || '/';
+  }
+
+  function claimHistory(state) {
+    try {
+      history.replaceState(state || { hubNh: true, view }, '', hubHistoryPath());
+    } catch (e) { /* ignore */ }
+  }
+
+  function bindBrowserNav() {
+    if (bindBrowserNav._bound) return;
+    bindBrowserNav._bound = true;
+    claimHistory({ hubNh: true, view: view === 'detail' ? 'dashboard' : view });
+    window.addEventListener('popstate', (ev) => {
+      const st = ev.state;
+      if (st && st.hubNh) {
+        view = st.view || 'dashboard';
+        selectedHireId = st.hireId || null;
+        if (st.returnView) detailReturnView = st.returnView;
+        if (view !== 'detail') selectedHireId = null;
+        render();
+        return;
+      }
+      // Leaving Microsoft / OAuth history: stay inside the Hub
+      if (view === 'detail') {
+        leaveHireDetail({ fromPopstate: true });
+      }
+      claimHistory({ hubNh: true, view });
+    });
   }
 
   function peopleForRole(roleId) {
@@ -899,12 +1009,21 @@
       </div>`;
   }
 
+  function syncPersonToSignedInUser(roleId) {
+    if (!window.hubCurrentUser) {
+      filters.person = 'all';
+      localStorage.setItem(PERSON_PREF_KEY, 'all');
+      return;
+    }
+    filters.person = matchChecklistPerson(window.hubCurrentUser, roleId);
+    localStorage.setItem(PERSON_PREF_KEY, filters.person);
+  }
+
   function bindRoleBar(root) {
     root.querySelector('#nh-role')?.addEventListener('change', (e) => {
       filters.role = e.target.value;
-      filters.person = 'all';
       localStorage.setItem(ROLE_PREF_KEY, filters.role);
-      localStorage.setItem(PERSON_PREF_KEY, 'all');
+      syncPersonToSignedInUser(filters.role);
       render();
     });
     root.querySelectorAll('[data-person]').forEach((btn) => {
@@ -997,9 +1116,7 @@
     });
     root.querySelectorAll('[data-open-hire]').forEach((btn) => {
       btn.addEventListener('click', () => {
-        selectedHireId = btn.getAttribute('data-open-hire');
-        view = 'detail';
-        render();
+        openHireDetail(btn.getAttribute('data-open-hire'));
       });
     });
     root.querySelectorAll('[data-todo-check]').forEach((el) => {
@@ -1127,12 +1244,7 @@
     });
     root.querySelectorAll('[data-open-hire]').forEach((btn) => {
       btn.addEventListener('click', () => {
-        selectedHireId = btn.getAttribute('data-open-hire');
-        // Always open a hire with all categories collapsed
-        openSections = {};
-        (data.sections || []).forEach((s) => { openSections[s.id] = false; });
-        view = 'detail';
-        render();
+        openHireDetail(btn.getAttribute('data-open-hire'));
       });
     });
     root.querySelectorAll('[data-del-emp]').forEach((btn) => {
@@ -1403,7 +1515,7 @@
     const scoped = filterScopeLabel();
     setPageSub(archived
       ? 'Archived hire — set Status back to Active on Archive to restore, or Delete from Archive.'
-      : `Showing tasks for ${scoped} (${p.done}/${p.total}). Change Role on Dashboard to widen or narrow the list.`);
+      : `Showing tasks for ${scoped} (${p.done}/${p.total}). Use Role and your name below to see only your tasks.`);
 
     const sectionsHtml = data.sections.map((sec) => {
       const items = itemsForHireFilter(hire, itemsForSection(sec.id));
@@ -1443,15 +1555,22 @@
 
     root.innerHTML = `
       <div class="nh-detail-top">
-        <button class="btn-secondary" type="button" id="nh-back">${archived ? '← Archive' : '← Dashboard'}</button>
+        <button class="btn-secondary" type="button" id="nh-back">← Back</button>
         <div class="nh-detail-actions">
           <label class="nh-check-label"><input type="checkbox" id="nh-reveal" ${revealSensitive ? 'checked' : ''}> Show sensitive</label>
-          <select id="nh-role-d" class="form-input" style="width:140px" title="Filter tasks by role">
-            <option value="all" ${filters.role === 'all' ? 'selected' : ''}>Role: all</option>
-            ${(data.roles || []).map((r) => `<option value="${esc(r.id)}" ${filters.role === r.id ? 'selected' : ''}>Role: ${esc(r.label)}</option>`).join('')}
-          </select>
           <button class="btn-secondary" type="button" id="nh-edit-hire">Edit profile</button>
           ${archived ? `<button class="btn-xs danger" type="button" id="nh-del-hire">Delete</button>` : ''}
+        </div>
+      </div>
+      <div class="nh-rolebar nh-detail-filters">
+        <div class="nh-rolebar-left">
+          <label class="nh-check-label">Role
+            <select id="nh-role-d" class="form-input nh-role-select" title="Show only this role’s tasks">
+              <option value="all" ${filters.role === 'all' ? 'selected' : ''}>All roles</option>
+              ${(data.roles || []).map((r) => `<option value="${esc(r.id)}" ${filters.role === r.id ? 'selected' : ''}>${esc(r.label)}</option>`).join('')}
+            </select>
+          </label>
+          ${rolePeopleChips(filters.role)}
         </div>
       </div>
       <div class="nh-profile">
@@ -1481,9 +1600,11 @@
       ${sectionsHtml || `<div class="nh-empty-block">No tasks assigned to ${esc(scoped)} for this hire.</div>`}`;
 
     root.querySelector('#nh-back').addEventListener('click', () => {
-      view = archived ? 'archive' : 'dashboard';
-      selectedHireId = null;
-      render();
+      if (history.state && history.state.hubNh && history.state.view === 'detail') {
+        history.back();
+        return;
+      }
+      leaveHireDetail();
     });
     root.querySelector('#nh-edit-hire').addEventListener('click', () => openHireModal(hire.id));
     root.querySelector('#nh-del-hire')?.addEventListener('click', async () => {
@@ -1496,10 +1617,16 @@
     bindStatusSelects(root);
     root.querySelector('#nh-role-d').addEventListener('change', (e) => {
       filters.role = e.target.value;
-      filters.person = 'all';
       localStorage.setItem(ROLE_PREF_KEY, filters.role);
-      localStorage.setItem(PERSON_PREF_KEY, 'all');
+      syncPersonToSignedInUser(filters.role);
       render();
+    });
+    root.querySelectorAll('[data-person]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        filters.person = btn.getAttribute('data-person') || 'all';
+        localStorage.setItem(PERSON_PREF_KEY, filters.person);
+        render();
+      });
     });
     root.querySelector('#nh-reveal').addEventListener('change', (e) => {
       revealSensitive = e.target.checked;
@@ -2315,8 +2442,6 @@
       const { created, error } = await writeEmp('insert');
       if (error) { alert('Could not create employee: ' + error.message); return; }
       employees.unshift(created);
-      selectedHireId = created.id;
-      view = 'detail';
       const regionItem = data.items.find((i) => i.label === 'Region');
       const startItem = data.items.find((i) => /START DATE/i.test(i.label));
       const bootItem = data.items.find((i) => /First Day of BOOTCAMP/i.test(i.label));
@@ -2325,6 +2450,9 @@
       if (startItem) p.values[startItem.id] = start_date;
       if (bootItem && bootcamp_start_date) p.values[bootItem.id] = bootcamp_start_date;
       persist();
+      closeHireModal();
+      openHireDetail(created.id);
+      return;
     }
     closeHireModal();
     render();
@@ -2551,6 +2679,9 @@
     const person = localStorage.getItem(PERSON_PREF_KEY);
     if (role) filters.role = role;
     if (person) filters.person = person;
+    // Prefer signed-in user's role + name on first open (e.g. Ana → Admin / Ana)
+    applySignedInUserDefaults(!mounted);
+    bindBrowserNav();
 
     // Avoid reloading/re-rendering a huge todo list every time the nav tab is clicked
     if (mounted && !forceReload && !loading) {

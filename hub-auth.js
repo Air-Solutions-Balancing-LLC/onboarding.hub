@@ -163,11 +163,15 @@
     accessDenyMessage = '';
     const err = document.getElementById('auth-error');
     if (err) { err.hidden = true; err.textContent = ''; }
+    const redirectTo = `${window.location.origin}/`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'azure',
       options: {
-        redirectTo: window.location.origin + window.location.pathname,
-        scopes: 'email openid profile'
+        redirectTo,
+        scopes: 'openid profile email offline_access',
+        queryParams: {
+          prompt: 'select_account'
+        }
       }
     });
     if (error && err) {
@@ -222,8 +226,21 @@
     }
 
     supabase = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        flowType: 'pkce'
+      }
     });
+
+    // Drop OAuth callback junk from the URL so browser Back stays inside the Hub
+    try {
+      const u = new URL(window.location.href);
+      if (u.hash || u.searchParams.has('code') || u.searchParams.has('error')) {
+        window.history.replaceState({ hub: 'home' }, document.title, u.pathname || '/');
+      }
+    } catch (e) { /* ignore */ }
 
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
