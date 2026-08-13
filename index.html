@@ -1836,6 +1836,9 @@ function renderOrientExtraTasks(tasks) {
 
 function orientDayOptionsHtml(selected) {
   const opts = [
+    ['fri2Before', 'Fri (2 Fridays before)'],
+    ['thu2Before', 'Thu (2 weeks before)'],
+    ['mon2Before', 'Mon (2 weeks before)'],
     ['thuBefore', 'Thu (week before)'],
     ['friBefore', 'Fri (week before)'],
     ['monBefore', 'Mon (week before)'],
@@ -1847,14 +1850,8 @@ function orientDayOptionsHtml(selected) {
     ['wedAfter', 'Wed (week after)'],
     ['friAfter', 'Fri (week after)']
   ];
-  // Map legacy 2-weeks-before anchors to week-before options
-  const selectedNorm = ({
-    thu2Before: 'thuBefore',
-    fri2Before: 'friBefore',
-    mon2Before: 'monBefore'
-  })[selected] || selected;
   return opts.map(([v, label]) =>
-    `<option value="${v}" ${selectedNorm === v ? 'selected' : ''}>${label}</option>`
+    `<option value="${v}" ${selected === v ? 'selected' : ''}>${label}</option>`
   ).join('');
 }
 
@@ -1897,18 +1894,22 @@ function getOrientDates(oDate) {
   const thuBefore = shiftDays(monBefore, 3);
   const friBefore = shiftDays(monBefore, 4);
 
+  // Two weeks before orientation week
+  const mon2Before = shiftDays(monOrient, -14);
+  const thu2Before = shiftDays(mon2Before, 3);
+  const fri2Before = shiftDays(mon2Before, 4);
+
   const monAfter = shiftDays(monOrient, 7);
   const wedAfter = shiftDays(monAfter, 2);
   const friAfter = shiftDays(monAfter, 4);
 
   return {
-    // Week before (legacy 2-week keys map here too)
+    thu2Before,
+    fri2Before,
+    mon2Before,
     thuBefore,
     friBefore,
     monBefore,
-    thu2Before: thuBefore,
-    fri2Before: friBefore,
-    mon2Before: monBefore,
     monOrient,
     tueOrient,
     wedOrient,
@@ -1943,9 +1944,7 @@ function saveOrientGroup() {
     const nameEl = el.querySelector('input[type="text"]');
     const dayEl = el.querySelector('select');
     if (nameEl && dayEl && nameEl.value.trim()) {
-      const rawRef = dayEl.value;
-      const dayRef = ({ thu2Before: 'thuBefore', fri2Before: 'friBefore', mon2Before: 'monBefore' })[rawRef] || rawRef;
-      newExtras.push({ name: nameEl.value.trim(), dayRef });
+      newExtras.push({ name: nameEl.value.trim(), dayRef: dayEl.value });
     }
   }
   // Save as new template (replaces old)
@@ -1954,6 +1953,9 @@ function saveOrientGroup() {
 
   // Timeline anchors relative to Orientation date (typically Tuesday)
   const BASE_TASKS = [
+    // 2 Fridays before orientation
+    { name: 'Remind Brenda about sending the ORIENTATION email', dayRef: 'fri2Before' },
+
     // Week before
     { name: 'Brenda sends ORIENTATION email (track / reply as needed)', dayRef: 'thuBefore' },
     { name: 'Send consolidated onboarding checklist (Reply All) + create calendar reminder', dayRef: 'friBefore' },
@@ -2071,7 +2073,7 @@ function groupOrientTasksByDate(tasks) {
 function buildOrientPhaseSections(group) {
   const byDate = groupOrientTasksByDate(group.tasks);
   const phases = {
-    before: { id: 'before', badge: 'BEFORE', title: 'Before Orientation', hint: 'Prep during the week before orientation', dates: [] },
+    before: { id: 'before', badge: 'BEFORE', title: 'Before Orientation', hint: 'Prep from 2 Fridays before through the week before orientation', dates: [] },
     during: { id: 'during', badge: 'DURING', title: 'Orientation Week', hint: 'Monday–Friday of orientation week (includes Orientation Day)', dates: [] },
     after: { id: 'after', badge: 'AFTER', title: 'After Orientation', hint: 'Follow-up, systems, weekly ATA cadence, bootcamp path', dates: [] }
   };
@@ -2099,7 +2101,35 @@ function renderOrientDateDetails(sec, orientDate, forceOpen) {
   </details>`;
 }
 
+const BRENDA_ORIENT_REMINDER = 'Remind Brenda about sending the ORIENTATION email';
+
+function ensureOrientBrendaReminder() {
+  let changed = false;
+  orientGroups = (orientGroups || []).map((g) => {
+    const tasks = Array.isArray(g.tasks) ? g.tasks.slice() : [];
+    if (tasks.some((t) => /remind Brenda about sending the ORIENTATION email/i.test(t.name || ''))) {
+      return g;
+    }
+    const oDate = parseOrientDateKey(g.orientDate);
+    if (!oDate) return g;
+    const dates = getOrientDates(oDate);
+    tasks.push({ name: BRENDA_ORIENT_REMINDER, date: toDateKey(dates.fri2Before) });
+    tasks.sort((a, b) => {
+      const da = parseOrientDateKey(a.date);
+      const db = parseOrientDateKey(b.date);
+      if (da && db) return da - db;
+      return String(a.date || '').localeCompare(String(b.date || ''));
+    });
+    changed = true;
+    return Object.assign({}, g, { tasks });
+  });
+  if (changed && window.HubAuth && HubAuth.save) {
+    HubAuth.save('orient_groups', orientGroups);
+  }
+}
+
 function renderOrientGroups() {
+  ensureOrientBrendaReminder();
   const el = document.getElementById('orient-groups-list');
   if (!orientGroups.length) { el.innerHTML='<div style="font-size:13px;color:#94a3b8;padding:12px 0">No orientation groups yet.</div>'; return; }
   el.innerHTML = orientGroups.map(g => {
@@ -2725,6 +2755,7 @@ window.applyHubData = function(data) {
   if (data.resp_checks) respChecks = data.resp_checks;
   if (data.orient_notes) calNotes = data.orient_notes;
   if (data.orient_groups) orientGroups = data.orient_groups;
+  ensureOrientBrendaReminder();
   if (data.orient_extra_templates) orientExtraTemplates = data.orient_extra_templates;
   if (data.bc_extra_templates) bcExtraTemplates = data.bc_extra_templates;
   if (data.bootcamp_groups) bootcampGroups = data.bootcamp_groups;
