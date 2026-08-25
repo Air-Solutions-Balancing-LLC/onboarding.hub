@@ -16,7 +16,6 @@
 
   const APP_USER_ROLES = [
     { value: 'admin', label: 'Admin' },
-    { value: 'pm', label: 'PM' },
     { value: 'technician', label: 'Technician' },
     { value: 'accounting', label: 'Accounting' },
     { value: 'hr', label: 'HR' },
@@ -26,7 +25,6 @@
 
   const SECTIONS = [
     { role: 'admin', title: 'Admins' },
-    { role: 'pm', title: 'PMs' },
     { role: 'technician', title: 'Technicians' },
     { role: 'accounting', title: 'Accounting' },
     { role: 'hr', title: 'HR' },
@@ -501,9 +499,6 @@
     const s = String(raw || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
     const map = {
       admin: 'admin',
-      pm: 'pm',
-      project_manager: 'pm',
-      projectmanager: 'pm',
       technician: 'technician',
       tech: 'technician',
       accounting: 'accounting',
@@ -537,7 +532,7 @@
       {
         'Full Name': 'Alex Rivera',
         Email: 'alex.rivera@airadigmsolutions.com',
-        Position: 'PM',
+        Position: 'Training',
         Region: 'Southwest',
       },
       {

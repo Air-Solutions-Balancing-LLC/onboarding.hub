@@ -530,7 +530,6 @@
     const role = String(appUser?.role || '').toLowerCase().trim();
     const map = {
       admin: 'Admin',
-      pm: 'PM',
       hr: 'HR',
       logistics: 'Logistics',
       training: 'Training',
@@ -1332,7 +1331,7 @@
   }
 
   function renderTodo(root) {
-    setPageSub('Grouped by hire — check off, enter dates/values, or Edit tasks here. PM tasks are hidden. Role / person filters from Dashboard still apply.');
+    setPageSub('Grouped by hire — check off, enter dates/values, or Edit tasks here. Role / person filters from Dashboard still apply.');
     const entries = todoEntries();
     const groups = todoGroups(entries);
     const overdue = entries.filter((e) => e.bucket === 'overdue').length;
@@ -1367,7 +1366,7 @@
           <button class="wt-filter-btn" type="button" id="nh-todo-expand-all">Expand all</button>
           <button class="wt-filter-btn" type="button" id="nh-todo-collapse-all">Collapse all</button>
         </div>
-        <div class="nh-muted">${shownGroups.length} of ${groups.length} hires · ${entries.length} tasks · no PMs</div>
+        <div class="nh-muted">${shownGroups.length} of ${groups.length} hires · ${entries.length} tasks</div>
       </div>
       <div class="nh-todo-list nh-todo-grouped">
         ${shownGroups.length
@@ -1977,7 +1976,6 @@
             <span><strong>Orientation date</strong> ${esc(hire.startDate || 'TBD')}</span>
             <span><strong>Start date</strong> ${esc(hire.workStartDate || 'TBD')}</span>
             <span><strong>Bootcamp date</strong> ${esc(hire.bootcampDate || 'TBD')}</span>
-            ${hire.assignedPm ? `<span>· PM ${esc(hire.assignedPm)}</span>` : ''}
           </div>
         </div>
         <div class="nh-profile-right">
@@ -2423,7 +2421,7 @@
     ensureData();
     const adminMode = !!(opts && opts.adminMode);
     return (data.sections || []).map((sec) => {
-      const items = itemsForSection(sec.id);
+      const items = itemsForSection(sec.id).filter((it) => it.role !== 'PM');
       const expanded = processAdminOpen[sec.id] === true;
       return `
         <div class="nh-section ${expanded ? 'open' : ''}">
@@ -3097,7 +3095,7 @@
           <div class="form-row-2">
             <div><label class="form-label">Role *</label>
               <select id="nh-item-role" class="form-input">
-                <option>HR</option><option>Admin</option><option>PM</option><option>Logistics</option><option>Training</option>
+                <option>HR</option><option>Admin</option><option>Logistics</option><option>Training</option>
               </select>
             </div>
             <div><label class="form-label">Assignee *</label><input id="nh-item-assignee" class="form-input" type="text" list="nh-people-dl"><datalist id="nh-people-dl"></datalist></div>
