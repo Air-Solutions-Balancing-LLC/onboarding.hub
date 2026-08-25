@@ -1389,7 +1389,7 @@
       <div class="nh-todo-check-row ${e.done ? 'done' : ''} ${dueCls}">
         <span class="nh-todo-check-ctrl">${control}</span>
         <span class="nh-todo-check-body">
-          <span class="nh-todo-check-label">${esc(e.item.label)}${linkHtml ? ' · ' + linkHtml : ''}</span>
+          <span class="nh-todo-check-label" title="${esc(e.item.label)}">${esc(e.item.label)}${linkHtml ? ' · ' + linkHtml : ''}</span>
           <span class="nh-todo-check-meta">
             <span class="nh-owner-chip">${esc(e.who || 'Unassigned')}</span>
             <span class="nh-due ${dueCls}">${e.due ? esc(fmtDate(e.due)) : 'No due date'}</span>
