@@ -1265,7 +1265,6 @@
           <button class="btn-secondary ${view === 'roster' ? 'nh-tab-on' : ''}" type="button" data-view="roster">Roster</button>
           <button class="btn-secondary ${view === 'archive' ? 'nh-tab-on' : ''}" type="button" data-view="archive">Archive</button>
           <button class="btn-secondary" type="button" id="nh-btn-template">Edit process</button>
-          <button class="btn-secondary" type="button" id="nh-btn-archive-old" title="Add missing Jul/Aug 2026 cohort hires, keep them Active, archive everyone else">Sync Jul/Aug cohort</button>
           <button class="btn-primary" type="button" id="nh-btn-add">+ Add new hire</button>
         </div>
       </div>`;
@@ -1317,12 +1316,6 @@
       });
     });
     root.querySelector('#nh-btn-add')?.addEventListener('click', () => openHireModal());
-    root.querySelector('#nh-btn-archive-old')?.addEventListener('click', async () => {
-      const btn = root.querySelector('#nh-btn-archive-old');
-      if (btn) btn.disabled = true;
-      try { await archiveOlderHiresKeepNew(); }
-      finally { if (btn) btn.disabled = false; }
-    });
     root.querySelector('#nh-btn-template')?.addEventListener('click', () => {
       // Everyone can edit process tasks they own; Admins also have the Admin process card
       view = 'template';
@@ -2521,7 +2514,6 @@
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px">
         <p class="user-mgmt-subtitle" style="margin:0">${total} tasks across ${(data.sections || []).length} categories. Due date = chosen date minus days before (default: 0 days before Orientation).</p>
         <div style="display:flex;flex-wrap:wrap;gap:8px">
-          <button type="button" class="btn-secondary" id="nh-archive-old-hires" title="Add missing Jul/Aug 2026 cohort hires, keep them Active, archive everyone else">Sync Jul/Aug cohort (add + archive others)</button>
           <button type="button" class="btn-secondary" id="nh-reset-dues">Reset all dues → 0 days before Orientation</button>
         </div>
       </div>
@@ -2531,12 +2523,6 @@
       resetAllDueDefaults();
       renderProcessAdmin(root);
       if (document.getElementById('page-checklist')?.classList.contains('active')) render();
-    });
-    root.querySelector('#nh-archive-old-hires')?.addEventListener('click', async () => {
-      const btn = root.querySelector('#nh-archive-old-hires');
-      if (btn) btn.disabled = true;
-      try { await archiveOlderHiresKeepNew(); }
-      finally { if (btn) btn.disabled = false; }
     });
     bindProcessEditor(root, {
       adminMode: true,
@@ -2566,7 +2552,6 @@
     { full_name: 'Derrick Jackson', preferred_name: '', start_date: '2026-08-18', cohort: 'August 2026' },
     { full_name: 'Chase Grahl', preferred_name: '', start_date: '2026-08-18', cohort: 'August 2026' }
   ];
-  const COHORT_SYNC_FLAG = 'nh_jul_aug_2026_cohort_synced_v3';
 
   function normalizeNameKey(name) {
     return String(name || '')
@@ -2803,24 +2788,6 @@
     if (errors.length) alert(msg + '\n\nSome updates failed:\n' + errors.slice(0, 10).join('\n'));
     else if (!auto || archived || ensureResult.created) alert(msg);
     return { archived, kept: kept.length, created: ensureResult.created, reactivated: ensureResult.reactivated, errors, cancelled: false };
-  }
-
-  async function maybeAutoArchiveNonCohort() {
-    if (!client()) return;
-    try {
-      if (localStorage.getItem(COHORT_SYNC_FLAG) === '1') return;
-    } catch (e) { /* ignore */ }
-    const active = employees.filter((e) => (e.status || 'active') === 'active');
-    // Already trimmed (or empty) — mark done
-    if (active.length && active.length <= KEEP_ACTIVE_COHORT.length + 2) {
-      try { localStorage.setItem(COHORT_SYNC_FLAG, '1'); } catch (e) { /* ignore */ }
-      return;
-    }
-    if (!active.length) return;
-    const result = await archiveOlderHiresKeepNew({ auto: true });
-    if (result && !result.cancelled && !(result.errors && result.errors.length)) {
-      try { localStorage.setItem(COHORT_SYNC_FLAG, '1'); } catch (e) { /* ignore */ }
-    }
   }
 
   function refreshAfterProcessChange() {
@@ -3298,7 +3265,6 @@
     }
     mounted = true;
     await loadEmployees();
-    await maybeAutoArchiveNonCohort();
   }
 
   function applyViewerDefaults() {
@@ -3314,7 +3280,6 @@
     render,
     mountProcessAdmin,
     openItemModal,
-    archiveOlderHiresKeepNew,
     applyViewerDefaults
   };
 })();
