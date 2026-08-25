@@ -454,7 +454,12 @@
     if (exact) return exact;
     const byFirst = people.find((p) => {
       const pk = normalizeNameKey(p);
-      return pk === first || pk.startsWith(first + ' ') || fullKey.includes(pk);
+      return (
+        pk === first ||
+        pk.startsWith(first + ' ') ||
+        fullKey.includes(pk) ||
+        (first.length >= 4 && pk.startsWith(first)) // Jess → Jessa
+      );
     });
     return byFirst || 'all';
   }
@@ -2718,6 +2723,12 @@
     await loadEmployees();
   }
 
+  function applyViewerDefaults() {
+    userDefaultsApplied = false;
+    applySignedInUserDefaults(true);
+    if (mounted) render();
+  }
+
   window.HubChecklist = {
     mount,
     loadEmployees,
@@ -2725,6 +2736,7 @@
     render,
     mountProcessAdmin,
     openItemModal,
-    archiveOlderHiresKeepNew
+    archiveOlderHiresKeepNew,
+    applyViewerDefaults
   };
 })();

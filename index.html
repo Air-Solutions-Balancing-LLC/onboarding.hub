@@ -311,7 +311,23 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .btn-microsoft:hover { background: #1a1a1a; }
 .auth-error { font-size: 12px; color: #dc2626; margin-top: 14px; }
 .nav-user { display: flex; align-items: center; gap: 8px; margin-left: 8px; flex-shrink: 0; }
-.nav-user-email { font-size: 11px; color: #94a3b8; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-user-email { font-size: 11px; color: #94a3b8; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-view-as { display: inline-flex; align-items: center; gap: 6px; margin-right: 4px; }
+.nav-view-as-label { font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #94a3b8; }
+.nav-view-as-select {
+  max-width: 180px; background: #0f172a; color: #e2e8f0; border: 1px solid rgba(255,255,255,.2);
+  border-radius: 6px; padding: 4px 8px; font-size: 11px; font-family: inherit;
+}
+.view-as-banner {
+  background: #fef3c7; color: #92400e; border-bottom: 1px solid #fcd34d;
+  padding: 8px 20px; font-size: 13px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.view-as-banner[hidden] { display: none !important; }
+.view-as-exit {
+  margin-left: 8px; border: 1px solid #d97706; background: #fff; color: #92400e;
+  border-radius: 6px; padding: 3px 10px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+.view-as-exit:hover { background: #fffbeb; }
 .btn-signout { font-size: 11px; padding: 5px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,.2); background: transparent; color: #94a3b8; cursor: pointer; font-family: inherit; white-space: nowrap; }
 .btn-signout:hover { color: #fff; border-color: rgba(255,255,255,.4); }
 
@@ -795,11 +811,18 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <button class="nav-link nav-weekly" data-paula-only style="display:none" onclick="showPage('weekly',this)">Weekly Tasks</button>
     <button class="nav-link" data-paula-only style="display:none" onclick="showPage('resources',this)">Resources</button>
     <div class="nav-user">
+      <label id="nav-view-as" class="nav-view-as" hidden title="Preview Hub as another allowlisted user">
+        <span class="nav-view-as-label">View as</span>
+        <select id="nav-view-as-select" class="nav-view-as-select">
+          <option value="">Me</option>
+        </select>
+      </label>
       <span id="nav-user-email" class="nav-user-email"></span>
       <button class="btn-signout" type="button" onclick="HubAuth.signOut()">Sign out</button>
     </div>
   </div>
 </nav>
+<div id="view-as-banner" class="view-as-banner" hidden></div>
 
 <!-- ═══════════════════ MODALS ═══════════════════ -->
 
