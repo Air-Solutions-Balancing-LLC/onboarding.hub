@@ -721,12 +721,15 @@
   }
 
   function peopleForRole(roleId) {
+    if (roleId === 'PM') return [];
     if (roleId === 'all') {
       const all = [];
       (data.roles || []).forEach((r) => {
+        if (r.id === 'PM') return;
         (r.people || []).forEach((p) => { if (p && !all.includes(p)) all.push(p); });
       });
       data.items.forEach((i) => {
+        if (i.role === 'PM') return;
         if (i.assignee && !all.includes(i.assignee)) all.push(i.assignee);
       });
       return all.filter(Boolean).sort((a, b) => a.localeCompare(b));
@@ -736,16 +739,6 @@
     data.items.forEach((i) => {
       if (i.role === roleId && i.assignee && !base.includes(i.assignee)) base.push(i.assignee);
     });
-    if (roleId === 'PM') {
-      employees.forEach((e) => {
-        if (e.assigned_pm && !base.includes(e.assigned_pm)) base.push(e.assigned_pm);
-      });
-      hires().forEach((h) => {
-        const pmItem = data.items.find((i) => /Assigned Project Manager/i.test(i.label));
-        const pm = pmItem && h.values?.[pmItem.id];
-        if (pm && !base.includes(String(pm))) base.push(String(pm));
-      });
-    }
     return base.filter(Boolean);
   }
 
@@ -754,6 +747,8 @@
   }
 
   function matchesRolePersonFilter(hire, item, roleFilter, personFilter) {
+    // PMs are out of the Hub checklist views (kept in Edit process only)
+    if (item && item.role === 'PM') return false;
     const role = roleFilter != null ? roleFilter : filters.role;
     const person = personFilter != null ? personFilter : filters.person;
     if (role && role !== 'all' && item.role !== role) return false;
@@ -1227,7 +1222,11 @@
   }
 
   function roleFilterControls(selectId) {
-    const roles = data.roles || [];
+    if (filters.role === 'PM') {
+      filters.role = 'all';
+      try { localStorage.setItem(ROLE_PREF_KEY, 'all'); } catch (e) { /* ignore */ }
+    }
+    const roles = (data.roles || []).filter((r) => r.id !== 'PM');
     const me = viewerChecklistName();
     const myLabel = me !== 'all' ? me : (window.hubCurrentUser?.full_name || 'me');
     const mineActive = me !== 'all' && filters.person === me;
