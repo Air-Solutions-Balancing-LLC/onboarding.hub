@@ -69,7 +69,8 @@
   let loading = true;
   let loadError = null;
   let mounted = false;
-  let todoLimit = 80;
+  let todoLimit = 40; // hire groups shown (not flat task rows)
+  let todoOpenHires = {}; // hireId -> expanded
 
   function client() {
     return window.HubAuth && HubAuth.getClient ? HubAuth.getClient() : null;
@@ -689,6 +690,8 @@
       .filter((h) => filters.hireWindow === 'all' || inOnboardingWindow(h, today))
       .forEach((hire) => {
         data.items.forEach((item) => {
+          // My To-Do default view excludes PM tasks
+          if (item.role === 'PM') return;
           if (filters.role !== 'all' && item.role !== filters.role) return;
           const who = assigneeOf(hire, item);
           if (filters.person !== 'all' && who !== filters.person) return;
@@ -718,6 +721,32 @@
       return a.hire.name.localeCompare(b.hire.name) || a.item.label.localeCompare(b.item.label);
     });
     return out;
+  }
+
+  function todoGroups(entries) {
+    const map = new Map();
+    (entries || []).forEach((e) => {
+      const id = e.hire.id;
+      if (!map.has(id)) {
+        map.set(id, {
+          hire: e.hire,
+          tasks: [],
+          open: 0,
+          overdue: 0,
+          done: 0
+        });
+      }
+      const g = map.get(id);
+      g.tasks.push(e);
+      if (e.done) g.done += 1;
+      else g.open += 1;
+      if (e.bucket === 'overdue') g.overdue += 1;
+    });
+    return [...map.values()].sort((a, b) => {
+      if (a.overdue !== b.overdue) return b.overdue - a.overdue;
+      if (a.open !== b.open) return b.open - a.open;
+      return a.hire.name.localeCompare(b.hire.name);
+    });
   }
 
   function statusBadgeClass(status) {
@@ -1170,12 +1199,20 @@
   }
 
   function renderTodo(root) {
-    setPageSub('Open tasks by due window. Role / person filter is set on Dashboard and applies here too. Due dates use Orientation / Bootcamp dates.');
+    setPageSub('Grouped by hire — expand a name to check off tasks. PM tasks are hidden on this view. Role / person filters from Dashboard still apply.');
     const entries = todoEntries();
+    const groups = todoGroups(entries);
     const overdue = entries.filter((e) => e.bucket === 'overdue').length;
     const week = entries.filter((e) => e.bucket === 'week' || e.bucket === 'overdue').length;
     const open = entries.filter((e) => !e.done).length;
-    const shown = entries.slice(0, todoLimit);
+    const shownGroups = groups.slice(0, todoLimit);
+
+    // Default: expand hires with overdue work (first time only)
+    shownGroups.forEach((g) => {
+      if (todoOpenHires[g.hire.id] === undefined) {
+        todoOpenHires[g.hire.id] = g.overdue > 0;
+      }
+    });
 
     root.innerHTML = `
       ${roleBar()}
@@ -1194,35 +1231,57 @@
           <button class="wt-filter-btn ${filters.todoScope === 'done' ? 'active' : ''}" data-scope="done">Done</button>
           <button class="wt-filter-btn ${filters.hireWindow === 'onboarding' ? 'active' : ''}" data-hire-window="onboarding" title="Orientation date within last 120 days or next 60 days">Onboarding window</button>
           <button class="wt-filter-btn ${filters.hireWindow === 'all' ? 'active' : ''}" data-hire-window="all">All active hires</button>
+          <button class="wt-filter-btn" type="button" id="nh-todo-expand-all">Expand all</button>
+          <button class="wt-filter-btn" type="button" id="nh-todo-collapse-all">Collapse all</button>
         </div>
-        <div class="nh-muted">Showing ${Math.min(shown.length, entries.length)} of ${entries.length} · ${esc(filterScopeLabel())}</div>
+        <div class="nh-muted">${shownGroups.length} of ${groups.length} hires · ${entries.length} tasks · no PMs</div>
       </div>
-      <div class="nh-todo-list">
-        ${shown.length ? shown.map(todoRow).join('') : '<div class="nh-empty-block">No tasks for this filter. Try Open, or set Role on Dashboard.</div>'}
+      <div class="nh-todo-list nh-todo-grouped">
+        ${shownGroups.length
+          ? shownGroups.map(todoHireGroup).join('')
+          : '<div class="nh-empty-block">No tasks for this filter. Try Open, or set Role / My tasks on Dashboard.</div>'}
       </div>
-      ${entries.length > todoLimit ? `<div style="margin-top:12px;text-align:center"><button class="btn-secondary" type="button" id="nh-todo-more">Show more (${entries.length - todoLimit} left)</button></div>` : ''}`;
+      ${groups.length > todoLimit
+        ? `<div style="margin-top:12px;text-align:center"><button class="btn-secondary" type="button" id="nh-todo-more">Show more hires (${groups.length - todoLimit} left)</button></div>`
+        : ''}`;
 
     bindRoleBar(root);
     root.querySelectorAll('[data-scope]').forEach((btn) => {
       btn.addEventListener('click', () => {
         filters.todoScope = btn.getAttribute('data-scope');
-        todoLimit = 80;
+        todoLimit = 40;
         render();
       });
     });
     root.querySelectorAll('[data-hire-window]').forEach((btn) => {
       btn.addEventListener('click', () => {
         filters.hireWindow = btn.getAttribute('data-hire-window');
-        todoLimit = 80;
+        todoLimit = 40;
         render();
       });
     });
     root.querySelector('#nh-todo-more')?.addEventListener('click', () => {
-      todoLimit += 80;
+      todoLimit += 40;
       render();
     });
-    root.querySelectorAll('[data-open-hire]').forEach((btn) => {
+    root.querySelector('#nh-todo-expand-all')?.addEventListener('click', () => {
+      shownGroups.forEach((g) => { todoOpenHires[g.hire.id] = true; });
+      render();
+    });
+    root.querySelector('#nh-todo-collapse-all')?.addEventListener('click', () => {
+      shownGroups.forEach((g) => { todoOpenHires[g.hire.id] = false; });
+      render();
+    });
+    root.querySelectorAll('[data-todo-toggle]').forEach((btn) => {
       btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-todo-toggle');
+        todoOpenHires[id] = !todoOpenHires[id];
+        render();
+      });
+    });
+    root.querySelectorAll('[data-open-hire]').forEach((btn) => {
+      btn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
         openHireDetail(btn.getAttribute('data-open-hire'));
       });
     });
@@ -1232,28 +1291,60 @@
         render();
       });
     });
+    root.querySelectorAll('[data-open-checklist]').forEach((btn) => {
+      btn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        openTaskChecklistModal(btn.getAttribute('data-hire'), btn.getAttribute('data-open-checklist'));
+      });
+    });
   }
 
-  function todoRow(e) {
+  function todoHireGroup(g) {
+    const expanded = !!todoOpenHires[g.hire.id];
+    const overdueCls = g.overdue ? 'has-overdue' : '';
+    return `
+      <div class="nh-todo-hire-group ${overdueCls} ${expanded ? 'open' : ''}">
+        <div class="nh-todo-hire-head">
+          <button type="button" class="nh-todo-hire-toggle" data-todo-toggle="${esc(g.hire.id)}">
+            <span class="nh-chevron">${expanded ? '▾' : '▸'}</span>
+            <span class="nh-todo-hire-name">${esc(g.hire.name)}</span>
+            <span class="nh-muted-inline">${esc(g.hire.division || '')}</span>
+            <span class="nh-todo-hire-counts">
+              ${g.overdue ? `<span class="nh-todo-pill overdue">${g.overdue} overdue</span>` : ''}
+              <span class="nh-todo-pill">${g.open} open</span>
+              <span class="nh-todo-pill muted">${g.done} done</span>
+            </span>
+          </button>
+          <button class="btn-xs primary" type="button" data-open-hire="${esc(g.hire.id)}">Open hire</button>
+        </div>
+        <div class="nh-todo-checklist" ${expanded ? '' : 'hidden'}>
+          ${g.tasks.map(todoCheckRow).join('')}
+        </div>
+      </div>`;
+  }
+
+  function todoCheckRow(e) {
     const dueCls = e.bucket === 'overdue' ? 'due-over' : e.bucket === 'week' ? 'due-soon' : '';
     const linkHtml = taskLinkHtml(e.item);
+    const stepProg = checklistProgress(e.hire, e.item);
+    let control = '';
+    if (stepProg) {
+      control = `<button type="button" class="btn-xs" data-open-checklist="${esc(e.item.id)}" data-hire="${esc(e.hire.id)}">Steps ${stepProg.done}/${stepProg.total}</button>`;
+    } else if (e.item.inputType === 'checkbox') {
+      control = `<input type="checkbox" class="nh-todo-cb" data-todo-check data-hire="${esc(e.hire.id)}" data-item="${esc(e.item.id)}" ${e.done ? 'checked' : ''} title="Mark done">`;
+    } else {
+      control = `<span class="nh-todo-status ${e.done ? 'is-done' : ''}">${e.done ? '✓' : '○'}</span>`;
+    }
     return `
-      <div class="nh-todo-row ${e.done ? 'done' : ''} ${dueCls}">
-        <div class="nh-todo-main">
-          <div class="nh-todo-hire">${esc(e.hire.name)} <span class="nh-muted-inline">· ${esc(e.hire.division || '')}</span></div>
-          <div class="nh-todo-task">${esc(e.item.label)}${linkHtml ? ' · ' + linkHtml : ''}</div>
-          <div class="nh-todo-meta">
-            <span class="nh-person-role"><span class="nh-owner-chip">${esc(e.who || 'Unassigned')}</span><span class="nh-role-chip">${esc(e.item.role)}</span></span>
-            <span class="nh-due ${dueCls}">Due ${esc(fmtDate(e.due))}</span>
-            <span class="nh-type">${esc(e.item.inputType)}</span>
-          </div>
-        </div>
-        <div class="nh-todo-actions">
-          ${e.item.inputType === 'checkbox'
-            ? `<label class="nh-check-label"><input type="checkbox" data-todo-check data-hire="${esc(e.hire.id)}" data-item="${esc(e.item.id)}" ${e.done ? 'checked' : ''}> Done</label>`
-            : `<span class="nh-field-status">${e.done ? 'Complete' : 'Open'}</span>`}
-          <button class="btn-xs primary" type="button" data-open-hire="${esc(e.hire.id)}">Open hire</button>
-        </div>
+      <div class="nh-todo-check-row ${e.done ? 'done' : ''} ${dueCls}">
+        <span class="nh-todo-check-ctrl">${control}</span>
+        <span class="nh-todo-check-body">
+          <span class="nh-todo-check-label">${esc(e.item.label)}${linkHtml ? ' · ' + linkHtml : ''}</span>
+          <span class="nh-todo-check-meta">
+            <span class="nh-owner-chip">${esc(e.who || 'Unassigned')}</span>
+            <span class="nh-due ${dueCls}">${e.due ? esc(fmtDate(e.due)) : 'No due date'}</span>
+          </span>
+        </span>
       </div>`;
   }
 
