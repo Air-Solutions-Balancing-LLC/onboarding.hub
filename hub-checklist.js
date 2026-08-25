@@ -1104,7 +1104,7 @@
           <button class="btn-secondary ${view === 'roster' ? 'nh-tab-on' : ''}" type="button" data-view="roster">Roster</button>
           <button class="btn-secondary ${view === 'archive' ? 'nh-tab-on' : ''}" type="button" data-view="archive">Archive</button>
           <button class="btn-secondary" type="button" id="nh-btn-template">Edit process</button>
-          <button class="btn-secondary" type="button" id="nh-btn-archive-old" title="Keep new Jul–Sep 2026 cohort Active; archive others at 100% complete">Archive older hires</button>
+          <button class="btn-secondary" type="button" id="nh-btn-archive-old" title="Add missing Jul/Aug 2026 cohort hires, keep them Active, archive everyone else">Sync Jul/Aug cohort</button>
           <button class="btn-primary" type="button" id="nh-btn-add">+ Add new hire</button>
         </div>
       </div>`;
@@ -2232,7 +2232,7 @@
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px">
         <p class="user-mgmt-subtitle" style="margin:0">${total} tasks across ${(data.sections || []).length} categories. Due date = chosen date minus days before (default: 0 days before Orientation).</p>
         <div style="display:flex;flex-wrap:wrap;gap:8px">
-          <button type="button" class="btn-secondary" id="nh-archive-old-hires" title="Keep Jul–Sep 2026 new cohort Active; archive everyone else at 100% complete">Archive older hires (keep new cohort)</button>
+          <button type="button" class="btn-secondary" id="nh-archive-old-hires" title="Add missing Jul/Aug 2026 cohort hires, keep them Active, archive everyone else">Sync Jul/Aug cohort (add + archive others)</button>
           <button type="button" class="btn-secondary" id="nh-reset-dues">Reset all dues → 0 days before Orientation</button>
         </div>
       </div>
@@ -2261,30 +2261,31 @@
     renderProcessAdmin(document.getElementById('nh-process-admin-root'));
   }
 
-  // New-hire cohort to keep Active on Dashboard (from Updated File Sept. 2025 spreadsheet — Jul/Aug/Sep 2026 starts)
-  const KEEP_ACTIVE_NAMES = [
-    'Hakym Conejo',
-    'Jackson Price',
-    'James Bell',
-    'Joshua Kropf',
-    'Josh Kropf',
-    'James Ioime',
-    'Javed Mohammed',
-    'Clinton Duru',
-    'Ryan Dinger',
-    'Angel Leon Pagan',
-    'David Summiel IV',
-    'David Summiel',
-    'William Jordan Velandry',
-    'William Jordan',
-    'Ryan Esparza',
-    'Bilardo Artiga',
-    'Evan Smith',
-    'David Kobosky',
-    'Derrick Jackson',
-    'Chase Grahl',
-    'Zachary Shealy'
+  // Jul + Aug 2026 cohort to keep Active (Angel Leon Pagan struck from Aug list — archive)
+  const KEEP_ACTIVE_COHORT = [
+    { full_name: 'Hakym Conejo', preferred_name: '', start_date: null, cohort: 'July 2026' },
+    { full_name: 'Jackson Price', preferred_name: '', start_date: null, cohort: 'July 2026' },
+    { full_name: 'Joshua Kropf', preferred_name: 'Josh', start_date: null, cohort: 'July 2026' },
+    { full_name: 'Ryan Dinger', preferred_name: '', start_date: null, cohort: 'July 2026' },
+    { full_name: 'James Bell', preferred_name: '', start_date: null, cohort: 'July 2026' },
+    { full_name: 'Clinton Duru', preferred_name: '', start_date: null, cohort: 'July 2026' },
+    { full_name: 'Javed Mohammed', preferred_name: '', start_date: '2026-08-18', cohort: 'August 2026' },
+    { full_name: 'David Summiel IV', preferred_name: '', start_date: '2026-08-18', cohort: 'August 2026' },
+    { full_name: 'Ryan Esparza', preferred_name: '', start_date: '2026-08-18', cohort: 'August 2026' },
+    { full_name: 'Bilardo Artiga', preferred_name: '', start_date: '2026-08-18', cohort: 'August 2026' },
+    { full_name: 'Evan Smith', preferred_name: '', start_date: '2026-08-18', cohort: 'August 2026' },
+    { full_name: 'Derrick Jackson', preferred_name: '', start_date: '2026-08-18', cohort: 'August 2026' },
+    { full_name: 'Chase Grahl', preferred_name: '', start_date: '2026-08-18', cohort: 'August 2026' }
   ];
+
+  const KEEP_ACTIVE_NAMES = KEEP_ACTIVE_COHORT.flatMap((h) => {
+    const names = [h.full_name];
+    if (h.preferred_name) names.push(h.preferred_name, `${h.full_name.split(' ')[0]} ${h.preferred_name}`);
+    // Joshua (Josh) Kropf aliases
+    if (/joshua kropf/i.test(h.full_name)) names.push('Josh Kropf', 'Joshua (Josh) Kropf');
+    if (/david summiel/i.test(h.full_name)) names.push('David Summiel');
+    return names;
+  });
 
   function normalizeNameKey(name) {
     return String(name || '')
@@ -2307,6 +2308,23 @@
       parseGoesByFromFullName(emp.full_name || '').full_name
     ].map(normalizeNameKey).filter(Boolean);
     return candidates.some((c) => keys.some((k) => c === k || c.includes(k) || k.includes(c)));
+  }
+
+  function findEmployeeForCohortRow(row) {
+    const keys = [row.full_name, row.preferred_name]
+      .filter(Boolean)
+      .map(normalizeNameKey);
+    if (/joshua kropf/i.test(row.full_name)) keys.push('josh kropf', 'joshua kropf');
+    if (/david summiel/i.test(row.full_name)) keys.push('david summiel', 'david summiel iv');
+    return employees.find((e) => {
+      const candidates = [
+        e.full_name,
+        e.preferred_name,
+        displayHireName(e),
+        parseGoesByFromFullName(e.full_name || '').full_name
+      ].map(normalizeNameKey).filter(Boolean);
+      return candidates.some((c) => keys.some((k) => c === k || c.includes(k) || k.includes(c)));
+    });
   }
 
   function markHireProgressComplete(empId) {
@@ -2333,6 +2351,73 @@
     });
   }
 
+  async function ensureCohortEmployees() {
+    const supabase = client();
+    if (!supabase) throw new Error('Not signed in');
+    let created = 0;
+    let reactivated = 0;
+    const errors = [];
+    for (const row of KEEP_ACTIVE_COHORT) {
+      let emp = findEmployeeForCohortRow(row);
+      if (!emp) {
+        const payload = {
+          full_name: row.preferred_name
+            ? `${row.full_name} (Goes by ${row.preferred_name})`
+            : row.full_name,
+          preferred_name: row.preferred_name || null,
+          region: 'National',
+          employee_type: 'technician',
+          city_center: null,
+          start_date: row.start_date,
+          work_start_date: null,
+          bootcamp_start_date: null,
+          status: 'active',
+          status_note: `${row.cohort} cohort`
+        };
+        let { data: inserted, error } = await supabase.from('employees').insert(payload).select(SELECT_COLS).single();
+        if (error && /(city_center|work_start_date|preferred_name)/i.test(error.message || '')) {
+          const slim = Object.assign({}, payload);
+          delete slim.city_center;
+          delete slim.work_start_date;
+          delete slim.preferred_name;
+          ({ data: inserted, error } = await supabase.from('employees').insert(slim).select(
+            SELECT_COLS.replace(', city_center', '').replace(', work_start_date', '').replace(', preferred_name', '')
+          ).single());
+          if (inserted) {
+            inserted.preferred_name = inserted.preferred_name ?? payload.preferred_name;
+            inserted.city_center = inserted.city_center ?? null;
+            inserted.work_start_date = inserted.work_start_date ?? null;
+          }
+        }
+        if (error) {
+          errors.push(`Add ${row.full_name}: ${error.message}`);
+          continue;
+        }
+        employees.unshift(inserted);
+        emp = inserted;
+        created += 1;
+      } else {
+        const patch = {};
+        if ((emp.status || 'active') !== 'active') {
+          patch.status = 'active';
+          patch.status_note = `${row.cohort} cohort — reactivated`;
+          reactivated += 1;
+        }
+        if (!emp.start_date && row.start_date) patch.start_date = row.start_date;
+        if (row.preferred_name && !emp.preferred_name) patch.preferred_name = row.preferred_name;
+        if (Object.keys(patch).length) {
+          try {
+            await syncEmployeePatch(emp.id, patch);
+            Object.assign(emp, patch);
+          } catch (e) {
+            errors.push(`Update ${row.full_name}: ${e.message || e}`);
+          }
+        }
+      }
+    }
+    return { created, reactivated, errors };
+  }
+
   async function archiveOlderHiresKeepNew() {
     ensureData();
     if (!employees.length) {
@@ -2342,29 +2427,38 @@
       alert('No employees loaded yet. Open New Hire Checklist first, then try again.');
       return { archived: 0, kept: 0 };
     }
-    const toArchive = employees.filter((e) => (e.status || 'active') === 'active' && !hireMatchesKeepList(e));
-    const kept = employees.filter((e) => (e.status || 'active') === 'active' && hireMatchesKeepList(e));
-    if (!toArchive.length) {
-      alert(`Nothing to archive. ${kept.length} active hire(s) already match the keep list.`);
-      return { archived: 0, kept: kept.length };
+
+    let ensureResult = { created: 0, reactivated: 0, errors: [] };
+    try {
+      ensureResult = await ensureCohortEmployees();
+    } catch (e) {
+      alert('Could not sync cohort employees: ' + (e.message || e));
+      return { archived: 0, kept: 0, errors: [String(e.message || e)] };
     }
+
+    const toArchive = employees.filter((e) => (e.status || 'active') === 'active' && !hireMatchesKeepList(e));
+    const kept = employees.filter((e) => hireMatchesKeepList(e));
     const ok = confirm(
-      `Archive ${toArchive.length} hire(s) and mark each as 100% complete?\n\n` +
-      `Keep Active on Dashboard (${kept.length}):\n` +
-      kept.map((e) => `• ${displayHireName(e)}`).join('\n') +
-      (kept.length ? '\n\n' : '\n') +
-      'Everyone else currently Active will move to Archive at 100% done.'
+      `Sync Jul/Aug 2026 cohort?\n\n` +
+      `• Add missing: ${ensureResult.created} already created this run (or 0 if all present)\n` +
+      `• Keep / reactivate Active (${kept.length}):\n` +
+      kept.map((e) => `  • ${displayHireName(e)}`).join('\n') +
+      `\n\n• Archive everyone else currently Active (${toArchive.length}) at 100% complete` +
+      `\n\nAngel Leon Pagan is NOT on the keep list and will be archived if Active.`
     );
-    if (!ok) return { archived: 0, kept: kept.length };
+    if (!ok) return { archived: 0, kept: kept.length, created: ensureResult.created };
 
     let archived = 0;
-    const errors = [];
+    const errors = [...(ensureResult.errors || [])];
     for (const emp of toArchive) {
       const prev = emp.status;
       emp.status = 'archived';
       markHireProgressComplete(emp.id);
       try {
-        await syncEmployeePatch(emp.id, { status: 'archived', status_note: emp.status_note || 'Archived — prior hire marked complete' });
+        await syncEmployeePatch(emp.id, {
+          status: 'archived',
+          status_note: emp.status_note || 'Archived — not on Jul/Aug 2026 cohort list'
+        });
         archived += 1;
       } catch (e) {
         emp.status = prev;
@@ -2372,11 +2466,15 @@
       }
     }
     persist();
+    try { await loadEmployees(); } catch (e) { /* ignore */ }
     render();
-    const msg = `Archived ${archived} hire(s) at 100% complete. Kept ${kept.length} Active.`;
-    if (errors.length) alert(msg + '\n\nSome updates failed:\n' + errors.slice(0, 8).join('\n'));
+    const msg =
+      `Cohort synced.\n` +
+      `Added ${ensureResult.created}, reactivated ${ensureResult.reactivated}, ` +
+      `archived ${archived}, kept Active ${kept.length}.`;
+    if (errors.length) alert(msg + '\n\nSome updates failed:\n' + errors.slice(0, 10).join('\n'));
     else alert(msg);
-    return { archived, kept: kept.length, errors };
+    return { archived, kept: kept.length, created: ensureResult.created, reactivated: ensureResult.reactivated, errors };
   }
 
   function refreshAfterProcessChange() {
