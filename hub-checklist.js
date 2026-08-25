@@ -6,6 +6,48 @@
   // start_date = Orientation date (due-date anchor). work_start_date = Start date (techs for now).
   const SELECT_COLS =
     'id, full_name, preferred_name, employee_number, employee_type, status, status_note, region, city_center, start_date, work_start_date, bootcamp_start_date, company_email, assigned_pm';
+  const OPTIONAL_EMP_COLS = ['city_center', 'work_start_date', 'preferred_name'];
+  // Columns confirmed missing in this project's PostgREST schema (survive across saves)
+  const missingEmpCols = new Set();
+
+  function errText(err) {
+    if (!err) return '';
+    return [err.message, err.details, err.hint, err.code].filter(Boolean).join(' ');
+  }
+
+  function omitEmpCols(obj, omitSet) {
+    const next = Object.assign({}, obj);
+    (omitSet || []).forEach((k) => { delete next[k]; });
+    return next;
+  }
+
+  function selectColsWithout(omitSet) {
+    let cols = SELECT_COLS;
+    (omitSet || []).forEach((k) => {
+      cols = cols.replace(new RegExp(`,\\s*${k}\\b`, 'i'), '');
+      cols = cols.replace(new RegExp(`\\b${k}\\s*,\\s*`, 'i'), '');
+    });
+    return cols;
+  }
+
+  function rememberMissingEmpCols(err) {
+    const text = errText(err);
+    let found = false;
+    OPTIONAL_EMP_COLS.forEach((k) => {
+      if (new RegExp(k, 'i').test(text) || /schema cache|PGRST204/i.test(text)) {
+        // If schema-cache error names a column, only that one; if generic, drop all optional
+        if (new RegExp(k, 'i').test(text)) {
+          missingEmpCols.add(k);
+          found = true;
+        }
+      }
+    });
+    if (!found && /schema cache|PGRST204|Could not find the/i.test(text)) {
+      OPTIONAL_EMP_COLS.forEach((k) => missingEmpCols.add(k));
+      found = true;
+    }
+    return found;
+  }
 
   let data = null; // { version, roles, sections, items, progress }
   let employees = [];
@@ -911,24 +953,32 @@
     loading = true;
     loadError = null;
     render();
-    let selectCols = SELECT_COLS;
-    let { data: rows, error } = await supabase
-      .from('employees')
-      .select(selectCols)
-      .order('employee_number', { ascending: false, nullsFirst: false });
-    // Older DBs may be missing newer profile columns
-    if (error && /(city_center|work_start_date|preferred_name)/i.test(error.message || '')) {
-      selectCols = SELECT_COLS
-        .replace(', city_center', '')
-        .replace(', work_start_date', '')
-        .replace(', preferred_name', '');
+    const omit = new Set(missingEmpCols);
+    let rows = null;
+    let error = null;
+    for (let attempt = 0; attempt < OPTIONAL_EMP_COLS.length + 2; attempt++) {
+      const selectCols = selectColsWithout(omit);
       ({ data: rows, error } = await supabase
         .from('employees')
         .select(selectCols)
         .order('employee_number', { ascending: false, nullsFirst: false }));
-      if (!error && rows) {
-        rows = rows.map((r) => Object.assign({ city_center: null, work_start_date: null, preferred_name: null }, r));
+      if (!error) {
+        if (omit.size && rows) {
+          rows = rows.map((r) => {
+            const filled = Object.assign({}, r);
+            OPTIONAL_EMP_COLS.forEach((k) => {
+              if (omit.has(k) && filled[k] === undefined) filled[k] = null;
+            });
+            return filled;
+          });
+        }
+        break;
       }
+      if (rememberMissingEmpCols(error)) {
+        OPTIONAL_EMP_COLS.forEach((k) => { if (missingEmpCols.has(k)) omit.add(k); });
+        continue;
+      }
+      break;
     }
     if (error) {
       loading = false;
@@ -2071,22 +2121,22 @@
   async function syncEmployeePatch(id, patch) {
     const supabase = client();
     if (!supabase) throw new Error('Not signed in');
-    const body = {};
+    const raw = {};
     ['region', 'city_center', 'start_date', 'work_start_date', 'bootcamp_start_date', 'assigned_pm', 'full_name', 'preferred_name', 'status', 'status_note', 'employee_type'].forEach((k) => {
-      if (patch[k] !== undefined) body[k] = patch[k] || null;
+      if (patch[k] !== undefined) raw[k] = patch[k] || null;
     });
-    if (!Object.keys(body).length) return;
-    let { error } = await supabase.from('employees').update(body).eq('id', id);
-    if (error && /(city_center|work_start_date|preferred_name)/i.test(error.message || '')) {
-      if (/city_center/i.test(error.message || '')) delete body.city_center;
-      if (/work_start_date/i.test(error.message || '')) delete body.work_start_date;
-      if (/preferred_name/i.test(error.message || '')) delete body.preferred_name;
-      if (!Object.keys(body).length) {
-        throw new Error('Run the employees column ALTERs in supabase-schema.sql, then try again.');
+    const omit = new Set(missingEmpCols);
+    for (let attempt = 0; attempt < OPTIONAL_EMP_COLS.length + 2; attempt++) {
+      const body = omitEmpCols(raw, omit);
+      if (!Object.keys(body).length) return;
+      const { error } = await supabase.from('employees').update(body).eq('id', id);
+      if (!error) return;
+      if (rememberMissingEmpCols(error)) {
+        OPTIONAL_EMP_COLS.forEach((k) => { if (missingEmpCols.has(k)) omit.add(k); });
+        continue;
       }
-      ({ error } = await supabase.from('employees').update(body).eq('id', id));
+      throw new Error(error.message || String(error));
     }
-    if (error) throw new Error(error.message);
   }
 
   function deleteProcessItem(id) {
@@ -2465,20 +2515,26 @@
           status: 'active',
           status_note: `${row.cohort} cohort`
         };
-        let { data: inserted, error } = await supabase.from('employees').insert(payload).select(SELECT_COLS).single();
-        if (error && /(city_center|work_start_date|preferred_name)/i.test(error.message || '')) {
-          const slim = Object.assign({}, payload);
-          delete slim.city_center;
-          delete slim.work_start_date;
-          delete slim.preferred_name;
-          ({ data: inserted, error } = await supabase.from('employees').insert(slim).select(
-            SELECT_COLS.replace(', city_center', '').replace(', work_start_date', '').replace(', preferred_name', '')
-          ).single());
-          if (inserted) {
-            inserted.preferred_name = inserted.preferred_name ?? payload.preferred_name;
-            inserted.city_center = inserted.city_center ?? null;
-            inserted.work_start_date = inserted.work_start_date ?? null;
+        const omit = new Set(missingEmpCols);
+        let inserted = null;
+        let error = null;
+        for (let attempt = 0; attempt < OPTIONAL_EMP_COLS.length + 2; attempt++) {
+          const body = omitEmpCols(payload, omit);
+          const cols = selectColsWithout(omit);
+          ({ data: inserted, error } = await supabase.from('employees').insert(body).select(cols).single());
+          if (!error) {
+            if (inserted) {
+              inserted.preferred_name = inserted.preferred_name ?? payload.preferred_name;
+              inserted.city_center = inserted.city_center ?? null;
+              inserted.work_start_date = inserted.work_start_date ?? null;
+            }
+            break;
           }
+          if (rememberMissingEmpCols(error)) {
+            OPTIONAL_EMP_COLS.forEach((k) => { if (missingEmpCols.has(k)) omit.add(k); });
+            continue;
+          }
+          break;
         }
         if (error) {
           errors.push(`Add ${row.full_name}: ${error.message}`);
@@ -2717,36 +2773,39 @@
     }
     const supabase = client();
     const payload = { full_name, preferred_name, region, employee_type, city_center, start_date, work_start_date, bootcamp_start_date, status, status_note };
-    function stripMissingCols(errMsg, obj) {
-      const next = Object.assign({}, obj);
-      if (/city_center/i.test(errMsg || '')) delete next.city_center;
-      if (/work_start_date/i.test(errMsg || '')) delete next.work_start_date;
-      if (/preferred_name/i.test(errMsg || '')) delete next.preferred_name;
-      return next;
-    }
     async function writeEmp(kind) {
-      if (kind === 'update') {
-        let { error } = await supabase.from('employees').update(payload).eq('id', id);
-        if (error && /(city_center|work_start_date|preferred_name)/i.test(error.message || '')) {
-          ({ error } = await supabase.from('employees').update(stripMissingCols(error.message, payload)).eq('id', id));
+      // Always omit columns we already know are missing in this project
+      const omit = new Set(missingEmpCols);
+      for (let attempt = 0; attempt < OPTIONAL_EMP_COLS.length + 2; attempt++) {
+        const body = omitEmpCols(payload, omit);
+        const cols = selectColsWithout(omit);
+        if (kind === 'update') {
+          const { error } = await supabase.from('employees').update(body).eq('id', id);
+          if (!error) return null;
+          if (rememberMissingEmpCols(error)) {
+            OPTIONAL_EMP_COLS.forEach((k) => { if (missingEmpCols.has(k)) omit.add(k); });
+            continue;
+          }
+          return error;
         }
-        return error;
-      }
-      let { data: created, error } = await supabase.from('employees').insert(payload).select(SELECT_COLS).single();
-      if (error && /(city_center|work_start_date|preferred_name)/i.test(error.message || '')) {
-        const rest = stripMissingCols(error.message, payload);
-        const cols = SELECT_COLS
-          .replace(', city_center', '')
-          .replace(', work_start_date', '')
-          .replace(', preferred_name', '');
-        ({ data: created, error } = await supabase.from('employees').insert(rest).select(cols).single());
-        if (created) {
-          created.city_center = created.city_center ?? city_center;
-          created.work_start_date = created.work_start_date ?? work_start_date;
-          created.preferred_name = created.preferred_name ?? preferred_name;
+        const { data: created, error } = await supabase.from('employees').insert(body).select(cols).single();
+        if (!error) {
+          if (created) {
+            created.city_center = created.city_center ?? city_center;
+            created.work_start_date = created.work_start_date ?? work_start_date;
+            created.preferred_name = created.preferred_name ?? preferred_name;
+          }
+          return { created, error: null };
         }
+        if (rememberMissingEmpCols(error)) {
+          OPTIONAL_EMP_COLS.forEach((k) => { if (missingEmpCols.has(k)) omit.add(k); });
+          continue;
+        }
+        return { created: null, error };
       }
-      return { created, error };
+      return kind === 'update'
+        ? { message: 'Could not update employee after stripping optional columns.' }
+        : { created: null, error: { message: 'Could not create employee after stripping optional columns.' } };
     }
     if (id) {
       const error = await writeEmp('update');

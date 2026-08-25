@@ -416,6 +416,7 @@ FROM public.employees;
 -- Existing DBs created before these profile columns were added
 ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS city_center TEXT;
 ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS work_start_date DATE;
+ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS preferred_name TEXT;
 
 CREATE INDEX IF NOT EXISTS employees_employee_number_idx ON public.employees (employee_number);
 CREATE INDEX IF NOT EXISTS employees_status_idx ON public.employees (status);
