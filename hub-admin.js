@@ -58,6 +58,17 @@
     return window.hubCurrentUser || null;
   }
 
+  function realAdminUser() {
+    if (window.HubAuth && typeof HubAuth.getRealUser === 'function') {
+      return HubAuth.getRealUser() || currentUser();
+    }
+    return currentUser();
+  }
+
+  function canViewAs() {
+    return !!(window.HubAuth && HubAuth.isRealAdmin && HubAuth.isRealAdmin());
+  }
+
   async function requireAdminSession() {
     const supabase = client();
     if (!supabase) throw new Error('Supabase is not configured.');
@@ -308,7 +319,7 @@
   }
 
   function renderUserRow(user) {
-    const me = currentUser();
+    const me = realAdminUser();
     if (state.editingId === user.id) {
       return `<div class="user-mgmt-row user-mgmt-row-edit" data-user-id="${escapeHtml(user.id)}">
         <input class="user-mgmt-input" placeholder="Full name" data-edit-field="full_name" value="${escapeHtml(state.editDraft.full_name)}" />
@@ -322,6 +333,10 @@
       </div>`;
     }
 
+    const viewAsBtn = canViewAs() && me && user.id !== me.id
+      ? `<button type="button" class="btn btn-secondary" data-action="view-as" title="Preview the Hub as this user">View as</button>`
+      : '';
+
     return `<div class="user-mgmt-row" data-user-id="${escapeHtml(user.id)}">
       <div class="user-mgmt-person">
         <div class="user-mgmt-name">${escapeHtml(user.full_name || '—')}</div>
@@ -329,6 +344,7 @@
         ${user.region ? `<div class="user-mgmt-region">${escapeHtml(user.region)}</div>` : ''}
       </div>
       <div class="user-mgmt-actions">
+        ${viewAsBtn}
         <button type="button" class="btn btn-secondary" data-action="edit">Edit</button>
         <button type="button" class="btn btn-secondary btn-danger" data-action="delete"${
           state.saving || (me && user.id === me.id) ? ' disabled' : ''
@@ -457,6 +473,13 @@
         void handleAdd(section.getAttribute('data-role'));
       } else if (action === 'edit' && user) {
         startEdit(user);
+      } else if (action === 'view-as' && user) {
+        if (window.HubAuth && typeof HubAuth.startViewAs === 'function') {
+          void HubAuth.startViewAs(user.id).then(() => {
+            const btn = document.querySelector('.nav-link.nav-checklist');
+            if (typeof showPage === 'function') showPage('checklist', btn);
+          });
+        }
       } else if (action === 'save-edit') {
         void handleSaveEdit();
       } else if (action === 'cancel-edit') {

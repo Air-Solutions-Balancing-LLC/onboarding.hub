@@ -169,7 +169,7 @@
       if (isImpersonating()) {
         const name = effectiveUser().full_name || effectiveUser().email;
         banner.hidden = false;
-        banner.innerHTML = `Viewing as <strong>${escapeAttr(name)}</strong> · ${escapeAttr(effectiveUser().role)} — filters and tabs match their access. <button type="button" class="view-as-exit" id="view-as-exit-btn">Exit</button>`;
+        banner.innerHTML = `Viewing checklist as <strong>${escapeAttr(name)}</strong> (${escapeAttr(effectiveUser().role)}) — you remain signed in as admin. <button type="button" class="view-as-exit" id="view-as-exit-btn">Exit</button>`;
         document.getElementById('view-as-exit-btn')?.addEventListener('click', () => stopViewAs());
       } else {
         banner.hidden = true;
