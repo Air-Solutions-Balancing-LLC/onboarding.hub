@@ -245,6 +245,14 @@
     return d.toISOString().slice(0, 10);
   }
 
+  function todayIso() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
   function addDays(d, n) {
     const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
     x.setDate(x.getDate() + n);
@@ -1249,7 +1257,7 @@
   }
 
   function renderTodo(root) {
-    setPageSub('Grouped by hire — expand a name to check off tasks. PM tasks are hidden on this view. Role / person filters from Dashboard still apply.');
+    setPageSub('Grouped by hire — check off, enter dates/values, or Edit tasks here. PM tasks are hidden. Role / person filters from Dashboard still apply.');
     const entries = todoEntries();
     const groups = todoGroups(entries);
     const overdue = entries.filter((e) => e.bucket === 'overdue').length;
@@ -1337,8 +1345,37 @@
     });
     root.querySelectorAll('[data-todo-check]').forEach((el) => {
       el.addEventListener('change', () => {
-        saveValue(el.getAttribute('data-hire'), el.getAttribute('data-item'), el.checked);
+        const hireId = el.getAttribute('data-hire');
+        const itemId = el.getAttribute('data-item');
+        const item = data.items.find((i) => i.id === itemId);
+        if (!item) return;
+        if (item.inputType === 'checkbox') {
+          saveValue(hireId, itemId, el.checked);
+        } else if (el.checked) {
+          saveValue(hireId, itemId, quickCompleteValue(item));
+        } else {
+          saveValue(hireId, itemId, '');
+        }
         render();
+      });
+    });
+    root.querySelectorAll('[data-todo-field]').forEach((el) => {
+      const save = () => {
+        const hireId = el.getAttribute('data-hire');
+        const itemId = el.getAttribute('data-todo-field');
+        const item = data.items.find((i) => i.id === itemId);
+        let val = el.type === 'checkbox' ? el.checked : el.value;
+        if (item?.sensitive && !revealSensitive && String(val).includes('••')) return;
+        saveValue(hireId, itemId, val);
+        render();
+      };
+      el.addEventListener('change', save);
+      if (el.type !== 'checkbox' && el.tagName !== 'SELECT') el.addEventListener('blur', save);
+    });
+    root.querySelectorAll('[data-todo-edit]').forEach((btn) => {
+      btn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        openItemModal(btn.getAttribute('data-todo-edit'));
       });
     });
     root.querySelectorAll('[data-open-checklist]').forEach((btn) => {
@@ -1347,6 +1384,18 @@
         openTaskChecklistModal(btn.getAttribute('data-hire'), btn.getAttribute('data-open-checklist'));
       });
     });
+  }
+
+  function quickCompleteValue(item) {
+    if (!item) return 'Done';
+    if (item.inputType === 'date') return todayIso();
+    if (item.inputType === 'select') {
+      const opts = (item.options || []).map((o) => (typeof o === 'string' ? o : o.value)).filter(Boolean);
+      const yes = opts.find((o) => /^yes$/i.test(o));
+      return yes || opts.find((o) => !/^(n\/a|na|—|-)$/i.test(o)) || opts[0] || 'Done';
+    }
+    if (/^DATE\b/i.test(item.label || '')) return todayIso();
+    return 'Done';
   }
 
   function todoHireGroup(g) {
@@ -1377,22 +1426,48 @@
     const dueCls = e.bucket === 'overdue' ? 'due-over' : e.bucket === 'week' ? 'due-soon' : '';
     const linkHtml = taskLinkHtml(e.item);
     const stepProg = checklistProgress(e.hire, e.item);
+    const raw = e.hire.values?.[e.item.id];
+    const canEdit = ownsHireTask(e.hire, e.item);
+    const isRegionField = /^Region$/i.test(e.item.label);
     let control = '';
+    let valueCtrl = '';
+
     if (stepProg) {
       control = `<button type="button" class="btn-xs" data-open-checklist="${esc(e.item.id)}" data-hire="${esc(e.hire.id)}">Steps ${stepProg.done}/${stepProg.total}</button>`;
-    } else if (e.item.inputType === 'checkbox') {
-      control = `<input type="checkbox" class="nh-todo-cb" data-todo-check data-hire="${esc(e.hire.id)}" data-item="${esc(e.item.id)}" ${e.done ? 'checked' : ''} title="Mark done">`;
     } else {
-      control = `<span class="nh-todo-status ${e.done ? 'is-done' : ''}">${e.done ? '✓' : '○'}</span>`;
+      control = `<input type="checkbox" class="nh-todo-cb" data-todo-check data-hire="${esc(e.hire.id)}" data-item="${esc(e.item.id)}" ${e.done ? 'checked' : ''} title="${e.done ? 'Mark open' : 'Mark done'}">`;
+      if (e.item.inputType === 'date') {
+        const v = typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}/.test(raw) ? raw.slice(0, 10) : '';
+        valueCtrl = `<input class="form-input nh-todo-field" type="date" data-todo-field="${esc(e.item.id)}" data-hire="${esc(e.hire.id)}" value="${esc(v)}" title="Enter completion date">`;
+      } else if (isRegionField || e.item.inputType === 'select') {
+        const optsList = isRegionField ? REGION_OPTIONS : (e.item.options || []);
+        const cur = isRegionField ? (normalizeRegion(raw) || raw || '') : String(raw || '');
+        const opts = optsList.map((o) => {
+          const v = typeof o === 'string' ? o : o.value;
+          return `<option value="${esc(v)}" ${String(cur) === v ? 'selected' : ''}>${esc(v)}</option>`;
+        }).join('');
+        valueCtrl = `<select class="form-input nh-todo-field" data-todo-field="${esc(e.item.id)}" data-hire="${esc(e.hire.id)}" title="Select value"><option value="">—</option>${opts}</select>`;
+      } else if (e.item.inputType === 'text' || e.item.inputType === 'number') {
+        let display = raw == null ? '' : String(raw);
+        if (e.item.sensitive && !revealSensitive && display) display = '••••••••';
+        valueCtrl = `<input class="form-input nh-todo-field" type="text" data-todo-field="${esc(e.item.id)}" data-hire="${esc(e.hire.id)}" value="${esc(display)}" ${e.item.sensitive && !revealSensitive && raw ? 'readonly' : ''} placeholder="Enter…" title="Enter value">`;
+      }
     }
+
+    const editBtn = canEdit
+      ? `<button type="button" class="btn-xs" data-todo-edit="${esc(e.item.id)}" title="Edit this process task">Edit</button>`
+      : '';
+
     return `
       <div class="nh-todo-check-row ${e.done ? 'done' : ''} ${dueCls}">
         <span class="nh-todo-check-ctrl">${control}</span>
         <span class="nh-todo-check-body">
           <span class="nh-todo-check-label" title="${esc(e.item.label)}">${esc(e.item.label)}${linkHtml ? ' · ' + linkHtml : ''}</span>
+          ${valueCtrl ? `<span class="nh-todo-check-value">${valueCtrl}</span>` : ''}
           <span class="nh-todo-check-meta">
             <span class="nh-owner-chip">${esc(e.who || 'Unassigned')}</span>
             <span class="nh-due ${dueCls}">${e.due ? esc(fmtDate(e.due)) : 'No due date'}</span>
+            ${editBtn}
           </span>
         </span>
       </div>`;
