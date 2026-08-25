@@ -358,6 +358,68 @@
     return full;
   }
 
+  function employeeNameKey(emp) {
+    return normalizeNameKey(displayHireName(emp) || emp?.full_name || emp?.name || '');
+  }
+
+  function preferEmployeeRecord(a, b) {
+    ensureData();
+    const filled = (e) => Object.keys((data.progress?.[e.id]?.values) || {}).length;
+    const fa = filled(a);
+    const fb = filled(b);
+    if (fa !== fb) return fa >= fb ? a : b;
+    const na = Number(a.employee_number) || 0;
+    const nb = Number(b.employee_number) || 0;
+    if (na !== nb) return na >= nb ? a : b;
+    if (!!a.start_date !== !!b.start_date) return a.start_date ? a : b;
+    return String(a.id).localeCompare(String(b.id)) <= 0 ? a : b;
+  }
+
+  function mergeHireProgress(keepId, fromId) {
+    if (!keepId || !fromId || keepId === fromId) return;
+    ensureData();
+    const keep = progressOf(keepId);
+    const from = data.progress[fromId];
+    if (!from) return;
+    Object.keys(from.values || {}).forEach((k) => {
+      const cur = keep.values[k];
+      const next = from.values[k];
+      if (cur == null || cur === '' || cur === false) keep.values[k] = next;
+    });
+    Object.keys(from.assignees || {}).forEach((k) => {
+      if (!keep.assignees[k]) keep.assignees[k] = from.assignees[k];
+    });
+    Object.keys(from.checklists || {}).forEach((itemId) => {
+      if (!keep.checklists[itemId]) keep.checklists[itemId] = {};
+      Object.assign(keep.checklists[itemId], from.checklists[itemId] || {});
+    });
+  }
+
+  /** Drop duplicate Active rows with the same person name (keep the richer record). */
+  function collapseActiveEmployeeDuplicatesInMemory() {
+    ensureData();
+    const keepByKey = new Map();
+    const dropIds = new Set();
+    employees.forEach((e) => {
+      if ((e.status || 'active').toLowerCase() !== 'active') return;
+      const key = employeeNameKey(e);
+      if (!key) return;
+      const prev = keepByKey.get(key);
+      if (!prev) {
+        keepByKey.set(key, e);
+        return;
+      }
+      const keep = preferEmployeeRecord(prev, e);
+      const drop = keep === prev ? e : prev;
+      mergeHireProgress(keep.id, drop.id);
+      keepByKey.set(key, keep);
+      dropIds.add(drop.id);
+    });
+    if (!dropIds.size) return;
+    employees = employees.filter((e) => !dropIds.has(e.id));
+    persist();
+  }
+
   function hires() {
     ensureData();
     return employees.map(empToHire);
@@ -776,23 +838,36 @@
   function todoGroups(entries) {
     const map = new Map();
     (entries || []).forEach((e) => {
-      const id = e.hire.id;
+      // Prefer id, but collapse same-name actives if duplicate employee rows slipped through
+      const nameKey = normalizeNameKey(e.hire.name || e.hire.fullName || '');
+      const id = nameKey ? `name:${nameKey}` : e.hire.id;
       if (!map.has(id)) {
         map.set(id, {
           hire: e.hire,
           tasks: [],
           open: 0,
           overdue: 0,
-          done: 0
+          done: 0,
+          _seenItems: new Set()
         });
       }
       const g = map.get(id);
+      // Keep the hire record that already has more progress when names collide
+      if (e.hire.id !== g.hire.id) {
+        const filled = (h) => Object.keys(h.values || {}).length;
+        if (filled(e.hire) > filled(g.hire)) g.hire = e.hire;
+      }
+      if (g._seenItems.has(e.item.id)) return;
+      g._seenItems.add(e.item.id);
       g.tasks.push(e);
       if (e.done) g.done += 1;
       else g.open += 1;
       if (e.bucket === 'overdue') g.overdue += 1;
     });
-    return [...map.values()].sort((a, b) => {
+    return [...map.values()].map((g) => {
+      delete g._seenItems;
+      return g;
+    }).sort((a, b) => {
       if (a.overdue !== b.overdue) return b.overdue - a.overdue;
       if (a.open !== b.open) return b.open - a.open;
       return a.hire.name.localeCompare(b.hire.name);
@@ -998,6 +1073,7 @@
       employee_type: normalizePosition(r.employee_type),
       region: normalizeRegion(r.region) || r.region || null
     }));
+    collapseActiveEmployeeDuplicatesInMemory();
     loading = false;
     render();
   }
