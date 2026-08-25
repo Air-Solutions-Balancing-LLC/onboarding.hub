@@ -2569,15 +2569,7 @@
     { full_name: 'Derrick Jackson', preferred_name: '', start_date: '2026-08-18', cohort: 'August 2026' },
     { full_name: 'Chase Grahl', preferred_name: '', start_date: '2026-08-18', cohort: 'August 2026' }
   ];
-
-  const KEEP_ACTIVE_NAMES = KEEP_ACTIVE_COHORT.flatMap((h) => {
-    const names = [h.full_name];
-    if (h.preferred_name) names.push(h.preferred_name, `${h.full_name.split(' ')[0]} ${h.preferred_name}`);
-    // Joshua (Josh) Kropf aliases
-    if (/joshua kropf/i.test(h.full_name)) names.push('Josh Kropf', 'Joshua (Josh) Kropf');
-    if (/david summiel/i.test(h.full_name)) names.push('David Summiel');
-    return names;
-  });
+  const COHORT_SYNC_FLAG = 'nh_jul_aug_2026_cohort_synced_v3';
 
   function normalizeNameKey(name) {
     return String(name || '')
@@ -2591,31 +2583,66 @@
       .trim();
   }
 
+  function cohortAliasKeys(row) {
+    const full = normalizeNameKey(row.full_name);
+    const keys = [full].filter(Boolean);
+    if (row.preferred_name) {
+      const parts = String(row.full_name || '').trim().split(/\s+/);
+      const first = parts[0] || '';
+      const last = parts[parts.length - 1] || '';
+      keys.push(normalizeNameKey(`${first} ${row.preferred_name}`));
+      keys.push(normalizeNameKey(`${row.preferred_name} ${last}`));
+    }
+    if (/joshua kropf/i.test(row.full_name || '')) {
+      keys.push('josh kropf', 'joshua josh kropf', 'joshua kropf');
+    }
+    if (/david summiel/i.test(row.full_name || '')) {
+      keys.push('david summiel', 'david summiel iv');
+    }
+    return [...new Set(keys.filter(Boolean))];
+  }
+
+  function nameKeysMatch(candidate, key) {
+    if (!candidate || !key) return false;
+    if (candidate === key) return true;
+    const ct = candidate.split(' ').filter(Boolean);
+    const kt = key.split(' ').filter(Boolean);
+    if (ct.length < 2 || kt.length < 2) return false;
+    // Same last name + overlapping given name (covers Josh/Joshua Kropf)
+    if (ct[ct.length - 1] !== kt[kt.length - 1]) return false;
+    const cGiven = new Set(ct.slice(0, -1));
+    const kGiven = new Set(kt.slice(0, -1));
+    for (const g of kGiven) {
+      if (cGiven.has(g)) return true;
+    }
+    return false;
+  }
+
   function hireMatchesKeepList(emp) {
-    const keys = KEEP_ACTIVE_NAMES.map(normalizeNameKey);
+    const keys = KEEP_ACTIVE_COHORT.flatMap(cohortAliasKeys);
     const candidates = [
       emp.full_name,
-      emp.preferred_name,
+      emp.preferred_name && emp.full_name
+        ? `${parseGoesByFromFullName(emp.full_name).full_name.split(/\s+/)[0] || ''} ${emp.preferred_name}`
+        : '',
       displayHireName(emp),
       parseGoesByFromFullName(emp.full_name || '').full_name
     ].map(normalizeNameKey).filter(Boolean);
-    return candidates.some((c) => keys.some((k) => c === k || c.includes(k) || k.includes(c)));
+    return candidates.some((c) => keys.some((k) => nameKeysMatch(c, k)));
   }
 
   function findEmployeeForCohortRow(row) {
-    const keys = [row.full_name, row.preferred_name]
-      .filter(Boolean)
-      .map(normalizeNameKey);
-    if (/joshua kropf/i.test(row.full_name)) keys.push('josh kropf', 'joshua kropf');
-    if (/david summiel/i.test(row.full_name)) keys.push('david summiel', 'david summiel iv');
+    const keys = cohortAliasKeys(row);
     return employees.find((e) => {
       const candidates = [
         e.full_name,
-        e.preferred_name,
+        e.preferred_name && e.full_name
+          ? `${parseGoesByFromFullName(e.full_name).full_name.split(/\s+/)[0] || ''} ${e.preferred_name}`
+          : '',
         displayHireName(e),
         parseGoesByFromFullName(e.full_name || '').full_name
       ].map(normalizeNameKey).filter(Boolean);
-      return candidates.some((c) => keys.some((k) => c === k || c.includes(k) || k.includes(c)));
+      return candidates.some((c) => keys.some((k) => nameKeysMatch(c, k)));
     });
   }
 
@@ -2700,8 +2727,11 @@
           patch.status = 'active';
           patch.status_note = `${row.cohort} cohort — reactivated`;
           reactivated += 1;
+        } else {
+          patch.status_note = `${row.cohort} cohort`;
         }
-        if (!emp.start_date && row.start_date) patch.start_date = row.start_date;
+        // August cohort: force orientation date from spreadsheet
+        if (row.start_date && emp.start_date !== row.start_date) patch.start_date = row.start_date;
         if (row.preferred_name && !emp.preferred_name) patch.preferred_name = row.preferred_name;
         if (Object.keys(patch).length) {
           try {
@@ -2716,35 +2746,38 @@
     return { created, reactivated, errors };
   }
 
-  async function archiveOlderHiresKeepNew() {
+  async function archiveOlderHiresKeepNew(opts) {
+    const auto = !!(opts && opts.auto);
     ensureData();
     if (!employees.length) {
       try { await loadEmployees(); } catch (e) { /* ignore */ }
     }
     if (!employees.length) {
-      alert('No employees loaded yet. Open New Hire Checklist first, then try again.');
-      return { archived: 0, kept: 0 };
+      if (!auto) alert('No employees loaded yet. Open New Hire Checklist first, then try again.');
+      return { archived: 0, kept: 0, cancelled: true };
     }
 
     let ensureResult = { created: 0, reactivated: 0, errors: [] };
     try {
       ensureResult = await ensureCohortEmployees();
     } catch (e) {
-      alert('Could not sync cohort employees: ' + (e.message || e));
-      return { archived: 0, kept: 0, errors: [String(e.message || e)] };
+      if (!auto) alert('Could not sync cohort employees: ' + (e.message || e));
+      return { archived: 0, kept: 0, cancelled: true, errors: [String(e.message || e)] };
     }
 
     const toArchive = employees.filter((e) => (e.status || 'active') === 'active' && !hireMatchesKeepList(e));
     const kept = employees.filter((e) => hireMatchesKeepList(e));
-    const ok = confirm(
-      `Sync Jul/Aug 2026 cohort?\n\n` +
-      `• Add missing: ${ensureResult.created} already created this run (or 0 if all present)\n` +
-      `• Keep / reactivate Active (${kept.length}):\n` +
-      kept.map((e) => `  • ${displayHireName(e)}`).join('\n') +
-      `\n\n• Archive everyone else currently Active (${toArchive.length}) at 100% complete` +
-      `\n\nAngel Leon Pagan is NOT on the keep list and will be archived if Active.`
-    );
-    if (!ok) return { archived: 0, kept: kept.length, created: ensureResult.created };
+    if (!auto) {
+      const ok = confirm(
+        `Sync Jul/Aug 2026 cohort?\n\n` +
+        `• Add missing: ${ensureResult.created} already created this run (or 0 if all present)\n` +
+        `• Keep / reactivate Active (${kept.length}):\n` +
+        kept.map((e) => `  • ${displayHireName(e)}`).join('\n') +
+        `\n\n• Archive everyone else currently Active (${toArchive.length}) at 100% complete` +
+        `\n\nAngel Leon Pagan is NOT on the keep list and will be archived if Active.`
+      );
+      if (!ok) return { archived: 0, kept: kept.length, created: ensureResult.created, cancelled: true };
+    }
 
     let archived = 0;
     const errors = [...(ensureResult.errors || [])];
@@ -2771,8 +2804,26 @@
       `Added ${ensureResult.created}, reactivated ${ensureResult.reactivated}, ` +
       `archived ${archived}, kept Active ${kept.length}.`;
     if (errors.length) alert(msg + '\n\nSome updates failed:\n' + errors.slice(0, 10).join('\n'));
-    else alert(msg);
-    return { archived, kept: kept.length, created: ensureResult.created, reactivated: ensureResult.reactivated, errors };
+    else if (!auto || archived || ensureResult.created) alert(msg);
+    return { archived, kept: kept.length, created: ensureResult.created, reactivated: ensureResult.reactivated, errors, cancelled: false };
+  }
+
+  async function maybeAutoArchiveNonCohort() {
+    if (!client()) return;
+    try {
+      if (localStorage.getItem(COHORT_SYNC_FLAG) === '1') return;
+    } catch (e) { /* ignore */ }
+    const active = employees.filter((e) => (e.status || 'active') === 'active');
+    // Already trimmed (or empty) — mark done
+    if (active.length && active.length <= KEEP_ACTIVE_COHORT.length + 2) {
+      try { localStorage.setItem(COHORT_SYNC_FLAG, '1'); } catch (e) { /* ignore */ }
+      return;
+    }
+    if (!active.length) return;
+    const result = await archiveOlderHiresKeepNew({ auto: true });
+    if (result && !result.cancelled && !(result.errors && result.errors.length)) {
+      try { localStorage.setItem(COHORT_SYNC_FLAG, '1'); } catch (e) { /* ignore */ }
+    }
   }
 
   function refreshAfterProcessChange() {
@@ -3250,6 +3301,7 @@
     }
     mounted = true;
     await loadEmployees();
+    await maybeAutoArchiveNonCohort();
   }
 
   function applyViewerDefaults() {

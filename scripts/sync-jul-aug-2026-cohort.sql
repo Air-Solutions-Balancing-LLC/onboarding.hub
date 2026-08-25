@@ -98,16 +98,18 @@ UPDATE public.employees e
 SET
   status = 'active',
   status_note = COALESCE(c.cohort || ' cohort', e.status_note),
-  start_date = COALESCE(e.start_date, c.start_date),
+  start_date = COALESCE(c.start_date, e.start_date),
   preferred_name = COALESCE(NULLIF(e.preferred_name, ''), NULLIF(c.preferred_name, '')),
   updated_at = NOW()
 FROM cohort_keep c
 WHERE
   pg_temp.norm_name(e.full_name) = pg_temp.norm_name(c.full_name)
-  OR pg_temp.norm_name(e.full_name) LIKE '%' || pg_temp.norm_name(c.full_name) || '%'
   OR (
     pg_temp.norm_name(c.full_name) = 'joshua kropf'
-    AND pg_temp.norm_name(e.full_name) LIKE '%kropf%'
+    AND (
+      pg_temp.norm_name(e.full_name) IN ('joshua kropf', 'josh kropf')
+      OR pg_temp.norm_name(e.full_name) LIKE '%kropf%'
+    )
   )
   OR (
     pg_temp.norm_name(c.full_name) LIKE 'david summiel%'
@@ -126,11 +128,12 @@ WHERE e.status = 'active'
     FROM cohort_keep c
     WHERE
       pg_temp.norm_name(e.full_name) = pg_temp.norm_name(c.full_name)
-      OR pg_temp.norm_name(e.full_name) LIKE '%' || pg_temp.norm_name(c.full_name) || '%'
-      OR pg_temp.norm_name(c.full_name) LIKE '%' || pg_temp.norm_name(e.full_name) || '%'
       OR (
         pg_temp.norm_name(c.full_name) = 'joshua kropf'
-        AND pg_temp.norm_name(e.full_name) LIKE '%kropf%'
+        AND (
+          pg_temp.norm_name(e.full_name) IN ('joshua kropf', 'josh kropf')
+          OR pg_temp.norm_name(e.full_name) LIKE '%kropf%'
+        )
       )
       OR (
         pg_temp.norm_name(c.full_name) LIKE 'david summiel%'
