@@ -624,7 +624,19 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   margin-left: auto; align-self: center; font-size: 12px; color: #64748b;
   background: #f1f5f9; border-radius: 999px; padding: 6px 12px; white-space: nowrap;
 }
-.nh-filter-scope strong { color: #1e293b; font-weight: 700; }
+.nh-my-tasks-btn {
+  border: 1px solid #cbd5e1; background: #f8fafc; color: #1e293b;
+  border-radius: 10px; padding: 8px 14px; font-size: 13px; font-weight: 700;
+  cursor: pointer; font-family: inherit; transition: background .15s, border-color .15s, color .15s;
+}
+.nh-my-tasks-btn:hover { border-color: #94a3b8; background: #fff; }
+.nh-my-tasks-btn.active {
+  background: #1a2540; color: #fff; border-color: #1a2540;
+  box-shadow: 0 2px 8px rgba(26, 37, 64, .22);
+}
+.nh-task-owner-actions { display: inline-flex; gap: 6px; margin-left: 8px; vertical-align: middle; }
+.nh-task-row.nh-mine-owned { background: #f8fafc; }
+.nh-assignee:disabled { opacity: .75; cursor: not-allowed; }
 .nh-tab-on { background: #1a2540 !important; color: #fff !important; border-color: #1a2540 !important; }
 .nh-role-filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .nh-todo-list { display: grid; gap: 8px; }

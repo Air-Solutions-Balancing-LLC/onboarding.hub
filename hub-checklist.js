@@ -432,6 +432,65 @@
     return role === 'admin';
   }
 
+  function canManageAllTasks() {
+    if (window.HubAuth && HubAuth.isRealAdmin && HubAuth.isRealAdmin()) return true;
+    return isHubAdminUser(window.hubCurrentUser);
+  }
+
+  function viewerChecklistName() {
+    if (!window.hubCurrentUser) return 'all';
+    return matchChecklistPerson(window.hubCurrentUser, 'all');
+  }
+
+  function namesRoughMatch(a, b) {
+    const ka = normalizeNameKey(a);
+    const kb = normalizeNameKey(b);
+    if (!ka || !kb) return false;
+    if (ka === kb) return true;
+    const fa = ka.split(' ')[0];
+    const fb = kb.split(' ')[0];
+    if (fa && fb && fa === fb) return true;
+    if (fa.length >= 4 && kb.startsWith(fa)) return true;
+    if (fb.length >= 4 && ka.startsWith(fb)) return true;
+    return false;
+  }
+
+  function ownsAssigneeName(assignee) {
+    if (canManageAllTasks()) return true;
+    const me = viewerChecklistName();
+    if (!me || me === 'all') return false;
+    return namesRoughMatch(assignee, me);
+  }
+
+  function ownsProcessItem(item) {
+    if (!item) return false;
+    return ownsAssigneeName(item.assignee || item.owner || '');
+  }
+
+  function ownsHireTask(hire, item) {
+    return ownsAssigneeName(assigneeOf(hire, item));
+  }
+
+  function applyMyTasksFilter() {
+    ensureData();
+    const user = window.hubCurrentUser;
+    if (!user) {
+      alert('Sign in to filter to your tasks.');
+      return;
+    }
+    const matched = matchChecklistPerson(user, 'all');
+    if (matched !== 'all') {
+      filters.person = matched;
+      filters.role = primaryRoleForPerson(matched) || mapAppUserToChecklistRole(user);
+    } else {
+      filters.role = mapAppUserToChecklistRole(user);
+      filters.person = 'all';
+    }
+    localStorage.setItem(ROLE_PREF_KEY, filters.role);
+    localStorage.setItem(PERSON_PREF_KEY, filters.person);
+    render();
+  }
+
   function primaryRoleForPerson(personName) {
     if (!personName || personName === 'all') return null;
     const key = normalizeNameKey(personName);
@@ -1006,8 +1065,18 @@
 
   function roleFilterControls(selectId) {
     const roles = data.roles || [];
+    const me = viewerChecklistName();
+    const myLabel = me !== 'all' ? me : (window.hubCurrentUser?.full_name || 'me');
+    const mineActive = me !== 'all' && filters.person === me;
     return `
       <div class="nh-filter-panel">
+        <div class="nh-filter-group">
+          <span class="nh-filter-label">Quick</span>
+          <button type="button" class="nh-my-tasks-btn ${mineActive ? 'active' : ''}" id="nh-my-tasks" title="Show only tasks assigned to you">
+            My tasks${me !== 'all' ? ` · ${esc(myLabel)}` : ''}
+          </button>
+        </div>
+        <div class="nh-filter-divider" aria-hidden="true"></div>
         <div class="nh-filter-group">
           <span class="nh-filter-label">Role</span>
           <select id="${esc(selectId)}" class="form-input nh-role-select" title="Filter tasks by role">
@@ -1034,7 +1103,7 @@
           <button class="btn-secondary ${view === 'todo' ? 'nh-tab-on' : ''}" type="button" data-view="todo">My To-Do</button>
           <button class="btn-secondary ${view === 'roster' ? 'nh-tab-on' : ''}" type="button" data-view="roster">Roster</button>
           <button class="btn-secondary ${view === 'archive' ? 'nh-tab-on' : ''}" type="button" data-view="archive">Archive</button>
-          <button class="btn-secondary" type="button" id="nh-btn-template">Manage process</button>
+          <button class="btn-secondary" type="button" id="nh-btn-template">Edit process</button>
           <button class="btn-secondary" type="button" id="nh-btn-archive-old" title="Keep new Jul–Sep 2026 cohort Active; archive others at 100% complete">Archive older hires</button>
           <button class="btn-primary" type="button" id="nh-btn-add">+ Add new hire</button>
         </div>
@@ -1054,6 +1123,7 @@
   }
 
   function bindPersonChips(root) {
+    root.querySelector('#nh-my-tasks')?.addEventListener('click', () => applyMyTasksFilter());
     root.querySelectorAll('[data-person]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const person = btn.getAttribute('data-person') || 'all';
@@ -1093,17 +1163,9 @@
       finally { if (btn) btn.disabled = false; }
     });
     root.querySelector('#nh-btn-template')?.addEventListener('click', () => {
-      // Process editing lives in Admin for the whole team
-      if (window.HubAuth && HubAuth.canAccessAdmin && HubAuth.canAccessAdmin()) {
-        const adminBtn = document.getElementById('nav-admin');
-        showPage('admin', adminBtn);
-        setTimeout(() => {
-          document.getElementById('nh-process-admin-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 50);
-      } else {
-        view = 'template';
-        render();
-      }
+      // Everyone can edit process tasks they own; Admins also have the Admin process card
+      view = 'template';
+      render();
     });
   }
 
@@ -1602,6 +1664,7 @@
       <div class="nh-detail-top">
         <button class="btn-secondary" type="button" id="nh-back">← Back</button>
         <div class="nh-detail-actions">
+          <button class="btn-primary" type="button" id="nh-add-my-task" title="Add a process task assigned to you">+ Add my task</button>
           <label class="nh-check-label"><input type="checkbox" id="nh-reveal" ${revealSensitive ? 'checked' : ''}> Show sensitive</label>
           <button class="btn-secondary" type="button" id="nh-edit-hire">Edit profile</button>
           ${archived ? `<button class="btn-xs danger" type="button" id="nh-del-hire">Delete</button>` : ''}
@@ -1644,6 +1707,7 @@
       leaveHireDetail();
     });
     root.querySelector('#nh-edit-hire').addEventListener('click', () => openHireModal(hire.id));
+    root.querySelector('#nh-add-my-task')?.addEventListener('click', () => openItemModal(null, null, { forSelf: true }));
     root.querySelector('#nh-del-hire')?.addEventListener('click', async () => {
       if (await deleteEmployee(hire.id)) {
         view = 'archive';
@@ -1704,8 +1768,23 @@
     root.querySelectorAll('[data-assignee]').forEach((sel) => {
       sel.addEventListener('change', () => {
         const itemId = sel.getAttribute('data-assignee');
+        const item = data.items.find((i) => i.id === itemId);
+        if (!item || !ownsHireTask(hire, item)) {
+          alert('You can only reassign tasks that are assigned to you.');
+          render();
+          return;
+        }
         progressOf(hire.id).assignees[itemId] = sel.value;
         persist();
+        render();
+      });
+    });
+    root.querySelectorAll('[data-edit-hire-item]').forEach((btn) => {
+      btn.addEventListener('click', () => openItemModal(btn.getAttribute('data-edit-hire-item')));
+    });
+    root.querySelectorAll('[data-del-hire-item]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (deleteProcessItem(btn.getAttribute('data-del-hire-item'))) render();
       });
     });
     root.querySelectorAll('[data-open-checklist]').forEach((btn) => {
@@ -1722,7 +1801,8 @@
     const due = dueDateFor(hire, it);
     const overdue = isPastDue(due, filled);
     const who = assigneeOf(hire, it);
-    const people = [...new Set([...peopleForRole(it.role), who].filter(Boolean))];
+    const canEditMine = ownsHireTask(hire, it);
+    const people = [...new Set([...peopleForRole(it.role), who, viewerChecklistName() !== 'all' ? viewerChecklistName() : null].filter(Boolean))];
     const stepProg = checklistProgress(hire, it);
     const linkHtml = taskLinkHtml(it);
     const isRegionField = /^Region$/i.test(it.label);
@@ -1749,10 +1829,16 @@
       if (it.sensitive && !revealSensitive && display) display = '••••••••';
       control = `<input class="form-input nh-field-input" type="text" data-field="${esc(it.id)}" value="${esc(display)}" ${it.sensitive && !revealSensitive && raw ? 'readonly' : ''} placeholder="Enter value…">`;
     }
+    const ownerActions = canEditMine
+      ? `<div class="nh-task-owner-actions">
+          <button type="button" class="btn-xs" data-edit-hire-item="${esc(it.id)}" title="Edit this process task">Edit</button>
+          <button type="button" class="btn-xs danger" data-del-hire-item="${esc(it.id)}" title="Delete this process task">Delete</button>
+        </div>`
+      : '';
     return `
-      <div class="nh-task-row ${mine ? 'mine' : ''} ${filled ? 'filled' : 'open'} ${overdue ? 'overdue' : ''}${stepProg ? ' has-checklist' : ''}">
+      <div class="nh-task-row ${mine ? 'mine' : ''} ${filled ? 'filled' : 'open'} ${overdue ? 'overdue' : ''}${stepProg ? ' has-checklist' : ''}${canEditMine ? ' nh-mine-owned' : ''}">
         <div class="nh-task-assignee" title="${esc(who || 'Unassigned')} · ${esc(it.role)}">
-          <select class="form-input nh-assignee" data-assignee="${esc(it.id)}" title="Assigned person">
+          <select class="form-input nh-assignee" data-assignee="${esc(it.id)}" title="${canEditMine ? 'Reassign this task' : 'Only the assignee can reassign'}" ${canEditMine ? '' : 'disabled'}>
             ${people.map((p) => `<option value="${esc(p)}" ${who === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}
           </select>
           <span class="nh-role-chip">${esc(it.role)}</span>
@@ -1764,6 +1850,7 @@
           ${it.sensitive ? ' <span class="nh-lock">sensitive</span>' : ''}
           ${stepProg ? ` <span class="nh-steps-chip">${stepProg.total} steps</span>` : ''}
           ${linkHtml ? ` <span class="nh-task-link-wrap">${linkHtml}</span>` : ''}
+          ${ownerActions}
         </div>
         <div class="nh-task-due ${overdue ? 'is-overdue' : ''}">${esc(fmtDate(due))}</div>
         <div class="nh-task-value">${control}</div>
@@ -1914,7 +2001,12 @@
   function deleteProcessItem(id) {
     ensureData();
     const it = data.items.find((i) => i.id === id);
-    if (!it || !confirm(`Delete "${it.label}" from the shared process?`)) return false;
+    if (!it) return false;
+    if (!ownsProcessItem(it)) {
+      alert('You can only delete tasks assigned to you.');
+      return false;
+    }
+    if (!confirm(`Delete "${it.label}" from the shared process?`)) return false;
     data.items = data.items.filter((i) => i.id !== id);
     data.items.forEach((item) => {
       if (item.dependsOnTaskId === id) {
@@ -1960,7 +2052,7 @@
       });
     });
     root.querySelectorAll('[data-add-section]').forEach((btn) => {
-      btn.addEventListener('click', () => openItemModal(null, btn.getAttribute('data-add-section')));
+      btn.addEventListener('click', () => openItemModal(null, btn.getAttribute('data-add-section'), { forSelf: !canManageAllTasks() }));
     });
     root.querySelectorAll('[data-edit-item]').forEach((btn) => {
       btn.addEventListener('click', () => openItemModal(btn.getAttribute('data-edit-item')));
@@ -2058,15 +2150,16 @@
               <button class="btn-primary" type="button" data-add-section="${esc(sec.id)}">+ Add task to ${esc(sec.id)}</button>
               <span class="nh-muted">${adminMode
                 ? 'Due date = selected date minus “days before”. Default is 0 days before Orientation. Set dependency if a task must wait on another.'
-                : 'Assignee, role, field type, and due date from Orientation / Start / Bootcamp'}</span>
+                : 'Anyone can add a task for themselves. Edit or delete only tasks assigned to you (admins can manage all).'}</span>
             </div>
             <div class="nh-template-list">
               ${items.length ? items.map((it) => {
                 const depOn = !!(it.dependsOnPrior || it.dependsOnTaskId);
                 const depLabel = it.dependsOnTaskId ? taskLabelById(it.dependsOnTaskId) : '';
                 const daysBefore = daysBeforeOf(it);
+                const canOwn = ownsProcessItem(it);
                 return `
-                <div class="nh-template-row${depOn ? ' nh-has-dependency' : ''}">
+                <div class="nh-template-row${depOn ? ' nh-has-dependency' : ''}${canOwn ? ' nh-mine-owned' : ''}">
                   <div>
                     <div class="nh-field-label" style="font-size:13px;font-weight:600;color:#1e293b">${esc(it.label)}</div>
                     <div class="nh-todo-meta">
@@ -2104,8 +2197,10 @@
                         ` : ''}
                       </div>
                     ` : ''}
-                    <button class="btn-xs" type="button" data-edit-item="${esc(it.id)}">Edit</button>
-                    <button class="btn-xs danger" type="button" data-del-item="${esc(it.id)}">Delete</button>
+                    ${canOwn ? `
+                      <button class="btn-xs" type="button" data-edit-item="${esc(it.id)}">Edit</button>
+                      <button class="btn-xs danger" type="button" data-del-item="${esc(it.id)}">Delete</button>
+                    ` : `<span class="nh-muted" style="font-size:11px">Assigned to ${esc(it.assignee || 'other')}</span>`}
                   </div>
                 </div>`;
               }).join('') : '<div class="nh-empty-block" style="border:none;margin:8px">No tasks in this category yet.</div>'}
@@ -2291,19 +2386,27 @@
   }
 
   function renderTemplate(root) {
-    setPageSub('Edit the shared process by category. Prefer Admin → New Hire Checklist Process when you are an Admin.');
+    setPageSub('Add tasks for yourself, or edit/delete tasks assigned to you. Admins can manage every task.');
     (data.sections || []).forEach((s) => {
       if (processAdminOpen[s.id] === undefined) processAdminOpen[s.id] = true;
     });
     root.innerHTML = `
       <div class="nh-detail-top">
         <button class="btn-secondary" type="button" id="nh-back-t">← Back</button>
-        <button class="btn-primary" type="button" id="nh-add-item">+ Add task</button>
+        <div class="nh-detail-actions">
+          <button class="btn-secondary" type="button" id="nh-my-tasks-t">My tasks</button>
+          <button class="btn-primary" type="button" id="nh-add-item">+ Add my task</button>
+        </div>
       </div>
-      ${processSectionsHtml({ adminMode: false })}`;
+      ${processSectionsHtml({ adminMode: canManageAllTasks() })}`;
     root.querySelector('#nh-back-t').addEventListener('click', () => { view = 'dashboard'; render(); });
-    root.querySelector('#nh-add-item').addEventListener('click', () => openItemModal());
-    bindProcessEditor(root, { adminMode: false, onRefresh: () => renderTemplate(root) });
+    root.querySelector('#nh-my-tasks-t')?.addEventListener('click', () => {
+      applyMyTasksFilter();
+      view = 'dashboard';
+      render();
+    });
+    root.querySelector('#nh-add-item').addEventListener('click', () => openItemModal(null, null, { forSelf: true }));
+    bindProcessEditor(root, { adminMode: canManageAllTasks(), onRefresh: () => renderTemplate(root) });
   }
 
   function openHireModal(id) {
@@ -2522,8 +2625,14 @@
     }).filter((s) => s.label);
   }
 
-  function openItemModal(id, defaultSectionId) {
+  function openItemModal(id, defaultSectionId, opts) {
     ensureData();
+    const forSelf = !!(opts && opts.forSelf);
+    const it = id ? data.items.find((i) => i.id === id) : null;
+    if (it && !ownsProcessItem(it)) {
+      alert('You can only edit tasks assigned to you.');
+      return;
+    }
     let modal = document.getElementById('nh-item-modal');
     if (modal) modal.remove(); // rebuild so Edit card always has checklist editor
     modal = document.createElement('div');
@@ -2601,14 +2710,24 @@
     ).join('');
     const allPeople = [...new Set((data.roles || []).flatMap((r) => r.people))];
     document.getElementById('nh-people-dl').innerHTML = allPeople.map((p) => `<option value="${esc(p)}">`).join('');
-    const it = id ? data.items.find((i) => i.id === id) : null;
     document.getElementById('nh-item-title').textContent = it ? 'Edit task' : 'Add task';
     document.getElementById('nh-item-id').value = it?.id || '';
     document.getElementById('nh-item-section').value = it?.sectionId || defaultSectionId || 'A';
     document.getElementById('nh-item-label').value = it?.label || '';
-    document.getElementById('nh-item-role').value = it?.role || 'HR';
-    document.getElementById('nh-item-assignee').value = it?.assignee || '';
-    document.getElementById('nh-item-type').value = it?.inputType || 'text';
+    const meName = viewerChecklistName();
+    const defaultRole = meName !== 'all'
+      ? (primaryRoleForPerson(meName) || mapAppUserToChecklistRole(window.hubCurrentUser) || 'HR')
+      : (mapAppUserToChecklistRole(window.hubCurrentUser) || 'HR');
+    document.getElementById('nh-item-role').value = it?.role || (defaultRole === 'all' ? 'HR' : defaultRole);
+    const defaultAssignee = meName !== 'all' ? meName : (window.hubCurrentUser?.full_name || '');
+    document.getElementById('nh-item-assignee').value = it?.assignee || defaultAssignee;
+    if (!canManageAllTasks() && (forSelf || !it)) {
+      // Non-admins add as themselves; can still reassign when editing their own task
+      if (!it || forSelf) {
+        document.getElementById('nh-item-assignee').value = defaultAssignee || document.getElementById('nh-item-assignee').value;
+      }
+    }
+    document.getElementById('nh-item-type').value = it?.inputType || 'checkbox';
     if (it) normalizeItemDue(it);
     document.getElementById('nh-item-anchor').value = normalizeDueAnchor(it?.dueAnchor || 'orientation');
     document.getElementById('nh-item-days-before').value = it ? daysBeforeOf(it) : 0;
@@ -2616,7 +2735,6 @@
     document.getElementById('nh-item-link').value = it?.link || '';
     const steps = normalizeSteps(it || {});
     renderItemStepsEditor(steps.length ? steps : []);
-    // preserve step ids in DOM
     [...document.querySelectorAll('#nh-item-steps .nh-step-edit-row')].forEach((row, i) => {
       if (steps[i]) row.setAttribute('data-step-id', steps[i].id);
     });
@@ -2632,7 +2750,7 @@
     const sectionId = document.getElementById('nh-item-section').value;
     const label = document.getElementById('nh-item-label').value.trim();
     const role = document.getElementById('nh-item-role').value;
-    const assignee = document.getElementById('nh-item-assignee').value.trim();
+    let assignee = document.getElementById('nh-item-assignee').value.trim();
     const inputType = document.getElementById('nh-item-type').value;
     const dueAnchor = normalizeDueAnchor(document.getElementById('nh-item-anchor').value);
     const dueDaysBefore = Math.max(0, parseInt(document.getElementById('nh-item-days-before').value, 10) || 0);
@@ -2644,6 +2762,18 @@
       label: s.label
     }));
     if (!label || !assignee) { alert('Label and assignee are required.'); return; }
+    if (id) {
+      const existing = data.items.find((i) => i.id === id);
+      if (!existing || !ownsProcessItem(existing)) {
+        alert('You can only edit tasks assigned to you.');
+        return;
+      }
+    } else if (!canManageAllTasks()) {
+      // New tasks from non-admins default to themselves if blank / mismatched
+      const me = viewerChecklistName();
+      if (me !== 'all') assignee = me;
+      else if (!assignee && window.hubCurrentUser?.full_name) assignee = window.hubCurrentUser.full_name;
+    }
     if (id) {
       const it = data.items.find((i) => i.id === id);
       Object.assign(it, {
@@ -2664,7 +2794,7 @@
     persist();
     closeItemModal();
     refreshAfterProcessChange();
-    if (view === 'template') render();
+    if (view === 'template' || view === 'detail') render();
   }
 
   function render() {
