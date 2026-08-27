@@ -76,8 +76,9 @@ CREATE POLICY "step_checks_auth" ON step_checks
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- ============================================================
---  App users (Admin → User Management) — Atlas-style
---  Roles: Admin, PM, Technician, Accounting, HR, Logistics, Training
+--  App users — grant ledger for Hub access (identity and live role come from Atlas).
+--  Existing rows keep people authorized at cutover. New grants still upsert an email row.
+--  Legacy Hub-only roles may still appear on leftover rows.
 -- ============================================================
 
 DO $$ BEGIN
