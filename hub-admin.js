@@ -278,23 +278,40 @@
   function renderUserRow(user, { leftover = false } = {}) {
     const canRevoke = String(user.role) !== 'admin' || leftover;
     const atlasAdminLocked = !leftover && String(user.role) === 'admin';
-    return `<div class="user-mgmt-row" data-email="${escapeHtml(user.email)}">
-      <div class="user-mgmt-person">
-        <div class="user-mgmt-name">${escapeHtml(user.full_name || '—')}</div>
-        <div class="user-mgmt-email">${escapeHtml(user.email)}</div>
-        <div class="user-mgmt-region">${escapeHtml([roleLabel(user.role), user.region].filter(Boolean).join(' · '))}${
-          leftover ? ' · Hub-only leftover' : ''
-        }</div>
-      </div>
-      <div class="user-mgmt-actions">
-        ${
-          atlasAdminLocked
-            ? `<span class="user-mgmt-footnote" style="font-style:normal;margin:0;">Automatic Hub Admin</span>`
-            : `<button type="button" class="btn btn-secondary btn-danger" data-action="revoke"${
-                state.saving || !canRevoke ? ' disabled' : ''
-              }>Revoke</button>`
-        }
-      </div>
+    return `<tr data-email="${escapeHtml(user.email)}">
+      <td>${escapeHtml(user.full_name || '—')}</td>
+      <td>${escapeHtml(user.email)}</td>
+      <td>${escapeHtml(roleLabel(user.role))}</td>
+      <td>${escapeHtml(user.region || '—')}</td>
+      <td>${leftover ? 'Hub leftover' : 'Atlas'}</td>
+      <td>${
+        atlasAdminLocked
+          ? `<span class="user-mgmt-footnote" style="font-style:normal;margin:0;">Automatic Hub Admin</span>`
+          : `<button type="button" class="btn btn-secondary btn-danger" data-action="revoke"${
+              state.saving || !canRevoke ? ' disabled' : ''
+            }>Revoke</button>`
+      }</td>
+    </tr>`;
+  }
+
+  function renderPeopleTable(users, sortKey) {
+    if (!users.length) return '';
+    return `<div class="nh-table-wrap">
+      <table class="data-table" data-sort-key="${escapeHtml(sortKey)}">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Region</th>
+            <th>Source</th>
+            <th class="no-sort">Access</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${users.map((user) => renderUserRow(user, { leftover: !!user._leftover })).join('')}
+        </tbody>
+      </table>
     </div>`;
   }
 
@@ -322,35 +339,10 @@
       )
       .join('');
 
-    const sectionsHtml = ATLAS_ROLE_SECTIONS.map(({ role, title }) => {
-      const sectionUsers = usersForRole(role);
-      if (!sectionUsers.length) return '';
-      return `<section class="user-mgmt-section" data-role="${role}">
-        <div class="user-mgmt-section-head">
-          <h2>${escapeHtml(title)}</h2>
-          <span class="user-mgmt-count">${sectionUsers.length}</span>
-        </div>
-        <div class="user-mgmt-list">
-          ${sectionUsers.map((user) => renderUserRow(user)).join('')}
-        </div>
-      </section>`;
-    }).join('');
-
-    const leftoverHtml = state.leftovers.length
-      ? `<section class="user-mgmt-section">
-          <button type="button" class="user-mgmt-section-toggle" data-action="toggle-leftover" aria-expanded="${state.leftoverOpen}">
-            <h2>Hub-only leftover</h2>
-            <span class="user-mgmt-count">${state.leftovers.length}</span>
-            <span class="user-mgmt-section-chevron">${state.leftoverOpen ? 'Hide' : 'Show'}</span>
-          </button>
-          ${
-            state.leftoverOpen
-              ? `<div class="user-mgmt-list">${state.leftovers.map((user) => renderUserRow(user, { leftover: true })).join('')}</div>
-                 <p class="user-mgmt-footnote">These emails are already on Hub but not an active Atlas person. They stay in until revoked or added in Atlas.</p>`
-              : ''
-          }
-        </section>`
-      : '';
+    const people = [
+      ...state.authorized.map((user) => Object.assign({}, user, { _leftover: false })),
+      ...state.leftovers.map((user) => Object.assign({}, user, { _leftover: true })),
+    ];
 
     root.innerHTML = `
       <p class="user-mgmt-footnote" style="font-style:normal;margin:0 0 1rem;">
@@ -369,9 +361,10 @@
           <button type="button" class="btn btn-primary" data-action="grant" ${state.saving || !picker.length ? 'disabled' : ''}>Grant access</button>
         </div>
       </div>
-      ${sectionsHtml || '<p class="user-mgmt-footnote">No authorized Hub people yet.</p>'}
-      ${leftoverHtml}
+      ${renderPeopleTable(people, 'hub-users') || '<p class="user-mgmt-footnote">No authorized Hub people yet.</p>'}
+      ${state.leftovers.length ? '<p class="user-mgmt-footnote">Hub leftover rows are emails already on Hub that are not an active Atlas person. They stay until revoked or added in Atlas.</p>' : ''}
     `;
+    if (window.HubShell && HubShell.enhanceTables) HubShell.enhanceTables(root);
   }
 
   function bindEvents() {

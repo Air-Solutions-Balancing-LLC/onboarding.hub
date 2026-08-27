@@ -1082,6 +1082,11 @@
   function setPageSub(text) {
     const el = document.querySelector('#page-checklist .page-sub');
     if (el) el.textContent = text;
+    const headerSub = document.getElementById('hub-header-sub');
+    const checklistPage = document.getElementById('page-checklist');
+    if (headerSub && checklistPage && checklistPage.classList.contains('active')) {
+      headerSub.textContent = text;
+    }
   }
 
   function statusSelect(empId, status, extraClass) {
@@ -1653,6 +1658,7 @@
         else btn.disabled = false;
       });
     });
+    if (window.HubShell && HubShell.enhanceTables) HubShell.enhanceTables(root);
   }
 
   function renderDashboard(root) {
@@ -1677,7 +1683,7 @@
         </div>
       </div>
       <div class="nh-sheet-wrap">
-        <table class="nh-sheet">
+        <table class="nh-sheet" data-sort-key="nh-dashboard">
           <thead>
             <tr>
               <th class="nh-sticky">#</th>
@@ -1756,7 +1762,7 @@
         </div>
       </div>
       <div class="nh-table-wrap">
-        <table class="nh-table">
+        <table class="nh-table" data-sort-key="nh-roster">
           <thead>
             <tr><th>#</th><th>Name</th><th>Position</th><th>Region</th><th>City center</th><th>Orientation</th><th>Start</th><th>Bootcamp</th><th>Status</th><th>Progress</th></tr>
           </thead>
@@ -1809,7 +1815,7 @@
         </div>
       </div>
       <div class="nh-table-wrap">
-        <table class="nh-table">
+        <table class="nh-table" data-sort-key="nh-archive">
           <thead>
             <tr><th>#</th><th>Name</th><th>Position</th><th>Region</th><th>City center</th><th>Orientation</th><th>Start</th><th>Bootcamp</th><th>Status</th><th>Progress</th><th></th></tr>
           </thead>

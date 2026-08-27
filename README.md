@@ -99,5 +99,5 @@ Signed-in users share the same Supabase data — tasks, resources, checkboxes, a
 
 ## Customization
 
-- **Nav tab colors**: Edit CSS in `index.html` (`.nav-link.active` rules)
+- **Sidebar**: Atlas-matched navy side nav in `css/hub-sidebar.css` and `js/hub-shell.js` (collapse toggle + sortable tables)
 - **Default data**: Edit `DEFAULT_RESOURCES`, `DEFAULT_RESPONSIBILITIES`, and `INIT_TASKS` in `index.html`

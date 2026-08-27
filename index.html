@@ -4,24 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Airadigm Onboarding Hub</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/hub-sidebar.css">
+<link rel="stylesheet" href="css/hub-shell.css">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 [hidden] { display: none !important; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f1f5f9; min-height: 100vh; }
-.nav { background: #1a2540; padding: 10px 24px; display: flex; align-items: center; gap: 32px; position: sticky; top: 0; z-index: 100; }
-.nav-logo { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.nav-icon { width: 36px; height: 36px; background: #f59e0b; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
-.nav-title { color: #fff; font-size: 14px; font-weight: 500; line-height: 1.2; }
-.nav-sub { color: #94a3b8; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
-.nav-links { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
-.nav-link { color: #94a3b8; font-size: 12px; padding: 6px 12px; border-radius: 6px; cursor: pointer; background: transparent; border: none; white-space: nowrap; transition: background .15s, color .15s; }
-.nav-link:hover { background: rgba(255,255,255,.1); color: #fff; }
-.nav-link.active { background: #f59e0b; color: #1a2540; font-weight: 500; }
-.nav-link.active.nav-resp { background: #22c55e; color: #fff; }
-.nav-link.active.nav-admin { background: #2f74a5; color: #fff; }
-.nav-link.active.nav-checklist { background: #1E3A5F; color: #fff; }
-.nav-link.active.nav-orient { background: #c4b5fd; color: #1a2540; }
-.nav-link.active.nav-weekly { background: #93c5fd; color: #1a2540; }
+html, body { height: 100%; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a2540; min-height: 100vh; color: #0F1F3D; }
 .page { display: none; }
 .page.active { display: block; }
 .main { padding: 40px 72px; max-width: none; margin: 0; width: 100%; }
@@ -297,7 +287,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 }
 @media (max-width: 600px) {
   .days { grid-template-columns: repeat(2, minmax(0,1fr)); }
-  .nav-links { display: none; }
   .stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
 
@@ -310,14 +299,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .btn-microsoft { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 12px 16px; background: #2f2f2f; color: #fff; border: none; border-radius: 7px; font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit; }
 .btn-microsoft:hover { background: #1a1a1a; }
 .auth-error { font-size: 12px; color: #dc2626; margin-top: 14px; }
-.nav-user { display: flex; align-items: center; gap: 8px; margin-left: 8px; flex-shrink: 0; }
-.nav-user-email { font-size: 11px; color: #94a3b8; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.nav-view-as { display: inline-flex; align-items: center; gap: 6px; margin-right: 4px; }
-.nav-view-as-label { font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #94a3b8; }
-.nav-view-as-select {
-  max-width: 180px; background: #0f172a; color: #e2e8f0; border: 1px solid rgba(255,255,255,.2);
-  border-radius: 6px; padding: 4px 8px; font-size: 11px; font-family: inherit;
-}
 .view-as-banner {
   background: #fef3c7; color: #92400e; border-bottom: 1px solid #fcd34d;
   padding: 8px 20px; font-size: 13px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
@@ -328,8 +309,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   border-radius: 6px; padding: 3px 10px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
 }
 .view-as-exit:hover { background: #fffbeb; }
-.btn-signout { font-size: 11px; padding: 5px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,.2); background: transparent; color: #94a3b8; cursor: pointer; font-family: inherit; white-space: nowrap; }
-.btn-signout:hover { color: #fff; border-color: rgba(255,255,255,.4); }
 
 /* ── ADMIN (Atlas-style user management) ── */
 .page-admin { background: #eef0f3; min-height: calc(100vh - 56px); }
@@ -838,11 +817,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   .nh-sheet-wrap { max-height: none; }
 }
 </style>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="js/hub-access.js"></script>
+<script src="js/hub-shell.js"></script>
 <script src="hub-auth.js"></script>
 <script src="hub-admin.js"></script>
 <script src="new-hire-seed.js"></script>
@@ -852,8 +831,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
 <div id="auth-screen" class="auth-screen">
   <div class="auth-card">
-    <div class="auth-logo">🏢</div>
-    <h1>Airadigm Onboarding Hub</h1>
+    <img src="assets/airadigm-logo.png" alt="Airadigm Solutions" style="width:148px;margin:0 auto 16px;display:block;">
+    <h1>Onboarding Hub</h1>
     <p>Sign in with your Air Solutions Microsoft account. Atlas Admins can sign in automatically. Everyone else must be granted Hub access from the Atlas roster.</p>
     <button class="btn-microsoft" type="button" onclick="HubAuth.signInWithMicrosoft()">
       <svg width="20" height="20" viewBox="0 0 21 21" fill="none" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
@@ -864,34 +843,65 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 </div>
 
 <div id="app-shell" hidden>
-<nav class="nav">
-  <div class="nav-logo">
-    <div class="nav-icon">🏢</div>
-    <div>
-      <div class="nav-title">Airadigm Onboarding Hub</div>
-      <div class="nav-sub">HR &amp; Training Resources</div>
+<aside class="sidebar">
+  <a href="#" class="sidebar-logo" onclick="showPage('checklist', document.querySelector('.nav-item.nav-checklist')); return false;">
+    <img src="assets/airadigm-logo.png" alt="Airadigm Solutions" />
+    <div class="app-name">Onboarding Hub</div>
+    <div class="company-text">HR &amp; Training · Air Solutions &amp; Balancing</div>
+  </a>
+  <nav class="sidebar-nav" aria-label="Main">
+    <button type="button" class="nav-item nav-checklist active" onclick="showPage('checklist', this)">
+      <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+      <span class="nav-label">New Hire Checklist</span>
+    </button>
+    <button type="button" class="nav-item nav-admin" id="nav-admin" style="display:none" onclick="showPage('admin', this)">
+      <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M5 5l1.5 1.5M17.5 17.5 19 19M3 12h2M19 12h2M5 19l1.5-1.5M17.5 6.5 19 5"/></svg></span>
+      <span class="nav-label">Admin</span>
+    </button>
+    <button type="button" class="nav-item nav-resp" data-paula-only style="display:none" onclick="showPage('responsibilities', this)">
+      <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg></span>
+      <span class="nav-label">Responsibilities</span>
+    </button>
+    <button type="button" class="nav-item nav-orient" data-paula-only style="display:none" onclick="showPage('orientation', this)">
+      <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span>
+      <span class="nav-label">Orientation &amp; Bootcamp</span>
+    </button>
+    <button type="button" class="nav-item nav-weekly" data-paula-only style="display:none" onclick="showPage('weekly', this)">
+      <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+      <span class="nav-label">Weekly Tasks</span>
+    </button>
+    <button type="button" class="nav-item nav-resources" data-paula-only style="display:none" onclick="showPage('resources', this)">
+      <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></svg></span>
+      <span class="nav-label">Resources</span>
+    </button>
+  </nav>
+  <div class="sidebar-bottom">
+    <label id="nav-view-as" class="nav-view-as" hidden title="Preview Hub as another allowlisted user">
+      <span class="nav-view-as-label">View as</span>
+      <select id="nav-view-as-select" class="nav-view-as-select">
+        <option value="">Me</option>
+      </select>
+    </label>
+    <div class="user-profile">
+      <div class="avatar"></div>
+      <div class="user-info">
+        <div class="name"></div>
+        <div class="role"></div>
+      </div>
     </div>
+    <span id="nav-user-email" class="nav-user-email"></span>
+    <button class="hub-sign-out" type="button" onclick="HubAuth.signOut()">Sign out</button>
   </div>
-  <div class="nav-links">
-    <button class="nav-link nav-checklist active" onclick="showPage('checklist',this)">New Hire Checklist</button>
-    <button class="nav-link nav-admin" id="nav-admin" style="display:none" onclick="showPage('admin',this)">Admin</button>
-    <button class="nav-link nav-resp" data-paula-only style="display:none" onclick="showPage('responsibilities',this)">Responsibilities</button>
-    <button class="nav-link nav-orient" data-paula-only style="display:none" onclick="showPage('orientation',this)">Orientation &amp; Bootcamp 2026</button>
-    <button class="nav-link nav-weekly" data-paula-only style="display:none" onclick="showPage('weekly',this)">Weekly Tasks</button>
-    <button class="nav-link" data-paula-only style="display:none" onclick="showPage('resources',this)">Resources</button>
-    <div class="nav-user">
-      <label id="nav-view-as" class="nav-view-as" hidden title="Preview Hub as another allowlisted user">
-        <span class="nav-view-as-label">View as</span>
-        <select id="nav-view-as-select" class="nav-view-as-select">
-          <option value="">Me</option>
-        </select>
-      </label>
-      <span id="nav-user-email" class="nav-user-email"></span>
-      <button class="btn-signout" type="button" onclick="HubAuth.signOut()">Sign out</button>
+</aside>
+<div class="main">
+  <header class="header">
+    <div class="header-title">
+      <h1 id="hub-header-title">New Hire Checklist</h1>
+      <div class="region" id="hub-header-sub">HR &amp; Training · Air Solutions &amp; Balancing</div>
     </div>
-  </div>
-</nav>
-<div id="view-as-banner" class="view-as-banner" hidden></div>
+  </header>
+  <div id="view-as-banner" class="view-as-banner" hidden></div>
+  <div class="content">
 
 <!-- ═══════════════════ MODALS ═══════════════════ -->
 
@@ -1302,6 +1312,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   </div>
 </div>
 
+  </div><!-- /content -->
+</div><!-- /main -->
 </div><!-- /app-shell -->
 
 <script>
@@ -1309,6 +1321,32 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 // NAVIGATION
 // ═══════════════════════════════════════════════
 const PAULA_ONLY_PAGES = ['resources', 'responsibilities', 'orientation', 'weekly'];
+const HUB_PAGE_META = {
+  checklist: {
+    title: 'New Hire Checklist',
+    sub: 'Shared dashboard — full team visibility, editable status, My To-Do by role, and roster.'
+  },
+  admin: {
+    title: 'Admin',
+    sub: 'Grant Hub access from the Atlas roster. Atlas Admins always have Hub Admin.'
+  },
+  resources: {
+    title: 'Onboarding Resources',
+    sub: 'Key files, platforms, and links used in the onboarding process.'
+  },
+  responsibilities: {
+    title: 'Responsibilities & SOPs',
+    sub: 'Trigger-based procedures — click to expand and check off steps.'
+  },
+  orientation: {
+    title: 'Orientation & Bootcamp 2026',
+    sub: 'Monthly calendar — click any day to add a note.'
+  },
+  weekly: {
+    title: 'Weekly Tasks',
+    sub: 'Week calendar — click an event to view details and change status.'
+  }
+};
 
 function showPage(id, btn) {
   try {
@@ -1318,7 +1356,7 @@ function showPage(id, btn) {
     }
     if (PAULA_ONLY_PAGES.includes(id) && !(window.HubAuth && HubAuth.canAccessHubExtras && HubAuth.canAccessHubExtras())) {
       alert('That tab is only available to Paula Quintero.');
-      const checklistBtn = document.querySelector('.nav-link.nav-checklist');
+      const checklistBtn = document.querySelector('.nav-item.nav-checklist');
       showPage('checklist', checklistBtn);
       return;
     }
@@ -1328,9 +1366,18 @@ function showPage(id, btn) {
       return;
     }
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.nav-links > .nav-link').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.sidebar-nav .nav-item').forEach(b => b.classList.remove('active'));
     page.classList.add('active');
     if (btn) btn.classList.add('active');
+    else {
+      const match = document.querySelector(`.sidebar-nav .nav-item[onclick*="'${id}'"]`);
+      if (match) match.classList.add('active');
+    }
+    const meta = HUB_PAGE_META[id];
+    const titleEl = document.getElementById('hub-header-title');
+    const subEl = document.getElementById('hub-header-sub');
+    if (meta && titleEl) titleEl.textContent = meta.title;
+    if (meta && subEl) subEl.textContent = meta.sub;
     if (id === 'resources') renderResources();
     if (id === 'responsibilities') renderResponsibilities();
     if (id === 'orientation') { renderOrientCalendar(); renderOrientGroups(); }
@@ -2846,7 +2893,7 @@ window.startHubApp = function() {
   calMonth = new Date().getMonth();
   const calSel = document.getElementById('cal-month-select');
   if (calSel) calSel.value = calMonth;
-  const checklistBtn = document.querySelector('.nav-link.nav-checklist');
+  const checklistBtn = document.querySelector('.nav-item.nav-checklist');
   showPage('checklist', checklistBtn);
 };
 

@@ -201,7 +201,20 @@
     return out;
   }
 
+  function fillChrome(user) {
+    if (window.HubShell && HubShell.fillUserProfile) {
+      HubShell.fillUserProfile(user || effectiveUser() || hubRealUser);
+    }
+    if (window.HubShell && HubShell.initSidebar) HubShell.initSidebar();
+    const emailEl = document.getElementById('nav-user-email');
+    if (emailEl && (user || hubRealUser)) {
+      const u = user || hubRealUser;
+      emailEl.textContent = u.email || u.full_name || '';
+    }
+  }
+
   function showAuthScreen(message) {
+    document.body.classList.remove('hub-app');
     const auth = document.getElementById('auth-screen');
     const app = document.getElementById('app-shell');
     if (auth) auth.hidden = false;
@@ -214,12 +227,12 @@
   }
 
   function showAppShell(session) {
+    document.body.classList.add('hub-app');
     const auth = document.getElementById('auth-screen');
     const app = document.getElementById('app-shell');
     if (auth) auth.hidden = true;
     if (app) app.hidden = false;
-    const emailEl = document.getElementById('nav-user-email');
-    if (emailEl && session?.user?.email) emailEl.textContent = session.user.email;
+    fillChrome(hubRealUser || { email: session?.user?.email });
   }
 
   // Extra Hub tabs (Resources, Responsibilities, Orientation, Weekly) are Paula-only.
@@ -255,6 +268,7 @@
     document.querySelectorAll('[data-paula-only]').forEach((el) => {
       el.style.display = paula ? '' : 'none';
     });
+    fillChrome();
     renderViewAsUi();
   }
 
@@ -375,7 +389,7 @@
       const active = document.querySelector('.page.active');
       const id = active?.id || '';
       if (/page-(resources|responsibilities|orientation|weekly)/.test(id)) {
-        const btn = document.querySelector('.nav-link.nav-checklist');
+        const btn = document.querySelector('.nav-item.nav-checklist');
         if (typeof showPage === 'function') showPage('checklist', btn);
       }
     }
