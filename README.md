@@ -12,7 +12,7 @@ A web app to manage company onboarding procedures, built as an interactive to-do
 | `config.js` | Hub + Atlas Supabase URLs / keys |
 | `js/hub-access.js` | Pure Hub access rules (Atlas admin / grant / ledger) |
 | `hub-auth.js` | Microsoft sign-in, Atlas authorization, shared data sync |
-| `hub-admin.js` | Grant/revoke Hub access from the Atlas roster |
+| `hub-admin.js` | Read-only Hub people list from the Atlas roster |
 | `hub-checklist.js` | New Hire Checklist employee list |
 | `supabase-schema.sql` | Run in Supabase SQL Editor |
 | `netlify.toml` | Netlify routing config |
@@ -24,7 +24,7 @@ A web app to manage company onboarding procedures, built as an interactive to-do
 Hub access is controlled in Atlas, the same people directory Vulcan uses — but tighter:
 
 - **Atlas Admins** can sign into Hub as Admin with no extra grant.
-- **Everyone else** must be granted from the Atlas roster (Atlas Admin checkbox **Onboarding Hub**, or Hub Admin picker).
+- **Everyone else** must be granted from Atlas Admin (checkbox **Onboarding Hub**).
 - People already on Hub stay authorized (matched by email).
 - Hub displays Atlas roles. Terminated/deactivated Atlas people cannot sign in.
 
@@ -89,7 +89,7 @@ Open http://localhost:3000 and sign in with Microsoft (add `http://localhost:300
 - **Weekly Tasks** — Kanban board (Not Started / In Progress / Completed) with category filters and add task
 - **May 2026 Orientation** — 6-phase prep plan with progress bar and checkable steps
 - **Responsibilities** — Expandable procedures with step-by-step checklists
-- **Admin** — User Management grants Hub access from the Atlas roster. Atlas Admins always have Hub Admin. Visible for signed-in users; grant/revoke is Admin-only.
+- **Admin** — User Management lists Hub people from Atlas. Grant or revoke access in Atlas Admin. Atlas Admins always have Hub Admin.
 - **New Hire Checklist** — Employee roster with search, status filters, and stats (migrated from airadigm-nhchecklist).
 - **Resources** — All links and documents from the Excel spreadsheet
 
