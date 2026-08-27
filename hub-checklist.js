@@ -2088,7 +2088,7 @@
     }
     if (isOrient) {
       return `<label class="nh-sec-date">
-        <span>Orientation date</span>
+        <span>Orientation/start date</span>
         <input type="date" class="form-input nh-sec-date-input" data-hire-date="start_date" data-hire-id="${esc(hire.id)}" value="${esc((hire.startDate || '').slice(0, 10))}">
       </label>`;
     }
@@ -2205,7 +2205,7 @@
             <label class="nh-check-label">Status ${statusSelect(hire.id, hire.status)}</label>
           </div>
           <div class="nh-profile-meta nh-date-meta">
-            <span><strong>Orientation date</strong> ${esc(hire.startDate || 'TBD')}</span>
+            <span><strong>Orientation/start date</strong> ${esc(hire.startDate || 'TBD')}</span>
             <span><strong>Start date</strong> ${esc(hire.workStartDate || 'TBD')}</span>
             <span><strong>Bootcamp date</strong> ${esc(hire.bootcampDate || 'TBD')}</span>
           </div>
@@ -3139,7 +3139,7 @@
               <datalist id="nh-city-dl"></datalist>
             </div>
             <div class="form-row">
-              <label class="form-label">Orientation date *</label>
+              <label class="form-label">Orientation/start date *</label>
               <input id="nh-hire-start" class="form-input" type="date">
               <label class="nh-check-label" style="margin-top:8px;white-space:normal">
                 <input type="checkbox" id="nh-hire-diff-start">
@@ -3247,7 +3247,7 @@
     const status = document.getElementById('nh-hire-status').value;
     const status_note = document.getElementById('nh-hire-note').value.trim() || null;
     if (!full_name || !roleRaw || !region || !start_date) {
-      alert('Name, position, region, and Orientation date are required.');
+      alert('Name, position, region, and Orientation/start date are required.');
       return;
     }
     const supabase = client();
