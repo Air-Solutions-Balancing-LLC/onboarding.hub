@@ -216,7 +216,8 @@ CREATE TABLE IF NOT EXISTS public.employees (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   employee_number INTEGER,
   employee_type TEXT DEFAULT 'technician',
-  status TEXT DEFAULT 'active',
+  status TEXT DEFAULT 'active', -- Employment: active / archived / terminated / quit / rescinded / resigned
+  onboarding_status TEXT DEFAULT 'not_started', -- not_started / in_progress / complete
   status_note TEXT,
   full_name TEXT NOT NULL,
   preferred_name TEXT,
@@ -418,9 +419,11 @@ FROM public.employees;
 ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS city_center TEXT;
 ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS work_start_date DATE;
 ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS preferred_name TEXT;
+ALTER TABLE public.employees ADD COLUMN IF NOT EXISTS onboarding_status TEXT DEFAULT 'not_started';
 
 CREATE INDEX IF NOT EXISTS employees_employee_number_idx ON public.employees (employee_number);
 CREATE INDEX IF NOT EXISTS employees_status_idx ON public.employees (status);
+CREATE INDEX IF NOT EXISTS employees_onboarding_status_idx ON public.employees (onboarding_status);
 CREATE INDEX IF NOT EXISTS employees_full_name_idx ON public.employees (full_name);
 
 ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;

@@ -5,8 +5,8 @@
   const PERSON_PREF_KEY = 'nh_person_pref';
   // start_date = Orientation date (due-date anchor). work_start_date = Start date (techs for now).
   const SELECT_COLS =
-    'id, full_name, preferred_name, employee_number, employee_type, status, status_note, region, city_center, start_date, work_start_date, bootcamp_start_date, company_email, assigned_pm';
-  const OPTIONAL_EMP_COLS = ['city_center', 'work_start_date', 'preferred_name'];
+    'id, full_name, preferred_name, employee_number, employee_type, status, onboarding_status, status_note, region, city_center, start_date, work_start_date, bootcamp_start_date, company_email, assigned_pm';
+  const OPTIONAL_EMP_COLS = ['city_center', 'work_start_date', 'preferred_name', 'onboarding_status'];
   // Columns confirmed missing in this project's PostgREST schema (survive across saves)
   const missingEmpCols = new Set();
 
@@ -67,6 +67,12 @@
     rescinded: 'Rescinded',
     resigned: 'Resigned'
   };
+  const ONBOARDING_STATUSES = ['not_started', 'in_progress', 'complete'];
+  const ONBOARDING_LABELS = {
+    not_started: 'Not Started',
+    in_progress: 'In Progress',
+    complete: 'Complete'
+  };
   const REGION_OPTIONS = [
     'New England',
     'Mid-Atlantic',
@@ -88,6 +94,8 @@
   // Fill in when the team confirms the official list
   const CITY_CENTER_OPTIONS = [];
   let processAdminOpen = {}; // category expand state in Admin
+  let processPreview = null;
+  let processTimelineScroll = 0;
   let selectedHireId = null;
   let openSections = {};
   let filters = {
@@ -106,7 +114,8 @@
       orientation: '',
       start: '',
       bootcamp: '',
-      status: ''
+      status: '',
+      onboarding: ''
     }
   };
   let revealSensitive = false;
@@ -124,7 +133,8 @@
     { id: 'orientation', label: 'Orientation' },
     { id: 'start', label: 'Start' },
     { id: 'bootcamp', label: 'Bootcamp' },
-    { id: 'status', label: 'Status' },
+    { id: 'onboarding', label: 'Onboarding' },
+    { id: 'status', label: 'Employment' },
     { id: 'overall', label: 'Overall' },
     { id: 'resume', label: 'Resume' }
   ];
@@ -450,6 +460,14 @@
     return d.toISOString().slice(0, 10);
   }
 
+  function isoFromLocalDate(d) {
+    if (!d || isNaN(d)) return '';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
   function todayIso() {
     const d = new Date();
     const y = d.getFullYear();
@@ -531,6 +549,7 @@
       workStartDate: emp.work_start_date || '',
       bootcampDate: emp.bootcamp_start_date || '',
       status: emp.status || 'active',
+      onboardingStatus: normalizeOnboardingStatus(emp.onboarding_status),
       statusNote: emp.status_note || '',
       employeeNumber: emp.employee_number,
       employeeType: emp.employee_type,
@@ -1098,6 +1117,29 @@
     return STATUS_LABELS[key] || String(status || '—').replace(/_/g, ' ');
   }
 
+  function normalizeOnboardingStatus(value) {
+    const key = String(value || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+    if (key === 'completed' || key === 'done') return 'complete';
+    if (key === 'progress' || key === 'started') return 'in_progress';
+    if (ONBOARDING_STATUSES.includes(key)) return key;
+    return 'not_started';
+  }
+
+  function formatOnboardingLabel(status) {
+    const key = normalizeOnboardingStatus(status);
+    return ONBOARDING_LABELS[key] || 'Not Started';
+  }
+
+  function onboardingBadgeClass(status) {
+    const key = normalizeOnboardingStatus(status);
+    const map = {
+      not_started: 'nh-badge nh-badge-muted',
+      in_progress: 'nh-badge nh-badge-warn',
+      complete: 'nh-badge nh-badge-active'
+    };
+    return map[key] || 'nh-badge nh-badge-muted';
+  }
+
   function typeBadgeClass(type) {
     const map = {
       technician: 'nh-badge nh-badge-tech',
@@ -1198,6 +1240,7 @@
       const bootQ = (c.bootcamp || '').trim().toLowerCase();
       if (bootQ && !(e.bootcamp_start_date || '').toLowerCase().includes(bootQ)) return false;
       if (c.status && (e.status || 'active') !== c.status) return false;
+      if (c.onboarding && normalizeOnboardingStatus(e.onboarding_status) !== c.onboarding) return false;
       return true;
     });
   }
@@ -1219,12 +1262,16 @@
   }
 
   function stats() {
-    const active = employees.filter((e) => e.status === 'active').length;
+    const active = employees.filter((e) => e.status === 'active');
+    const onboardingOf = (key) => active.filter((e) => normalizeOnboardingStatus(e.onboarding_status) === key).length;
     return {
       total: employees.length,
-      active,
-      inactive: employees.length - active,
+      active: active.length,
+      inactive: employees.length - active.length,
       technicians: employees.filter((e) => e.employee_type === 'technician' || e.employee_type === 'kes_installer').length,
+      onboardingNotStarted: onboardingOf('not_started'),
+      onboardingInProgress: onboardingOf('in_progress'),
+      onboardingComplete: onboardingOf('complete')
     };
   }
 
@@ -1273,7 +1320,8 @@
     }
     employees = (rows || []).map((r) => Object.assign({}, r, {
       employee_type: normalizePosition(r.employee_type),
-      region: normalizeRegion(r.region) || r.region || null
+      region: normalizeRegion(r.region) || r.region || null,
+      onboarding_status: normalizeOnboardingStatus(r.onboarding_status)
     }));
     collapseActiveEmployeeDuplicatesInMemory();
     loading = false;
@@ -1350,8 +1398,15 @@
   function statusSelect(empId, status, extraClass) {
     const cur = status || 'active';
     const opts = STATUS_OPTIONS.includes(cur) ? STATUS_OPTIONS : [cur, ...STATUS_OPTIONS];
-    return `<select class="nh-status-select ${extraClass || ''}" data-status-emp="${esc(empId)}" title="Change status">
+    return `<select class="nh-status-select ${extraClass || ''}" data-status-emp="${esc(empId)}" title="Change employment status">
       ${opts.map((s) => `<option value="${esc(s)}" ${s === cur ? 'selected' : ''}>${esc(formatStatusLabel(s))}</option>`).join('')}
+    </select>`;
+  }
+
+  function onboardingSelect(empId, status, extraClass) {
+    const cur = normalizeOnboardingStatus(status);
+    return `<select class="nh-status-select nh-onboarding-select is-${cur} ${extraClass || ''}" data-onboarding-emp="${esc(empId)}" title="Change onboarding status">
+      ${ONBOARDING_STATUSES.map((s) => `<option value="${esc(s)}" ${s === cur ? 'selected' : ''}>${esc(formatOnboardingLabel(s))}</option>`).join('')}
     </select>`;
   }
 
@@ -1370,7 +1425,7 @@
         } catch (e) {
           emp.status = prev;
           sel.value = prev;
-          alert('Could not update status: ' + (e.message || e));
+          alert('Could not update employment status: ' + (e.message || e));
         }
         sel.classList.remove('nh-saving');
         // Non-active statuses move to Archive; Active leaves Archive
@@ -1378,6 +1433,30 @@
           view = 'archive';
           selectedHireId = null;
         }
+        if (view === 'roster' || view === 'dashboard' || view === 'archive' || view === 'detail') render();
+      });
+    });
+    root.querySelectorAll('[data-onboarding-emp]').forEach((sel) => {
+      sel.addEventListener('change', async () => {
+        const id = sel.getAttribute('data-onboarding-emp');
+        const onboarding_status = normalizeOnboardingStatus(sel.value);
+        const emp = employees.find((e) => e.id === id);
+        if (!emp) return;
+        const prev = emp.onboarding_status;
+        emp.onboarding_status = onboarding_status;
+        sel.classList.add('nh-saving');
+        sel.classList.remove('is-not_started', 'is-in_progress', 'is-complete');
+        sel.classList.add('is-' + onboarding_status);
+        try {
+          await syncEmployeePatch(id, { onboarding_status });
+        } catch (e) {
+          emp.onboarding_status = prev;
+          sel.value = normalizeOnboardingStatus(prev);
+          sel.classList.remove('is-not_started', 'is-in_progress', 'is-complete');
+          sel.classList.add('is-' + normalizeOnboardingStatus(prev));
+          alert('Could not update onboarding status: ' + (e.message || e));
+        }
+        sel.classList.remove('nh-saving');
         if (view === 'roster' || view === 'dashboard' || view === 'archive' || view === 'detail') render();
       });
     });
@@ -1695,6 +1774,7 @@
           <button type="button" class="nh-todo-hire-toggle" data-todo-toggle="${esc(g.hire.id)}">
             <span class="nh-chevron">${expanded ? '▾' : '▸'}</span>
             <span class="nh-todo-hire-name">${esc(g.hire.name)}</span>
+            <span class="${onboardingBadgeClass(g.hire.onboardingStatus)}">${esc(formatOnboardingLabel(g.hire.onboardingStatus))}</span>
             <span class="nh-muted-inline">${esc(g.hire.division || '')}</span>
             <span class="nh-todo-hire-counts">
               ${g.overdue ? `<span class="nh-todo-pill overdue">${g.overdue} overdue</span>` : ''}
@@ -1789,7 +1869,8 @@
       <th data-col="orientation">${colFilterInput('orientation', 'YYYY-MM-DD')}</th>
       <th data-col="start">${colFilterInput('start', 'YYYY-MM-DD')}</th>
       <th data-col="bootcamp">${colFilterInput('bootcamp', 'YYYY-MM-DD')}</th>
-      <th data-col="status">${colFilterSelect('status', STATUS_OPTIONS.map((s) => ({ value: s, label: formatStatusLabel(s) })), 'All statuses')}</th>
+      <th data-col="onboarding">${colFilterSelect('onboarding', ONBOARDING_STATUSES.map((s) => ({ value: s, label: formatOnboardingLabel(s) })), 'All onboarding')}</th>
+      <th data-col="status">${colFilterSelect('status', STATUS_OPTIONS.map((s) => ({ value: s, label: formatStatusLabel(s) })), 'All employment')}</th>
       <th data-col="overall"></th>
       ${sections.map((sec) => `<th data-col="sec-${esc(sec.id)}"></th>`).join('')}
       <th data-col="resume"></th>
@@ -1821,7 +1902,7 @@
     root.querySelector('#nh-clear-col-filters')?.addEventListener('click', () => {
       filters.cols = {
         name: '', position: '', region: '', city_center: '',
-        orientation: '', start: '', bootcamp: '', status: ''
+        orientation: '', start: '', bootcamp: '', onboarding: '', status: ''
       };
       render();
     });
@@ -1840,6 +1921,14 @@
         const len = input.value.length;
         input.setSelectionRange(len, len);
       }
+    });
+    root.querySelectorAll('[data-onboarding-filter]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (!filters.cols) filters.cols = {};
+        const next = btn.getAttribute('data-onboarding-filter') || '';
+        filters.cols.onboarding = filters.cols.onboarding === next ? '' : next;
+        render();
+      });
     });
     root.querySelectorAll('[data-nh-filter]').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -1875,23 +1964,41 @@
     setPageTitle('People');
     setPageSub('Recent / onboarding-window hires (orientation within last ~120 days or next ~60). Use Roster for the full active list. Progress counts follow Role / Person.');
     ensureData();
-    const s = stats();
+    const onboardFilter = (filters.cols && filters.cols.onboarding) || '';
     const rows = filteredEmployees({ onboardingWindowOnly: true });
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const windowActive = employees.filter((e) => (e.status || 'active') === 'active' && inOnboardingWindow(empToHire(e), today));
+    const windowOf = (key) => windowActive.filter((e) => normalizeOnboardingStatus(e.onboarding_status) === key).length;
     const sections = data.sections || [];
 
     root.innerHTML = `
       ${roleBar({ showRoleFilter: true })}
-      <div class="nh-stats">
-        <div class="nh-stat"><div class="nh-stat-label">In window</div><div class="nh-stat-num">${rows.length}</div></div>
-        <div class="nh-stat"><div class="nh-stat-label">Active (all)</div><div class="nh-stat-num nh-stat-green">${s.active}</div></div>
-        <div class="nh-stat"><div class="nh-stat-label">Archived</div><div class="nh-stat-num nh-stat-red">${s.inactive}</div></div>
-        <div class="nh-stat"><div class="nh-stat-label">Filter</div><div class="nh-stat-num" style="font-size:14px">${esc(filterScopeLabel())}</div></div>
+      <div class="nh-stats" role="toolbar" aria-label="Filter by onboarding status">
+        <button type="button" class="nh-stat nh-stat-filter${!onboardFilter ? ' is-active' : ''}" data-onboarding-filter="" aria-pressed="${!onboardFilter ? 'true' : 'false'}">
+          <div class="nh-stat-label">In window</div>
+          <div class="nh-stat-num nh-stat-green">${windowActive.length}</div>
+        </button>
+        <button type="button" class="nh-stat nh-stat-filter${onboardFilter === 'not_started' ? ' is-active' : ''}" data-onboarding-filter="not_started" aria-pressed="${onboardFilter === 'not_started' ? 'true' : 'false'}">
+          <div class="nh-stat-label">Not Started</div>
+          <div class="nh-stat-num">${windowOf('not_started')}</div>
+        </button>
+        <button type="button" class="nh-stat nh-stat-filter${onboardFilter === 'in_progress' ? ' is-active' : ''}" data-onboarding-filter="in_progress" aria-pressed="${onboardFilter === 'in_progress' ? 'true' : 'false'}">
+          <div class="nh-stat-label">In Progress</div>
+          <div class="nh-stat-num nh-stat-amber">${windowOf('in_progress')}</div>
+        </button>
+        <button type="button" class="nh-stat nh-stat-filter${onboardFilter === 'complete' ? ' is-active' : ''}" data-onboarding-filter="complete" aria-pressed="${onboardFilter === 'complete' ? 'true' : 'false'}">
+          <div class="nh-stat-label">Complete</div>
+          <div class="nh-stat-num nh-stat-green">${windowOf('complete')}</div>
+        </button>
       </div>
       <div class="nh-toolbar">
         <input type="search" class="nh-search" id="nh-search" placeholder="Search by name, email, or #..." value="${esc(filters.q)}" />
         <div class="nh-filters">
           <button type="button" class="btn-secondary" id="nh-column-visibility-btn" aria-expanded="false" aria-haspopup="menu" aria-controls="nh-column-visibility-menu">Show/Hide columns</button>
-          <span class="nh-muted">Onboarding window only · full list is under Roster · archived under Archive</span>
+          <span class="nh-muted">${onboardFilter
+            ? `Showing ${esc(formatOnboardingLabel(onboardFilter))} in the onboarding window · click In window to show all`
+            : 'Onboarding window only · full list is under Roster · archived under Archive'}</span>
         </div>
       </div>
       <div class="nh-sheet-wrap">
@@ -1906,7 +2013,8 @@
               <th data-col="orientation">Orientation</th>
               <th data-col="start">Start</th>
               <th data-col="bootcamp">Bootcamp</th>
-              <th data-col="status">Status</th>
+              <th data-col="onboarding">Onboarding</th>
+              <th data-col="status">Employment</th>
               <th data-col="overall">Overall</th>
               ${sections.map((sec) => `<th title="${esc(sec.title)}" class="nh-sec-col" data-col="sec-${esc(sec.id)}">${esc(sec.id)}</th>`).join('')}
               <th data-col="resume">Resume</th>
@@ -1922,6 +2030,7 @@
               <th data-col="orientation"></th>
               <th data-col="start"></th>
               <th data-col="bootcamp"></th>
+              <th data-col="onboarding"></th>
               <th data-col="status"></th>
               <th data-col="overall"></th>
               ${sections.map((sec) => `<th class="nh-sec-sub" data-col="sec-${esc(sec.id)}">${esc(sec.title)}</th>`).join('')}
@@ -1945,6 +2054,7 @@
                 <td data-col="orientation">${esc(emp.start_date || '—')}</td>
                 <td data-col="start">${esc(emp.work_start_date || '—')}</td>
                 <td data-col="bootcamp">${esc(emp.bootcamp_start_date || '—')}</td>
+                <td data-col="onboarding">${onboardingSelect(emp.id, emp.onboarding_status)}</td>
                 <td data-col="status">${statusSelect(emp.id, emp.status)}</td>
                 <td data-col="overall"><span class="nh-pct ${pctClass(overall.pct)}" title="${overall.done}/${overall.total} for ${esc(filterScopeLabel())}">${overall.done}/${overall.total}</span></td>
                 ${sections.map((sec) => {
@@ -1956,18 +2066,20 @@
                 <td class="nh-resume-cell" data-col="resume">${resumeHtml}</td>
                 <td data-col="_actions"><button class="btn-xs primary" type="button" data-open-hire="${esc(emp.id)}">Open</button></td>
               </tr>`;
-            }).join('') : `<tr><td colspan="${visibleColumnCount()}" class="nh-empty">No employees found</td></tr>`}
+            }).join('') : `<tr><td colspan="${visibleColumnCount()}" class="nh-empty">${onboardFilter ? `No ${esc(formatOnboardingLabel(onboardFilter).toLowerCase())} hires` : 'No employees found'}</td></tr>`}
           </tbody>
         </table>
       </div>
-      <p class="nh-footnote">${rows.length} hires in onboarding window · A–J counts are for ${esc(filterScopeLabel())} · choose All roles to see full totals · Roster shows every active hire</p>`;
+      <p class="nh-footnote">${onboardFilter
+        ? `${rows.length} ${esc(formatOnboardingLabel(onboardFilter).toLowerCase())} in the onboarding window`
+        : `${rows.length} hires in onboarding window`} · A–J counts are for ${esc(filterScopeLabel())} · choose All roles to see full totals · Roster shows every active hire</p>`;
 
     bindRosterChrome(root);
   }
 
   function renderRoster(root) {
     setPageTitle('Roster');
-    setPageSub('Full active roster — every Active hire, not only the onboarding window. Change Status to move someone to Archive (Quit, Terminated, Resigned, etc.).');
+    setPageSub('Full active roster — every Active hire, not only the onboarding window. Change Employment to move someone to Archive (Quit, Terminated, Resigned, etc.).');
     const s = stats();
     const rows = filteredEmployees();
 
@@ -1988,7 +2100,7 @@
       <div class="nh-table-wrap">
         <table class="nh-table" data-sort-key="nh-roster">
           <thead>
-            <tr><th>#</th><th>Name</th><th>Position</th><th>Region</th><th>City center</th><th>Orientation</th><th>Start</th><th>Bootcamp</th><th>Status</th><th>Progress</th></tr>
+            <tr><th>#</th><th>Name</th><th>Position</th><th>Region</th><th>City center</th><th>Orientation</th><th>Start</th><th>Bootcamp</th><th>Onboarding</th><th>Employment</th><th>Progress</th></tr>
           </thead>
           <tbody>
             ${rows.length ? rows.map((emp) => {
@@ -2003,21 +2115,22 @@
                 <td>${esc(emp.start_date || '—')}</td>
                 <td>${esc(emp.work_start_date || '—')}</td>
                 <td>${esc(emp.bootcamp_start_date || '—')}</td>
+                <td>${onboardingSelect(emp.id, emp.onboarding_status)}</td>
                 <td>${statusSelect(emp.id, emp.status)}</td>
                 <td><button class="btn-xs primary" type="button" data-open-hire="${esc(emp.id)}">${pr.done}/${pr.total}</button></td>
               </tr>`;
-            }).join('') : `<tr><td colspan="10" class="nh-empty">No employees found</td></tr>`}
+            }).join('') : `<tr><td colspan="11" class="nh-empty">No employees found</td></tr>`}
           </tbody>
         </table>
       </div>
-      <p class="nh-footnote">${rows.length} active employees (full roster) · use Status to archive · click name/progress to open checklist</p>`;
+      <p class="nh-footnote">${rows.length} active employees (full roster) · use Employment to archive · click name/progress to open checklist</p>`;
 
     bindRosterChrome(root);
   }
 
   function renderArchive(root) {
     setPageTitle('Archive');
-    setPageSub('Quit, Terminated, Resigned, Rescinded, and Archive statuses. Active hires stay on People / Roster. Set Status back to Active to restore, or Delete permanently.');
+    setPageSub('Archived hires (Archive, Terminated, Quit, Rescinded, Resigned). Active hires stay on People / Roster. Set Employment back to Active to restore, or Delete permanently.');
     ensureData();
     const s = stats();
     const rows = filteredArchivedEmployees();
@@ -2042,7 +2155,7 @@
       <div class="nh-table-wrap">
         <table class="nh-table" data-sort-key="nh-archive">
           <thead>
-            <tr><th>#</th><th>Name</th><th>Position</th><th>Region</th><th>City center</th><th>Orientation</th><th>Start</th><th>Bootcamp</th><th>Status</th><th>Progress</th><th></th></tr>
+            <tr><th>#</th><th>Name</th><th>Position</th><th>Region</th><th>City center</th><th>Orientation</th><th>Start</th><th>Bootcamp</th><th>Onboarding</th><th>Employment</th><th>Progress</th><th></th></tr>
           </thead>
           <tbody>
             ${rows.length ? rows.map((emp) => {
@@ -2057,15 +2170,16 @@
                 <td>${esc(emp.start_date || '—')}</td>
                 <td>${esc(emp.work_start_date || '—')}</td>
                 <td>${esc(emp.bootcamp_start_date || '—')}</td>
+                <td>${onboardingSelect(emp.id, emp.onboarding_status)}</td>
                 <td>${statusSelect(emp.id, emp.status)}</td>
                 <td><button class="btn-xs primary" type="button" data-open-hire="${esc(emp.id)}">${pr.done}/${pr.total}</button></td>
                 <td><button class="btn-xs danger" type="button" data-del-emp="${esc(emp.id)}" title="Permanently delete">Delete</button></td>
               </tr>`;
-            }).join('') : `<tr><td colspan="11" class="nh-empty">No archived hires</td></tr>`}
+            }).join('') : `<tr><td colspan="12" class="nh-empty">No archived hires</td></tr>`}
           </tbody>
         </table>
       </div>
-      <p class="nh-footnote">${rows.length} archived · set Status to Active to restore · Delete removes them permanently</p>`;
+      <p class="nh-footnote">${rows.length} archived · set Employment to Active to restore · Delete removes them permanently</p>`;
 
     bindRosterChrome(root);
   }
@@ -2143,7 +2257,7 @@
     const scoped = filterScopeLabel();
     setPageTitle(displayHireName(hire));
     setPageSub(archived
-      ? 'Archived hire — set Status back to Active on Archive to restore, or Delete from Archive.'
+      ? 'Archived hire — set Employment back to Active on Archive to restore, or Delete from Archive.'
       : `Showing tasks for ${scoped} (${p.done}/${p.total}). Use Role and your name below to see only your tasks.`);
 
     const sectionsHtml = data.sections.map((sec) => {
@@ -2202,7 +2316,8 @@
             <span class="nh-check-label">Position ${positionText(hire.employeeType)}</span>
             <span class="nh-check-label">Region ${regionText(hire.division)}</span>
             <span class="nh-check-label">City center ${cityCenterText(hire.cityCenter)}</span>
-            <label class="nh-check-label">Status ${statusSelect(hire.id, hire.status)}</label>
+            <label class="nh-check-label">Onboarding ${onboardingSelect(hire.id, hire.onboardingStatus)}</label>
+            <label class="nh-check-label">Employment ${statusSelect(hire.id, hire.status)}</label>
           </div>
           <div class="nh-profile-meta nh-date-meta">
             <span><strong>Orientation/start date</strong> ${esc(hire.startDate || 'TBD')}</span>
@@ -2211,6 +2326,7 @@
           </div>
         </div>
         <div class="nh-profile-right">
+          <span class="${onboardingBadgeClass(hire.onboardingStatus)}">${esc(formatOnboardingLabel(hire.onboardingStatus))}</span>
           <span class="${statusBadgeClass(hire.status)}">${esc(formatStatusLabel(hire.status))}</span>
           <div class="nh-prog big">
             <div class="nh-prog-bar"><span style="width:${p.pct}%"></span></div>
@@ -2511,7 +2627,7 @@
     const supabase = client();
     if (!supabase) throw new Error('Not signed in');
     const raw = {};
-    ['region', 'city_center', 'start_date', 'work_start_date', 'bootcamp_start_date', 'assigned_pm', 'full_name', 'preferred_name', 'status', 'status_note', 'employee_type'].forEach((k) => {
+    ['region', 'city_center', 'start_date', 'work_start_date', 'bootcamp_start_date', 'assigned_pm', 'full_name', 'preferred_name', 'status', 'onboarding_status', 'status_note', 'employee_type'].forEach((k) => {
       if (patch[k] !== undefined) raw[k] = patch[k] || null;
     });
     const omit = new Set(missingEmpCols);
@@ -2658,6 +2774,309 @@
     }
   }
 
+  function resetAllDueDefaults() {
+    ensureData();
+    (data.items || []).forEach((it) => {
+      it.dueAnchor = 'orientation';
+      it.dueDaysBefore = 0;
+      it.dueOffsetDays = 0;
+    });
+    persist();
+  }
+
+  const PREVIEW_DATES_KEY = 'nh_process_preview_dates_v1';
+
+  function readProcessPreview() {
+    try {
+      const raw = localStorage.getItem(PREVIEW_DATES_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch (e) { /* ignore */ }
+    return {};
+  }
+
+  function writeProcessPreview() {
+    try { localStorage.setItem(PREVIEW_DATES_KEY, JSON.stringify(processPreview || {})); } catch (e) { /* ignore */ }
+  }
+
+  function defaultOrientationIso() {
+    const upcoming = (employees || [])
+      .filter((e) => (e.status || 'active') === 'active' && e.start_date)
+      .map((e) => String(e.start_date).slice(0, 10))
+      .filter((s) => s >= todayIso())
+      .sort();
+    if (upcoming.length) return upcoming[0];
+    const d = new Date();
+    d.setDate(d.getDate() + 14);
+    const day = d.getDay();
+    const add = day === 1 ? 0 : day === 0 ? 1 : (8 - day);
+    if (add) d.setDate(d.getDate() + add);
+    return isoFromLocalDate(d);
+  }
+
+  function ensureProcessPreview() {
+    if (!processPreview) processPreview = readProcessPreview();
+    if (!processPreview.orientation) processPreview.orientation = defaultOrientationIso();
+    if (!processPreview.workStart) processPreview.workStart = processPreview.orientation;
+    if (processPreview.bootcamp == null) processPreview.bootcamp = '';
+    if (!processPreview.assignee) processPreview.assignee = 'all';
+    if (processPreview.q == null) processPreview.q = '';
+    return processPreview;
+  }
+
+  function previewHireStub() {
+    const p = ensureProcessPreview();
+    return {
+      startDate: p.orientation,
+      workStartDate: p.workStart || p.orientation,
+      bootcampDate: p.bootcamp || ''
+    };
+  }
+
+  function tMinusLabel(iso, orientationIso) {
+    const due = parseDate(iso);
+    const orient = parseDate(orientationIso);
+    if (!due || !orient) return '';
+    const n = Math.round((due - orient) / 86400000);
+    if (n === 0) return 'Day 0';
+    if (n < 0) return 'T' + n;
+    return 'T+' + n;
+  }
+
+  function prettyDay(iso) {
+    const d = parseDate(iso);
+    if (!d) return iso || '';
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+
+  function timelineAssigneeOf(item) {
+    return String((item && (item.assignee || item.owner)) || '').trim();
+  }
+
+  function processTimelineRows() {
+    ensureData();
+    const hire = previewHireStub();
+    const p = ensureProcessPreview();
+    const who = p.assignee && p.assignee !== 'all' ? p.assignee : '';
+    const q = String(p.q || '').trim().toLowerCase();
+    const rows = (data.items || [])
+      .filter((it) => it.role !== 'PM')
+      .filter((it) => !who || timelineAssigneeOf(it) === who)
+      .map((it) => {
+        const due = dueDateFor(hire, it);
+        const sec = (data.sections || []).find((s) => s.id === it.sectionId);
+        return {
+          it,
+          due,
+          iso: due ? isoFromLocalDate(due) : null,
+          sectionId: it.sectionId,
+          sectionTitle: sec ? sec.title : it.sectionId
+        };
+      })
+      .filter((row) => {
+        if (!q) return true;
+        const hay = [
+          row.it.label,
+          row.sectionId,
+          row.sectionTitle,
+          row.it.assignee,
+          row.it.owner,
+          row.it.role,
+          dueRuleLabel(row.it)
+        ].join(' ').toLowerCase();
+        return hay.includes(q);
+      });
+    const byDay = new Map();
+    const undated = [];
+    rows.forEach((row) => {
+      if (!row.iso) {
+        undated.push(row);
+        return;
+      }
+      if (!byDay.has(row.iso)) byDay.set(row.iso, []);
+      byDay.get(row.iso).push(row);
+    });
+    const milestones = q
+      ? new Set()
+      : who
+        ? new Set([p.orientation].filter(Boolean))
+        : new Set([p.orientation, p.workStart, p.bootcamp].filter(Boolean));
+    const days = Array.from(new Set([...byDay.keys(), ...milestones])).sort();
+    days.forEach((iso) => {
+      const list = byDay.get(iso) || [];
+      list.sort((a, b) => String(a.sectionId).localeCompare(String(b.sectionId)) || (a.it.order || 0) - (b.it.order || 0));
+      byDay.set(iso, list);
+    });
+    return { days, byDay, undated, preview: p, who, q: String(p.q || '').trim() };
+  }
+
+  function processTimelineAssigneeChips(selected) {
+    ensureData();
+    const people = peopleForRole('all');
+    const chips = [
+      `<button type="button" class="nh-person-chip ${selected === 'all' ? 'active' : ''}" data-tl-assignee="all">Everyone</button>`,
+      ...people.map((person) =>
+        `<button type="button" class="nh-person-chip ${selected === person ? 'active' : ''}" data-tl-assignee="${esc(person)}">${esc(person)}</button>`
+      )
+    ];
+    return `<div class="nh-tl-people">
+      <span class="nh-tl-people-label">Assignee</span>
+      <div class="nh-person-chips">${chips.join('')}</div>
+    </div>`;
+  }
+
+  function processTimelineHtml() {
+    const { days, byDay, undated, preview, who, q } = processTimelineRows();
+    const maxCount = Math.max(1, ...days.map((iso) => (byDay.get(iso) || []).length));
+    const span = days.map((iso) => {
+      const count = (byDay.get(iso) || []).length;
+      const h = count ? Math.max(6, Math.round((count / maxCount) * 32)) : 4;
+      const cls = [
+        iso === preview.orientation ? 'is-orient' : '',
+        iso === preview.workStart && iso !== preview.orientation ? 'is-start' : '',
+        iso === preview.bootcamp && iso !== preview.orientation ? 'is-boot' : ''
+      ].filter(Boolean).join(' ');
+      const title = `${prettyDay(iso)} · ${count} task${count === 1 ? '' : 's'}`;
+      return `<button type="button" class="nh-tl-tick ${cls}" data-tl-jump="${esc(iso)}" style="height:${h}px" title="${esc(title)}"></button>`;
+    }).join('');
+
+    const dayBlocks = days.map((iso) => {
+      const list = byDay.get(iso) || [];
+      const isOrient = iso === preview.orientation;
+      const isStart = iso === preview.workStart && !isOrient;
+      const isBoot = iso === preview.bootcamp && !isOrient;
+      const cards = list.map((row) => `
+        <button type="button" class="nh-tl-card" data-edit-item="${esc(row.it.id)}" title="Edit ${esc(row.it.label)}">
+          <span class="nh-tl-sec">${esc(row.sectionId)}</span>
+          <span class="nh-tl-card-label">${esc(row.it.label)}</span>
+          <span class="nh-tl-card-meta">${esc(row.it.assignee || row.it.role || '')} · ${esc(dueRuleLabel(row.it))}</span>
+        </button>
+      `).join('');
+      const extra = [
+        isOrient ? '<div class="nh-tl-card-meta" style="font-weight:700;color:#8a6a1f">Orientation</div>' : '',
+        isStart ? '<div class="nh-tl-card-meta" style="font-weight:700;color:#3f6b3e">Start date</div>' : '',
+        isBoot ? '<div class="nh-tl-card-meta" style="font-weight:700;color:#2f5a8f">Bootcamp</div>' : ''
+      ].join('');
+      return `
+        <div class="nh-tl-day${isOrient ? ' is-orient' : ''}" data-tl-day="${esc(iso)}">
+          <div class="nh-tl-when">
+            <div class="nh-tl-tminus">${esc(tMinusLabel(iso, preview.orientation))}</div>
+            <div class="nh-tl-cal">${esc(prettyDay(iso))}</div>
+          </div>
+          <div class="nh-tl-rail"><div class="nh-tl-dot"></div></div>
+          <div class="nh-tl-cards">${extra}${cards || '<div class="nh-tl-card-meta">No tasks this day</div>'}</div>
+        </div>`;
+    }).join('');
+
+    const undatedHtml = undated.length
+      ? `<div class="nh-tl-empty">No date yet for ${undated.length} task${undated.length === 1 ? '' : 's'} (usually missing Start or Bootcamp on the preview).</div>`
+      : '';
+    const emptyHtml = !days.length && !undated.length
+      ? `<div class="nh-tl-empty">${
+          q && who ? `No tasks match “${esc(q)}” for ${esc(who)}.`
+          : q ? `No tasks match “${esc(q)}”.`
+          : who ? `No process tasks assigned to ${esc(who)}.`
+          : 'No process tasks yet.'
+        }</div>`
+      : '';
+    const title = who
+      ? `If orientation is this date, here is ${esc(who)}’s workload.`
+      : 'If orientation is this date, here is when every step is due.';
+
+    return `
+      <section class="nh-tl" aria-label="Process timeline">
+        <div class="nh-tl-head">
+          <div class="nh-tl-head-row">
+            <div>
+              <div class="nh-tl-kicker">Countdown</div>
+              <div class="nh-tl-title">${title}</div>
+            </div>
+            <div class="nh-tl-dates">
+              <label><span class="form-label">Orientation</span>
+                <input class="form-input" type="date" id="nh-tl-orient" value="${esc(preview.orientation)}">
+              </label>
+              <label><span class="form-label">Start date</span>
+                <input class="form-input" type="date" id="nh-tl-start" value="${esc(preview.workStart || preview.orientation)}">
+              </label>
+              <label><span class="form-label">Bootcamp</span>
+                <input class="form-input" type="date" id="nh-tl-boot" value="${esc(preview.bootcamp || '')}">
+              </label>
+            </div>
+          </div>
+          <div class="nh-tl-search-row">
+            <label class="nh-tl-search-wrap">
+              <span class="form-label">Search tasks</span>
+              <input class="form-input" id="nh-tl-search" type="search" placeholder="Search by task, category, or assignee…" value="${esc(preview.q || '')}" autocomplete="off">
+            </label>
+          </div>
+          ${processTimelineAssigneeChips(preview.assignee || 'all')}
+        </div>
+        <div class="nh-tl-span" title="Task density by day">${span || ''}</div>
+        <div class="nh-tl-legend">
+          <span><i style="background:#c4a35a"></i>Orientation</span>
+          <span><i style="background:#5b8c5a"></i>Start</span>
+          <span><i style="background:#3d6ea8"></i>Bootcamp</span>
+          <span>T-minus is days before orientation. Click a task to edit it.</span>
+        </div>
+        <div class="nh-tl-days">${emptyHtml}${dayBlocks}${undatedHtml}</div>
+      </section>`;
+  }
+
+  function bindProcessTimeline(root, onRefresh) {
+    const daysEl = root.querySelector('.nh-tl-days');
+    if (daysEl) {
+      daysEl.scrollTop = processTimelineScroll;
+      daysEl.addEventListener('scroll', () => { processTimelineScroll = daysEl.scrollTop; });
+    }
+    const persistDates = (keepStartWithOrient) => {
+      const prev = ensureProcessPreview();
+      const orient = root.querySelector('#nh-tl-orient')?.value || prev.orientation;
+      let work = root.querySelector('#nh-tl-start')?.value || '';
+      const boot = root.querySelector('#nh-tl-boot')?.value || '';
+      if (keepStartWithOrient && (!work || work === prev.orientation)) work = orient;
+      processPreview = {
+        orientation: orient,
+        workStart: work || orient,
+        bootcamp: boot,
+        assignee: prev.assignee || 'all',
+        q: prev.q || ''
+      };
+      writeProcessPreview();
+      if (onRefresh) onRefresh();
+    };
+    root.querySelector('#nh-tl-orient')?.addEventListener('change', () => persistDates(true));
+    root.querySelector('#nh-tl-start')?.addEventListener('change', () => persistDates(false));
+    root.querySelector('#nh-tl-boot')?.addEventListener('change', () => persistDates(false));
+    root.querySelector('#nh-tl-search')?.addEventListener('input', (e) => {
+      const preview = ensureProcessPreview();
+      preview.q = e.target.value;
+      writeProcessPreview();
+      const start = e.target.selectionStart;
+      const end = e.target.selectionEnd;
+      if (onRefresh) onRefresh();
+      const next = document.getElementById('nh-tl-search');
+      if (!next) return;
+      next.focus();
+      try { next.setSelectionRange(start, end); } catch (err) { /* search inputs may ignore */ }
+    });
+    root.querySelectorAll('[data-tl-assignee]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const preview = ensureProcessPreview();
+        preview.assignee = btn.getAttribute('data-tl-assignee') || 'all';
+        writeProcessPreview();
+        if (onRefresh) onRefresh();
+      });
+    });
+    root.querySelectorAll('[data-tl-jump]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const iso = btn.getAttribute('data-tl-jump');
+        const node = root.querySelector(`[data-tl-day="${iso}"]`);
+        if (!node) return;
+        node.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      });
+    });
+  }
+
   function roleChipClass(role) {
     const key = String(role || '').toLowerCase().replace(/\s+/g, '');
     if (key === 'hr') return 'nh-role-hr';
@@ -2761,16 +3180,6 @@
     }).join('');
   }
 
-  function resetAllDueDefaults() {
-    ensureData();
-    (data.items || []).forEach((it) => {
-      it.dueAnchor = 'orientation';
-      it.dueDaysBefore = 0;
-      it.dueOffsetDays = 0;
-    });
-    persist();
-  }
-
   function renderProcessAdmin(root) {
     if (!root) return;
     ensureData();
@@ -2781,6 +3190,7 @@
     const total = (data.items || []).length;
     const manageAll = canManageAllTasks();
     root.innerHTML = `
+      ${processTimelineHtml()}
       <div class="nh-process-admin-banner">
         <p class="user-mgmt-subtitle" style="margin:0">${total} tasks across ${(data.sections || []).length} categories. ${manageAll
           ? 'You see <strong>everyone’s</strong> tasks and can add, edit, or delete any of them.'
@@ -2802,6 +3212,7 @@
       renderProcessAdmin(root);
       if (document.getElementById('page-checklist')?.classList.contains('active')) render();
     });
+    bindProcessTimeline(root, () => renderProcessAdmin(root));
     bindProcessEditor(root, {
       adminMode: true,
       onRefresh: () => renderProcessAdmin(root)
@@ -2811,6 +3222,7 @@
   function mountProcessAdmin() {
     ensureData();
     if (!data || !data.items?.length) data = seed();
+    processAdminOpen = {};
     renderProcessAdmin(document.getElementById('nh-process-admin-root'));
   }
 
@@ -3080,7 +3492,7 @@
       ? 'Admin: see and manage everyone’s process tasks. Non-admins only see and edit their own.'
       : 'Your process tasks only — add, edit, or delete work assigned to you. Admins manage everyone’s tasks under Admin.');
     (data.sections || []).forEach((s) => {
-      if (processAdminOpen[s.id] === undefined) processAdminOpen[s.id] = true;
+      if (processAdminOpen[s.id] === undefined) processAdminOpen[s.id] = false;
     });
     root.innerHTML = `
       <div class="nh-detail-top">
@@ -3089,6 +3501,7 @@
           <button class="btn-primary" type="button" id="nh-add-item">+ Add my task</button>
         </div>
       </div>
+      ${processTimelineHtml()}
       <div class="nh-role-legend" aria-hidden="true">
         <span class="nh-role-chip nh-role-hr">HR</span>
         <span class="nh-role-chip nh-role-admin">Admin</span>
@@ -3098,6 +3511,7 @@
       ${processSectionsHtml({ adminMode: canManageAllTasks() })}`;
     root.querySelector('#nh-back-t').addEventListener('click', () => { view = 'dashboard'; render(); });
     root.querySelector('#nh-add-item').addEventListener('click', () => openItemModal(null, null, { forSelf: true }));
+    bindProcessTimeline(root, () => renderTemplate(root));
     bindProcessEditor(root, { adminMode: canManageAllTasks(), onRefresh: () => renderTemplate(root) });
   }
 
@@ -3155,7 +3569,14 @@
               <input id="nh-hire-boot" class="form-input" type="date">
             </div>
             <div class="form-row-2">
-              <div><label class="form-label">Status</label>
+              <div><label class="form-label">Onboarding status</label>
+                <select id="nh-hire-onboarding" class="form-input">
+                  <option value="not_started">Not Started</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="complete">Complete</option>
+                </select>
+              </div>
+              <div><label class="form-label">Employment status</label>
                 <select id="nh-hire-status" class="form-input">
                   <option value="active">Active</option>
                   <option value="archived">Archive</option>
@@ -3165,7 +3586,9 @@
                   <option value="resigned">Resigned</option>
                 </select>
               </div>
-              <div><label class="form-label">Status note</label><input id="nh-hire-note" class="form-input" type="text"></div>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Employment note</label><input id="nh-hire-note" class="form-input" type="text">
             </div>
           </div>
           <div class="modal-footer">
@@ -3202,6 +3625,7 @@
     document.getElementById('nh-hire-work-start-wrap').hidden = !differentStart;
     document.getElementById('nh-hire-diff-start').addEventListener('change', syncHireWorkStartUi);
     document.getElementById('nh-hire-boot').value = (emp?.bootcamp_start_date || '').slice(0, 10);
+    document.getElementById('nh-hire-onboarding').value = normalizeOnboardingStatus(emp?.onboarding_status);
     document.getElementById('nh-hire-status').value = emp?.status || 'active';
     document.getElementById('nh-hire-note').value = emp?.status_note || '';
     modal.classList.add('open');
@@ -3244,6 +3668,7 @@
       return;
     }
     const bootcamp_start_date = document.getElementById('nh-hire-boot').value || null;
+    const onboarding_status = normalizeOnboardingStatus(document.getElementById('nh-hire-onboarding').value);
     const status = document.getElementById('nh-hire-status').value;
     const status_note = document.getElementById('nh-hire-note').value.trim() || null;
     if (!full_name || !roleRaw || !region || !start_date) {
@@ -3251,7 +3676,7 @@
       return;
     }
     const supabase = client();
-    const payload = { full_name, preferred_name, region, employee_type, city_center, start_date, work_start_date, bootcamp_start_date, status, status_note };
+    const payload = { full_name, preferred_name, region, employee_type, city_center, start_date, work_start_date, bootcamp_start_date, onboarding_status, status, status_note };
     async function writeEmp(kind) {
       // Always omit columns we already know are missing in this project
       const omit = new Set(missingEmpCols);
@@ -3273,6 +3698,7 @@
             created.city_center = created.city_center ?? city_center;
             created.work_start_date = created.work_start_date ?? work_start_date;
             created.preferred_name = created.preferred_name ?? preferred_name;
+            created.onboarding_status = created.onboarding_status ?? onboarding_status;
           }
           return { created, error: null };
         }

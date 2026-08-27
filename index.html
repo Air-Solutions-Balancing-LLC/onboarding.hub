@@ -417,6 +417,112 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
   border-color: #fdba74 !important; background: #fff;
   width: 100%;
 }
+.nh-tl {
+  --tl-ink: #1a2540;
+  --tl-gold: #c4a35a;
+  --tl-paper: #f7f5f0;
+  --tl-rule: #d9d3c7;
+  background: var(--tl-paper);
+  border: 1px solid var(--tl-rule);
+  border-radius: 12px;
+  margin: 0 0 16px;
+  overflow: hidden;
+}
+.nh-tl-head {
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--tl-rule);
+  background: #fff;
+}
+.nh-tl-head-row {
+  display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: flex-end;
+  justify-content: space-between;
+}
+.nh-tl-search-row { width: 100%; }
+.nh-tl-search-wrap { display: block; margin: 0; max-width: 28rem; }
+.nh-tl-search-wrap .form-label { font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }
+.nh-tl-search-wrap .form-input { width: 100%; background: #fff; }
+.nh-tl-people-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: #8a8175; padding-top: 8px; flex-shrink: 0;
+}
+.nh-tl-kicker {
+  font-family: 'Barlow Condensed', 'Inter', sans-serif;
+  font-size: 11px; font-weight: 700; letter-spacing: .14em;
+  text-transform: uppercase; color: #8a8175; margin-bottom: 2px;
+}
+.nh-tl-title { font-size: 16px; font-weight: 700; color: var(--tl-ink); }
+.nh-tl-dates { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: flex-end; }
+.nh-tl-dates label { margin: 0; }
+.nh-tl-dates .form-label { font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }
+.nh-tl-dates .form-input { width: 148px; background: #fff; }
+.nh-tl-span {
+  display: flex; align-items: flex-end; gap: 2px;
+  height: 46px; padding: 8px 16px 6px;
+  border-bottom: 1px solid var(--tl-rule);
+  background: #efece4;
+}
+.nh-tl-tick {
+  flex: 1; min-width: 3px; max-width: 14px;
+  background: #9aa7bd; border: none; padding: 0; cursor: pointer;
+  border-radius: 2px 2px 0 0; align-self: flex-end;
+}
+.nh-tl-tick:hover { background: var(--tl-ink); }
+.nh-tl-tick.is-orient { background: var(--tl-gold); }
+.nh-tl-tick.is-start { background: #5b8c5a; }
+.nh-tl-tick.is-boot { background: #3d6ea8; }
+.nh-tl-days { max-height: min(62vh, 640px); overflow: auto; padding: 8px 0 16px; }
+.nh-tl-day {
+  display: grid; grid-template-columns: 92px 18px minmax(0,1fr);
+  gap: 0 10px; padding: 0 16px;
+}
+.nh-tl-when { padding: 10px 0 8px; }
+.nh-tl-tminus {
+  font-family: 'Barlow Condensed', 'Inter', sans-serif;
+  font-size: 22px; font-weight: 700; line-height: 1; color: var(--tl-ink);
+  letter-spacing: .02em;
+}
+.nh-tl-cal { font-size: 11px; color: #6b645a; margin-top: 2px; }
+.nh-tl-rail { position: relative; }
+.nh-tl-rail::before {
+  content: ''; position: absolute; left: 8px; top: 0; bottom: 0;
+  width: 2px; background: #cfc8bb;
+}
+.nh-tl-day:first-child .nh-tl-rail::before { top: 18px; }
+.nh-tl-day:last-child .nh-tl-rail::before { bottom: 12px; }
+.nh-tl-dot {
+  position: relative; z-index: 1;
+  width: 18px; height: 18px; margin-top: 12px;
+  border-radius: 50%; background: #fff;
+  border: 2px solid var(--tl-ink);
+  box-sizing: border-box;
+}
+.nh-tl-day.is-orient .nh-tl-dot {
+  background: var(--tl-gold); border-color: var(--tl-gold);
+  box-shadow: 0 0 0 4px rgba(196,163,90,.28);
+}
+.nh-tl-day.is-orient .nh-tl-tminus { color: #8a6a1f; }
+.nh-tl-cards { display: flex; flex-direction: column; gap: 6px; padding: 8px 0 12px; }
+.nh-tl-card {
+  display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline;
+  width: 100%; text-align: left; cursor: pointer; font-family: inherit;
+  background: #fff; border: 1px solid #e4dfd5; border-radius: 8px;
+  padding: 8px 10px; color: inherit;
+}
+.nh-tl-card:hover { border-color: var(--tl-ink); }
+.nh-tl-card-label { font-size: 13px; font-weight: 600; color: var(--tl-ink); }
+.nh-tl-card-meta { font-size: 11px; color: #6b645a; }
+.nh-tl-sec {
+  font-size: 10px; font-weight: 700; letter-spacing: .04em;
+  color: #1a2540; background: #e8edf5; border-radius: 4px; padding: 1px 6px;
+}
+.nh-tl-empty { padding: 18px 16px; font-size: 13px; color: #6b645a; }
+.nh-tl-legend { display: flex; flex-wrap: wrap; gap: 10px 14px; padding: 0 16px 10px; font-size: 11px; color: #6b645a; }
+.nh-tl-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
+@media (max-width: 700px) {
+  .nh-tl-day { grid-template-columns: 72px 14px minmax(0,1fr); padding: 0 10px; }
+  .nh-tl-tminus { font-size: 18px; }
+}
 .nh-dep-badge {
   display: inline-block; font-size: 10px; font-weight: 700;
   color: #9a3412; background: #ffedd5; border-radius: 4px; padding: 2px 7px;
@@ -585,6 +691,8 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 }
 .user-mgmt-row-edit { flex-wrap: wrap; }
 .user-mgmt-add-row { background: transparent; flex-wrap: wrap; }
+.user-mgmt-filter-row { margin-bottom: 1rem; max-width: 28rem; }
+.user-mgmt-filter-row .user-mgmt-input { width: 100%; }
 .user-mgmt-person { flex: 1; min-width: 0; }
 .user-mgmt-name { font-size: 0.85rem; font-weight: 700; color: var(--color-text); }
 .user-mgmt-email { font-size: 0.72rem; color: var(--color-text-dim); }
@@ -612,6 +720,9 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .page-checklist .main { max-width: none; padding: 40px 72px; }
 .nh-stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 12px; }
 .nh-stat { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
+.nh-stat-filter { width: 100%; text-align: left; cursor: pointer; font-family: inherit; color: inherit; }
+.nh-stat-filter:hover { border-color: #94a3b8; }
+.nh-stat-filter.is-active { border-color: #1a2540; box-shadow: 0 0 0 2px rgba(26,37,64,.16); }
 .nh-stat-label { font-size: 11px; color: #64748b; font-weight: 500; margin-bottom: 4px; }
 .nh-stat-num { font-size: 26px; font-weight: 700; color: #1E3A5F; line-height: 1.1; }
 .nh-stat-green { color: #16a34a; }
@@ -800,7 +911,7 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .nh-profile { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 20px; display: flex; justify-content: space-between; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
 .nh-profile-name { font-size: 22px; font-weight: 600; color: #1e293b; }
 .nh-profile-meta { font-size: 13px; color: #64748b; margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
-.nh-profile-right { text-align: right; }
+.nh-profile-right { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
 .nh-prog { min-width: 0; }
 .nh-prog.big { min-width: 160px; margin-top: 8px; }
 .nh-prog-bar { height: 7px; background: #e2e8f0; border-radius: 99px; overflow: hidden; }
@@ -901,6 +1012,10 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .nh-sheet .nh-sec-cell { text-align: center; padding: 4px 6px; }
 .nh-status-select { font-size: 11px; font-family: inherit; padding: 4px 6px; border-radius: 6px; border: 1px solid #e2e8f0; background: #fff; color: #334155; text-transform: capitalize; max-width: 120px; }
 .nh-status-select.nh-saving { opacity: .55; }
+.nh-onboarding-select { text-transform: none; min-width: 118px; max-width: 140px; font-weight: 600; }
+.nh-onboarding-select.is-not_started { color: #475569; background: #f8fafc; }
+.nh-onboarding-select.is-in_progress { color: #c2410c; background: #fff7ed; }
+.nh-onboarding-select.is-complete { color: #166534; background: #f0fdf4; }
 .nh-profile-select { max-width: 150px; text-transform: none; }
 .nh-city-input { max-width: 160px; font-size: 12px; padding: 5px 8px; }
 .nh-profile-selects { display: flex; flex-wrap: wrap; gap: 10px 14px; margin: 8px 0; align-items: center; }
@@ -931,9 +1046,9 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 <script src="js/hub-access.js"></script>
 <script src="js/hub-shell.js?v=pop1"></script>
 <script src="hub-auth.js?v=nav1"></script>
-<script src="hub-admin.js"></script>
+<script src="hub-admin.js?v=merge1"></script>
 <script src="new-hire-seed.js"></script>
-<script src="hub-checklist.js?v=name1"></script>
+<script src="hub-checklist.js?v=merge1"></script>
 </head>
 <body>
 
@@ -1307,7 +1422,7 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
     <div class="user-mgmt-shell">
       <div>
         <h1 class="admin-page-title">Admin</h1>
-        <p class="admin-page-sub">User access and the shared New Hire Checklist process. Atlas Admins always have Hub Admin. Keep the allowlist to Hub editors (not PMs or technicians). Use <strong>View as</strong> to preview another editor’s filters.</p>
+        <p class="admin-page-sub">Hub people come from Atlas. Grant or revoke Onboarding Hub access in Atlas Admin. Atlas Admins always have Hub Admin. Use <strong>View as</strong> to preview another user’s checklist filters while staying signed in as admin.</p>
       </div>
       <div class="user-mgmt-card user-mgmt-card--access" id="hub-user-mgmt-card">
         <div class="user-mgmt-header">
@@ -1315,7 +1430,7 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
             <div class="user-mgmt-kicker">Access</div>
             <h2 class="user-mgmt-title">User Management</h2>
             <p class="user-mgmt-subtitle">
-              People and roles come from Atlas. Grant or revoke Hub access by selecting an Atlas person. Atlas Admins cannot be revoked. PMs and technicians do not use this Hub.
+              People and roles come from Atlas. Grant or revoke Hub access in Atlas Admin. Atlas Admins always have Hub Admin.
             </p>
           </div>
         </div>
@@ -1464,7 +1579,7 @@ const HUB_PAGE_META = {
   },
   admin: {
     title: 'Admin',
-    sub: 'User access and checklist process. Admins manage everyone’s tasks; editors manage their own.'
+    sub: 'Hub people come from Atlas. Grant or revoke access in Atlas Admin. Atlas Admins always have Hub Admin.'
   },
   resources: {
     title: 'Onboarding Resources',
