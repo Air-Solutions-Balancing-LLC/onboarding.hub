@@ -564,6 +564,21 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .nh-badge-intl { background: #e0e7ff; color: #4338ca; }
 .nh-toolbar-plain { background: transparent; border: none; padding: 0; box-shadow: none; }
 .nh-toolbar-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.nh-report-chrome {
+  display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: flex-end;
+  margin-bottom: 14px; padding: 12px 14px; background: #fff;
+  border: 1px solid #e2e8f0; border-radius: 12px;
+}
+.nh-report-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.nh-report-cohort { display: flex; flex-direction: column; gap: 6px; min-width: 180px; }
+.nh-report-table { margin-top: 0; }
+.nh-report-select { font-size: 12px; padding: 4px 6px; min-width: 72px; }
+.nh-resume-cell { white-space: nowrap; }
+.nh-resume-link { font-size: 12px; font-weight: 600; color: #1E3A5F; text-decoration: none; }
+.nh-resume-link:hover { text-decoration: underline; }
+.nh-resume-field { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.nh-resume-field .nh-field-input { flex: 1 1 200px; min-width: 160px; }
+.nh-resume-hint { font-size: 11px; width: 100%; }
 .nh-stats-todo { grid-template-columns: repeat(4, minmax(0,1fr)); }
 .nh-stats-todo .stat { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; }
 .nh-stats-todo .stat-label { font-size: 11px; color: #64748b; margin-top: 4px; }
@@ -864,13 +879,17 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
   <nav class="sidebar-nav" aria-label="Main">
     <div class="nav-section">
       <div class="nav-section-label">New hire</div>
-      <button type="button" class="nav-item nav-checklist active" data-nh-view="dashboard" title="Onboarding Dashboard" onclick="showChecklistView('dashboard', this)">
+      <button type="button" class="nav-item nav-checklist active" data-nh-view="dashboard" title="People" onclick="showChecklistView('dashboard', this)">
         <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg></span>
-        <span class="nav-label">Onboarding Dashboard</span>
+        <span class="nav-label">People</span>
       </button>
-      <button type="button" class="nav-item" data-nh-view="todo" title="My To-Do" onclick="showChecklistView('todo', this)">
+      <button type="button" class="nav-item" data-nh-view="todo" title="My work" onclick="showChecklistView('todo', this)">
         <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
-        <span class="nav-label">My To-Do</span>
+        <span class="nav-label">My work</span>
+      </button>
+      <button type="button" class="nav-item" data-nh-view="reports" title="Reports" onclick="showChecklistView('reports', this)">
+        <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 17V9"/><path d="M12 17v-5"/><path d="M16 17V7"/></svg></span>
+        <span class="nav-label">Reports</span>
       </button>
       <button type="button" class="nav-item" data-nh-view="roster" title="Roster" onclick="showChecklistView('roster', this)">
         <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 2.5-5 6-5s6 2 6 5"/><circle cx="17" cy="9" r="2.5"/><path d="M21 19c0-2.2-1.6-3.8-4-4.4"/></svg></span>
@@ -927,7 +946,7 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 <div class="main">
   <header class="header">
     <div class="header-title">
-      <h1 id="hub-header-title">Onboarding Dashboard</h1>
+      <h1 id="hub-header-title">People</h1>
       <div class="region" id="hub-header-sub">HR &amp; Training · Air Solutions &amp; Balancing</div>
     </div>
     <div class="header-actions" id="hub-header-actions" hidden>
@@ -1181,8 +1200,8 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 <!-- PAGE: NEW HIRE CHECKLIST -->
 <div id="page-checklist" class="page page-checklist active">
   <div class="main">
-    <div class="page-title">Onboarding Dashboard</div>
-    <div class="page-sub">Shared onboarding dashboard — full team visibility, hire status, My To-Do by role, and roster.</div>
+    <div class="page-title">People</div>
+    <div class="page-sub">My work, People, and Reports for orientation cohorts — each editor owns their tasks.</div>
     <div id="nh-checklist-root">
       <p class="nh-status">Loading employees…</p>
     </div>
@@ -1207,14 +1226,14 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
     <div class="user-mgmt-shell">
       <div>
         <h1 class="admin-page-title">Admin</h1>
-        <p class="admin-page-sub">Grant Onboarding Hub access from the Atlas roster. Atlas Admins always have Hub Admin. Use <strong>View as</strong> to preview another user’s checklist filters while staying signed in as admin.</p>
+        <p class="admin-page-sub">Grant Onboarding Hub access from the Atlas roster. Atlas Admins always have Hub Admin. Keep the allowlist to Hub editors (not PMs or technicians). Use <strong>View as</strong> to preview another editor’s filters.</p>
       </div>
       <div class="user-mgmt-card" id="hub-user-mgmt-card">
         <div class="user-mgmt-header">
           <div>
             <h2 class="user-mgmt-title">User Management</h2>
             <p class="user-mgmt-subtitle">
-              People and roles come from Atlas. Grant or revoke Hub access by selecting an Atlas person. Atlas Admins cannot be revoked.
+              People and roles come from Atlas. Grant or revoke Hub access by selecting an Atlas person. Atlas Admins cannot be revoked. PMs and technicians do not use this Hub.
             </p>
           </div>
         </div>
@@ -1357,12 +1376,12 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 const PAULA_ONLY_PAGES = ['resources', 'responsibilities', 'orientation', 'weekly'];
 const HUB_PAGE_META = {
   checklist: {
-    title: 'Onboarding Dashboard',
-    sub: 'Shared onboarding dashboard — full team visibility, hire status, My To-Do by role, and roster.'
+    title: 'People',
+    sub: 'My work, People, and Reports for orientation cohorts — each editor owns their tasks.'
   },
   admin: {
     title: 'Admin',
-    sub: 'Grant Hub access from the Atlas roster. Atlas Admins always have Hub Admin.'
+    sub: 'Grant Hub access from the Atlas roster. Keep the allowlist to Hub editors; View as skips PMs and technicians.'
   },
   resources: {
     title: 'Onboarding Resources',

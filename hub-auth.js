@@ -319,6 +319,12 @@
       .replace(/"/g, '&quot;');
   }
 
+  function isHubEditorRole(role) {
+    const r = String(role || '').toLowerCase();
+    // PMs and technicians are not Hub editors (View as / allowlist preview)
+    return !['pm', 'project_manager', 'technician'].includes(r);
+  }
+
   async function loadViewAsUsers() {
     if (!isRealAdmin()) {
       viewAsUsers = [];
@@ -326,7 +332,7 @@
     }
     try {
       const people = await listAuthorizedStaff();
-      viewAsUsers = people;
+      viewAsUsers = (people || []).filter((u) => isHubEditorRole(u.role));
     } catch (err) {
       console.warn('view-as users load failed', err);
       viewAsUsers = [];
@@ -404,6 +410,10 @@
     let target = viewAsUsers.find((u) => String(u.id) === String(userId));
     if (!target) {
       alert('Could not find that user.');
+      return;
+    }
+    if (!isHubEditorRole(target.role)) {
+      alert('PMs and technicians are not Hub editors. Remove them from the allowlist or change their role in Admin.');
       return;
     }
     window.hubCurrentUser = target;

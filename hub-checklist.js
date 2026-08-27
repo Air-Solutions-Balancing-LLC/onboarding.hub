@@ -51,8 +51,10 @@
 
   let data = null; // { version, roles, sections, items, progress }
   let employees = [];
-  let view = 'dashboard'; // dashboard | todo | roster | archive | detail | template
+  let view = 'dashboard'; // dashboard (People) | todo (My work) | reports | roster | archive | detail | template
   let detailReturnView = 'dashboard';
+  let reportKind = 'cohorts'; // cohorts | onboard | it
+  let reportCohort = ''; // YYYY-MM-DD orientation date or '' = auto
   let userDefaultsApplied = false;
   const STATUS_OPTIONS = ['active', 'archived', 'terminated', 'quit', 'rescinded', 'resigned'];
   const ARCHIVE_STATUSES = ['archived', 'terminated', 'quit', 'rescinded', 'resigned'];
@@ -122,7 +124,8 @@
     { id: 'start', label: 'Start' },
     { id: 'bootcamp', label: 'Bootcamp' },
     { id: 'status', label: 'Status' },
-    { id: 'overall', label: 'Overall' }
+    { id: 'overall', label: 'Overall' },
+    { id: 'resume', label: 'Resume' }
   ];
   const LOCKED_COLUMNS = ['_num', 'name', '_actions'];
   let columnVisibility = readColumnVisibility();
@@ -1292,7 +1295,7 @@
 
   function navViewKey() {
     if (view === 'detail') return detailReturnView || 'dashboard';
-    if (['dashboard', 'todo', 'roster', 'archive', 'template'].includes(view)) return view;
+    if (['dashboard', 'todo', 'reports', 'roster', 'archive', 'template'].includes(view)) return view;
     return 'dashboard';
   }
 
@@ -1310,11 +1313,13 @@
     if (!wrap) return;
     const page = document.getElementById('page-checklist');
     const onChecklist = !!(page && page.classList.contains('active'));
-    wrap.hidden = !(onChecklist && ['dashboard', 'roster', 'archive'].includes(view));
+    wrap.hidden = !(onChecklist && ['dashboard', 'roster', 'archive', 'reports'].includes(view));
   }
 
   function setView(next, opts) {
-    const allowed = ['dashboard', 'todo', 'roster', 'archive', 'template'];
+    if (next === 'people') next = 'dashboard';
+    if (next === 'mywork' || next === 'my-work') next = 'todo';
+    const allowed = ['dashboard', 'todo', 'reports', 'roster', 'archive', 'template'];
     view = allowed.includes(next) ? next : 'dashboard';
     selectedHireId = null;
     if (!(opts && opts.silent) && mounted) render();
@@ -1532,8 +1537,8 @@
   }
 
   function renderTodo(root) {
-    setPageTitle('My To-Do');
-    setPageSub('Grouped by hire — check off, enter dates/values, or Edit tasks here. Role / person filters from Dashboard still apply.');
+    setPageTitle('My work');
+    setPageSub('Your open tasks by hire — check off, enter dates, or Edit. Use Role / Person filters on People.');
     const entries = todoEntries();
     const groups = todoGroups(entries);
     const overdue = entries.filter((e) => e.bucket === 'overdue').length;
@@ -1573,7 +1578,7 @@
       <div class="nh-todo-list nh-todo-grouped">
         ${shownGroups.length
           ? shownGroups.map(todoHireGroup).join('')
-          : '<div class="nh-empty-block">No tasks for this filter. Try Open, or set Role / Person on Dashboard.</div>'}
+          : '<div class="nh-empty-block">No tasks for this filter. Try Open, or set Role / Person on People.</div>'}
       </div>
       ${groups.length > todoLimit
         ? `<div style="margin-top:12px;text-align:center"><button class="btn-secondary" type="button" id="nh-todo-more">Show more hires (${groups.length - todoLimit} left)</button></div>`
@@ -1780,6 +1785,7 @@
       <th data-col="status">${colFilterSelect('status', STATUS_OPTIONS.map((s) => ({ value: s, label: formatStatusLabel(s) })), 'All statuses')}</th>
       <th data-col="overall"></th>
       ${sections.map((sec) => `<th data-col="sec-${esc(sec.id)}"></th>`).join('')}
+      <th data-col="resume"></th>
       <th data-col="_actions">${Object.values(c).some(Boolean) ? '<button type="button" class="btn-xs" id="nh-clear-col-filters" title="Clear column filters">Clear</button>' : ''}</th>
     </tr>`;
   }
@@ -1859,8 +1865,8 @@
   }
 
   function renderDashboard(root) {
-    setPageTitle('Onboarding Dashboard');
-    setPageSub(`Filter by Role and Person — currently viewing ${filterScopeLabel()}. Named owners open on their own tasks; admins see everyone by default.`);
+    setPageTitle('People');
+    setPageSub(`People — active hires and progress for ${filterScopeLabel()}. Open a name to work their checklist.`);
     ensureData();
     const s = stats();
     const rows = filteredEmployees();
@@ -1896,6 +1902,7 @@
               <th data-col="status">Status</th>
               <th data-col="overall">Overall</th>
               ${sections.map((sec) => `<th title="${esc(sec.title)}" class="nh-sec-col" data-col="sec-${esc(sec.id)}">${esc(sec.id)}</th>`).join('')}
+              <th data-col="resume">Resume</th>
               <th data-col="_actions"></th>
             </tr>
             ${dashboardColFilterRow(sections)}
@@ -1911,6 +1918,7 @@
               <th data-col="status"></th>
               <th data-col="overall"></th>
               ${sections.map((sec) => `<th class="nh-sec-sub" data-col="sec-${esc(sec.id)}">${esc(sec.title)}</th>`).join('')}
+              <th data-col="resume"></th>
               <th data-col="_actions"></th>
             </tr>
           </thead>
@@ -1918,6 +1926,7 @@
             ${rows.length ? rows.map((emp) => {
               const hire = empToHire(emp);
               const overall = hireProgress(hire);
+              const resumeHtml = resumeCellHtml(hire);
               return `<tr>
                 <td class="nh-sticky nh-muted" data-col="_num">${esc(emp.employee_number ?? '—')}</td>
                 <td class="nh-sticky nh-sticky-2 nh-name" data-col="name">
@@ -1937,6 +1946,7 @@
                     <button type="button" class="nh-pct ${pctClass(sp.pct)}" data-open-hire="${esc(emp.id)}" title="${esc(sec.title)} · ${esc(filterScopeLabel())}: ${sp.done}/${sp.total}">${sp.done}/${sp.total}</button>
                   </td>`;
                 }).join('')}
+                <td class="nh-resume-cell" data-col="resume">${resumeHtml}</td>
                 <td data-col="_actions"><button class="btn-xs primary" type="button" data-open-hire="${esc(emp.id)}">Open</button></td>
               </tr>`;
             }).join('') : `<tr><td colspan="${visibleColumnCount()}" class="nh-empty">No employees found</td></tr>`}
@@ -2327,6 +2337,16 @@
     } else if (it.inputType === 'date') {
       const v = typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}/.test(raw) ? raw.slice(0, 10) : '';
       control = `<input class="form-input nh-field-input" type="date" data-field="${esc(it.id)}" value="${esc(v)}">`;
+    } else if (/resume/i.test(it.label || '')) {
+      let display = raw == null ? '' : String(raw);
+      const openBtn = isHttpUrl(display)
+        ? `<a class="btn-xs primary nh-resume-open" href="${esc(display.trim())}" target="_blank" rel="noopener">Open resume</a>`
+        : '';
+      control = `<div class="nh-resume-field">
+        <input class="form-input nh-field-input" type="url" data-field="${esc(it.id)}" value="${esc(display)}" placeholder="Paste SharePoint / Drive link (https://…)">
+        ${openBtn}
+        <span class="nh-muted nh-resume-hint">Jessa: paste a link to the PDF or file</span>
+      </div>`;
     } else {
       let display = raw == null ? '' : String(raw);
       if (it.sensitive && !revealSensitive && display) display = '••••••••';
@@ -3459,6 +3479,262 @@
     if (view === 'template' || view === 'detail') render();
   }
 
+  function findItemByLabel(re) {
+    ensureData();
+    return (data.items || []).find((i) => re.test(i.label || ''));
+  }
+
+  function resumeItem() {
+    return findItemByLabel(/^LINK to resume/i) || findItemByLabel(/resume/i);
+  }
+
+  function isHttpUrl(s) {
+    return /^https?:\/\//i.test(String(s || '').trim());
+  }
+
+  function resumeValue(hire) {
+    const it = resumeItem();
+    if (!it) return '';
+    return String(hire.values?.[it.id] || '').trim();
+  }
+
+  function resumeCellHtml(hire) {
+    const it = resumeItem();
+    const val = resumeValue(hire);
+    if (!it) return '<span class="nh-muted">—</span>';
+    if (isHttpUrl(val)) {
+      return `<a class="nh-resume-link" href="${esc(val)}" target="_blank" rel="noopener">Open</a>`;
+    }
+    if (val) {
+      return `<span class="nh-muted" title="${esc(val)}">On file</span>`;
+    }
+    return `<button type="button" class="btn-xs" data-open-hire="${esc(hire.id)}" title="Add resume link in hire checklist">Add link</button>`;
+  }
+
+  function displayProgressValue(hire, item, { sensitiveMask } = {}) {
+    if (!item) return '—';
+    const raw = hire.values?.[item.id];
+    if (item.sensitive && !revealSensitive) {
+      if (raw) return sensitiveMask === false ? String(raw) : '••••••••';
+      return '—';
+    }
+    if (item.inputType === 'checkbox') return isFilled(item, raw, hire) ? 'Yes' : '—';
+    const v = String(raw ?? '').trim();
+    if (!v) return isFilled(item, raw, hire) ? 'Done' : '—';
+    return v;
+  }
+
+  function statusReceivedLabel(hire, item) {
+    if (!item) return '—';
+    if (isFilled(item, hire.values?.[item.id], hire)) return 'Received';
+    const v = String(hire.values?.[item.id] ?? '').trim();
+    return v || 'Pending';
+  }
+
+  function orientationCohortDates() {
+    const dates = [];
+    const seen = new Set();
+    employees.filter(isActiveHire).forEach((e) => {
+      const d = e.start_date ? String(e.start_date).slice(0, 10) : '';
+      if (d && !seen.has(d)) {
+        seen.add(d);
+        dates.push(d);
+      }
+    });
+    dates.sort();
+    return dates;
+  }
+
+  function pickDefaultCohort(dates) {
+    if (!dates.length) return '';
+    const today = todayIso();
+    const upcoming = dates.find((d) => d >= today);
+    return upcoming || dates[dates.length - 1];
+  }
+
+  function hiresForCohort(cohortDate) {
+    return hires()
+      .filter(isActiveHire)
+      .filter((h) => {
+        if (!cohortDate) return !h.startDate;
+        return String(h.startDate || '').slice(0, 10) === cohortDate;
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  function meetingInviteValue(hire) {
+    const p = progressOf(hire.id);
+    return String(p.values._onboard_meeting_invite || '').trim();
+  }
+
+  function renderReports(root) {
+    ensureData();
+    const dates = orientationCohortDates();
+    if (!reportCohort || (reportCohort && !dates.includes(reportCohort) && reportCohort !== '__none__')) {
+      reportCohort = pickDefaultCohort(dates);
+    }
+    const cohort = reportCohort === '__none__' ? '' : reportCohort;
+    const cohortHires = hiresForCohort(cohort);
+
+    const hrItem = findItemByLabel(/HR ONBOARDING COMPLETE/i);
+    const upsItem = findItemByLabel(/^Tracking for Kit/i) || findItemByLabel(/UPS|Tracking for Kit/i);
+    const ipadItem = findItemByLabel(/iPad is received by the new hire/i) || findItemByLabel(/Date iPad is received/i);
+    const oshaItem = findItemByLabel(/OSHA-10 certified prior/i) || findItemByLabel(/OSHA/i);
+    const diplomaItem = findItemByLabel(/HS Diploma received/i);
+    const emailItem = findItemByLabel(/Airadigm\/KES email address/i) || findItemByLabel(/Airadigm.*email address/i);
+    const msPassItem = findItemByLabel(/Microsoft\/email password/i);
+    const rentalItem = findItemByLabel(/National Rental profile/i);
+    const usaUserItem = findItemByLabel(/USABalancer username/i);
+    const usaPassItem = findItemByLabel(/USABalancer password/i);
+
+    setPageTitle('Reports');
+    setPageSub('Reports mirror the spreadsheet summaries — pick an orientation cohort, then open a hire to edit details.');
+
+    const cohortOpts = [
+      ...dates.map((d) => `<option value="${esc(d)}" ${d === reportCohort ? 'selected' : ''}>${esc(d)}</option>`),
+      `<option value="__none__" ${reportCohort === '__none__' ? 'selected' : ''}>No orientation date</option>`
+    ].join('');
+
+    let body = '';
+    if (reportKind === 'cohorts') {
+      body = `
+        <div class="nh-table-wrap nh-report-table">
+          <table class="nh-table" data-sort-key="nh-report-cohorts">
+            <thead>
+              <tr>
+                <th>Name</th><th>Region</th><th>City / hometown</th><th>Bootcamp</th><th>Overall</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${cohortHires.length ? cohortHires.map((h) => {
+                const pr = hireProgress(h, 'all', 'all');
+                return `<tr>
+                  <td><button type="button" class="nh-linkish" data-open-hire="${esc(h.id)}">${esc(h.name)}</button></td>
+                  <td>${esc(h.division || '—')}</td>
+                  <td>${esc(h.cityCenter || '—')}</td>
+                  <td>${esc(h.bootcampDate || '—')}</td>
+                  <td><span class="nh-pct ${pctClass(pr.pct)}">${pr.done}/${pr.total}</span></td>
+                  <td><button class="btn-xs primary" type="button" data-open-hire="${esc(h.id)}">Open</button></td>
+                </tr>`;
+              }).join('') : '<tr><td colspan="6" class="nh-empty">No active hires in this cohort</td></tr>'}
+            </tbody>
+          </table>
+        </div>`;
+    } else if (reportKind === 'onboard') {
+      body = `
+        <div class="nh-table-wrap nh-report-table">
+          <table class="nh-table" data-sort-key="nh-report-onboard">
+            <thead>
+              <tr>
+                <th>Technician</th><th>Region</th><th>HR Onboarding</th><th>UPS / Kit tracking</th>
+                <th>iPad received</th><th>OSHA</th><th>Diploma / GED</th><th>Meeting invite</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${cohortHires.length ? cohortHires.map((h) => {
+                const invite = meetingInviteValue(h) || '—';
+                return `<tr>
+                  <td><button type="button" class="nh-linkish" data-open-hire="${esc(h.id)}">${esc(h.name)}</button></td>
+                  <td>${esc(h.division || '—')}</td>
+                  <td>${esc(hrItem && isFilled(hrItem, h.values?.[hrItem.id], h) ? 'Complete' : 'Pending')}</td>
+                  <td>${esc(displayProgressValue(h, upsItem))}</td>
+                  <td>${esc(displayProgressValue(h, ipadItem))}</td>
+                  <td>${esc(statusReceivedLabel(h, oshaItem))}</td>
+                  <td>${esc(statusReceivedLabel(h, diplomaItem))}</td>
+                  <td>
+                    <select class="form-input nh-report-select" data-meeting-invite="${esc(h.id)}">
+                      <option value="" ${invite === '—' || !meetingInviteValue(h) ? 'selected' : ''}>—</option>
+                      <option value="Yes" ${invite === 'Yes' ? 'selected' : ''}>Yes</option>
+                      <option value="No" ${invite === 'No' ? 'selected' : ''}>No</option>
+                    </select>
+                  </td>
+                  <td><button class="btn-xs primary" type="button" data-open-hire="${esc(h.id)}">Open</button></td>
+                </tr>`;
+              }).join('') : '<tr><td colspan="9" class="nh-empty">No active hires in this cohort</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+        <p class="nh-footnote">Edit checklist fields on the hire. Meeting invite is saved here for the Onboard Status report.</p>`;
+    } else {
+      body = `
+        <div class="nh-toolbar nh-toolbar-plain" style="margin-bottom:10px">
+          <label class="nh-check-label"><input type="checkbox" id="nh-report-sensitive" ${revealSensitive ? 'checked' : ''}> Show passwords</label>
+          <span class="nh-muted">Sensitive IT fields stay hidden until you check this.</span>
+        </div>
+        <div class="nh-table-wrap nh-report-table">
+          <table class="nh-table" data-sort-key="nh-report-it">
+            <thead>
+              <tr>
+                <th>#</th><th>Technician</th><th>Region</th><th>Airadigm email</th>
+                <th>MS / email password</th><th>National Rental</th><th>USABalancer user</th><th>USABalancer password</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${cohortHires.length ? cohortHires.map((h) => `<tr>
+                <td class="nh-muted">${esc(h.employeeNumber ?? '—')}</td>
+                <td><button type="button" class="nh-linkish" data-open-hire="${esc(h.id)}">${esc(h.name)}</button></td>
+                <td>${esc(h.division || '—')}</td>
+                <td>${esc(displayProgressValue(h, emailItem, { sensitiveMask: false }))}</td>
+                <td>${esc(displayProgressValue(h, msPassItem))}</td>
+                <td>${esc(displayProgressValue(h, rentalItem))}</td>
+                <td>${esc(displayProgressValue(h, usaUserItem))}</td>
+                <td>${esc(displayProgressValue(h, usaPassItem))}</td>
+                <td><button class="btn-xs primary" type="button" data-open-hire="${esc(h.id)}">Open</button></td>
+              </tr>`).join('') : '<tr><td colspan="9" class="nh-empty">No active hires in this cohort</td></tr>'}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
+    root.innerHTML = `
+      ${roleBar()}
+      <div class="nh-report-chrome">
+        <div class="nh-report-tabs">
+          <button type="button" class="wt-filter-btn ${reportKind === 'cohorts' ? 'active' : ''}" data-report="cohorts">Orientation cohorts</button>
+          <button type="button" class="wt-filter-btn ${reportKind === 'onboard' ? 'active' : ''}" data-report="onboard">Onboard status</button>
+          <button type="button" class="wt-filter-btn ${reportKind === 'it' ? 'active' : ''}" data-report="it">IT summary</button>
+        </div>
+        <label class="nh-report-cohort">
+          <span class="nh-filter-label">Orientation date</span>
+          <select id="nh-report-cohort" class="form-input nh-role-select">
+            ${cohortOpts || '<option value="">No cohorts yet</option>'}
+          </select>
+        </label>
+        <span class="nh-muted">${cohortHires.length} hire${cohortHires.length === 1 ? '' : 's'}</span>
+      </div>
+      ${body}`;
+
+    bindRoleBar(root);
+    root.querySelectorAll('[data-report]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        reportKind = btn.getAttribute('data-report') || 'cohorts';
+        render();
+      });
+    });
+    root.querySelector('#nh-report-cohort')?.addEventListener('change', (e) => {
+      reportCohort = e.target.value;
+      render();
+    });
+    root.querySelector('#nh-report-sensitive')?.addEventListener('change', (e) => {
+      revealSensitive = !!e.target.checked;
+      render();
+    });
+    root.querySelectorAll('[data-meeting-invite]').forEach((sel) => {
+      sel.addEventListener('change', () => {
+        const hireId = sel.getAttribute('data-meeting-invite');
+        const p = progressOf(hireId);
+        const v = sel.value.trim();
+        if (v) p.values._onboard_meeting_invite = v;
+        else delete p.values._onboard_meeting_invite;
+        persist();
+      });
+    });
+    root.querySelectorAll('[data-open-hire]').forEach((btn) => {
+      btn.addEventListener('click', () => openHireDetail(btn.getAttribute('data-open-hire')));
+    });
+    if (window.HubShell && HubShell.enhanceTables) HubShell.enhanceTables(root);
+  }
+
   function render() {
     ensureData();
     const root = document.getElementById('nh-checklist-root');
@@ -3482,6 +3758,7 @@
     else if (view === 'roster') renderRoster(root);
     else if (view === 'archive') renderArchive(root);
     else if (view === 'todo') renderTodo(root);
+    else if (view === 'reports') renderReports(root);
     else renderDashboard(root);
     syncChecklistNav();
     syncHeaderActions();
