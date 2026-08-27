@@ -53,8 +53,9 @@
   let employees = [];
   let view = 'dashboard'; // dashboard (People) | todo (My work) | reports | roster | archive | detail | template
   let detailReturnView = 'dashboard';
-  let reportKind = 'cohorts'; // cohorts | onboard | it
+  let reportKind = 'cohorts'; // cohorts | onboard | it | missing
   let reportCohort = ''; // YYYY-MM-DD orientation date or '' = auto
+  let reportMissingHireId = '__all__'; // '__all__' | hire id
   let userDefaultsApplied = false;
   const STATUS_OPTIONS = ['active', 'archived', 'terminated', 'quit', 'rescinded', 'resigned'];
   const ARCHIVE_STATUSES = ['archived', 'terminated', 'quit', 'rescinded', 'resigned'];
@@ -1158,7 +1159,10 @@
     return aliases[lower] || raw;
   }
 
-  function filteredEmployees() {
+  function filteredEmployees(opts) {
+    const onboardingWindowOnly = !!(opts && opts.onboardingWindowOnly);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const q = filters.q.trim().toLowerCase();
     const c = filters.cols || {};
     return employees.filter((e) => {
@@ -1171,6 +1175,8 @@
         String(e.employee_number ?? '').includes(q);
       // Dashboard / Roster: active only (archived hires live in Archive)
       if (!(matchSearch && (e.status || 'active') === 'active')) return false;
+
+      if (onboardingWindowOnly && !inOnboardingWindow(empToHire(e), today)) return false;
 
       const nameQ = (c.name || '').trim().toLowerCase();
       if (nameQ) {
@@ -1866,17 +1872,17 @@
 
   function renderDashboard(root) {
     setPageTitle('People');
-    setPageSub(`People — active hires and progress for ${filterScopeLabel()}. Open a name to work their checklist.`);
+    setPageSub('Recent / onboarding-window hires (orientation within last ~120 days or next ~60). Use Roster for the full active list. Progress counts follow Role / Person.');
     ensureData();
     const s = stats();
-    const rows = filteredEmployees();
+    const rows = filteredEmployees({ onboardingWindowOnly: true });
     const sections = data.sections || [];
 
     root.innerHTML = `
       ${roleBar({ showRoleFilter: true })}
       <div class="nh-stats">
-        <div class="nh-stat"><div class="nh-stat-label">Total Employees</div><div class="nh-stat-num">${s.total}</div></div>
-        <div class="nh-stat"><div class="nh-stat-label">Active</div><div class="nh-stat-num nh-stat-green">${s.active}</div></div>
+        <div class="nh-stat"><div class="nh-stat-label">In window</div><div class="nh-stat-num">${rows.length}</div></div>
+        <div class="nh-stat"><div class="nh-stat-label">Active (all)</div><div class="nh-stat-num nh-stat-green">${s.active}</div></div>
         <div class="nh-stat"><div class="nh-stat-label">Archived</div><div class="nh-stat-num nh-stat-red">${s.inactive}</div></div>
         <div class="nh-stat"><div class="nh-stat-label">Filter</div><div class="nh-stat-num" style="font-size:14px">${esc(filterScopeLabel())}</div></div>
       </div>
@@ -1884,7 +1890,7 @@
         <input type="search" class="nh-search" id="nh-search" placeholder="Search by name, email, or #..." value="${esc(filters.q)}" />
         <div class="nh-filters">
           <button type="button" class="btn-secondary" id="nh-column-visibility-btn" aria-expanded="false" aria-haspopup="menu" aria-controls="nh-column-visibility-menu">Show/Hide columns</button>
-          <span class="nh-muted">Showing active hires · archived are under Archive</span>
+          <span class="nh-muted">Onboarding window only · full list is under Roster · archived under Archive</span>
         </div>
       </div>
       <div class="nh-sheet-wrap">
@@ -1953,14 +1959,14 @@
           </tbody>
         </table>
       </div>
-      <p class="nh-footnote">${rows.length} active hires · A–J counts are for ${esc(filterScopeLabel())} · choose All roles to see full totals</p>`;
+      <p class="nh-footnote">${rows.length} hires in onboarding window · A–J counts are for ${esc(filterScopeLabel())} · choose All roles to see full totals · Roster shows every active hire</p>`;
 
     bindRosterChrome(root);
   }
 
   function renderRoster(root) {
     setPageTitle('Roster');
-    setPageSub('Active employee roster — change Status to move someone to Archive. Open a hire for the full checklist.');
+    setPageSub('Full active roster — every Active hire, not only the onboarding window. Change Status to move someone to Archive (Quit, Terminated, Resigned, etc.).');
     const s = stats();
     const rows = filteredEmployees();
 
@@ -1975,7 +1981,7 @@
       <div class="nh-toolbar">
         <input type="search" class="nh-search" id="nh-search" placeholder="Search by name, email, or #..." value="${esc(filters.q)}" />
         <div class="nh-filters">
-          <span class="nh-muted">Showing active hires · archived are under Archive</span>
+          <span class="nh-muted">All active hires · People is onboarding-window only · archived under Archive</span>
         </div>
       </div>
       <div class="nh-table-wrap">
@@ -2003,14 +2009,14 @@
           </tbody>
         </table>
       </div>
-      <p class="nh-footnote">${rows.length} active employees · use Status to archive · click name/progress to open checklist</p>`;
+      <p class="nh-footnote">${rows.length} active employees (full roster) · use Status to archive · click name/progress to open checklist</p>`;
 
     bindRosterChrome(root);
   }
 
   function renderArchive(root) {
     setPageTitle('Archive');
-    setPageSub('Archived hires (Archive, Terminated, Quit, Rescinded, Resigned). Set Status back to Active to restore, or Delete permanently.');
+    setPageSub('Quit, Terminated, Resigned, Rescinded, and Archive statuses. Active hires stay on People / Roster. Set Status back to Active to restore, or Delete permanently.');
     ensureData();
     const s = stats();
     const rows = filteredArchivedEmployees();
@@ -2364,7 +2370,7 @@
           <select class="form-input nh-assignee" data-assignee="${esc(it.id)}" title="${canEditMine ? 'Reassign this task' : 'Only the assignee can reassign'}" ${canEditMine ? '' : 'disabled'}>
             ${people.map((p) => `<option value="${esc(p)}" ${who === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}
           </select>
-          <span class="nh-role-chip">${esc(it.role)}</span>
+          <span class="nh-role-chip ${roleChipClass(it.role)}">${esc(it.role)}</span>
         </div>
         <div class="nh-task-label">
           ${stepProg
@@ -2651,49 +2657,70 @@
     }
   }
 
+  function roleChipClass(role) {
+    const key = String(role || '').toLowerCase().replace(/\s+/g, '');
+    if (key === 'hr') return 'nh-role-hr';
+    if (key === 'admin') return 'nh-role-admin';
+    if (key === 'logistics') return 'nh-role-logistics';
+    if (key === 'training') return 'nh-role-training';
+    if (key === 'pm') return 'nh-role-pm';
+    return 'nh-role-other';
+  }
+
   function processSectionsHtml(opts) {
     ensureData();
     const adminMode = !!(opts && opts.adminMode);
+    const manageAll = canManageAllTasks();
+    const showAllTasks = adminMode || manageAll;
     return (data.sections || []).map((sec) => {
-      const items = itemsForSection(sec.id).filter((it) => it.role !== 'PM');
+      let items = itemsForSection(sec.id).filter((it) => it.role !== 'PM');
+      if (!showAllTasks) {
+        items = items.filter((it) => ownsProcessItem(it));
+      }
       const expanded = processAdminOpen[sec.id] === true;
+      const roleCounts = {};
+      items.forEach((it) => {
+        const r = it.role || 'Other';
+        roleCounts[r] = (roleCounts[r] || 0) + 1;
+      });
+      const toneRole = Object.keys(roleCounts).sort((a, b) => roleCounts[b] - roleCounts[a])[0] || '';
       return `
-        <div class="nh-section ${expanded ? 'open' : ''}">
-          <button type="button" class="nh-section-head nh-bar-white" data-toggle-process-sec="${esc(sec.id)}">
+        <div class="nh-section nh-process-sec ${toneRole ? 'nh-tone-' + esc(roleChipClass(toneRole)) : ''} ${expanded ? 'open' : ''}">
+          <button type="button" class="nh-section-head nh-bar-white nh-process-sec-head" data-toggle-process-sec="${esc(sec.id)}">
             <div class="nh-section-left">
               <span class="nh-chevron">${expanded ? '▾' : '▸'}</span>
               <div class="nh-section-title">${esc(sec.id)}. ${esc(sec.title)}</div>
             </div>
             <div class="nh-section-right">
-              <span class="nh-section-counts"><strong>${items.length}</strong> tasks</span>
+              <span class="nh-section-counts"><strong>${items.length}</strong> task${items.length === 1 ? '' : 's'}${showAllTasks ? '' : ' (yours)'}</span>
             </div>
           </button>
           <div class="nh-section-body" ${expanded ? '' : 'hidden'}>
             <div class="nh-process-cat-actions">
               <button class="btn-primary" type="button" data-add-section="${esc(sec.id)}">+ Add task to ${esc(sec.id)}</button>
-              <span class="nh-muted">${adminMode
-                ? 'Due date = selected date minus “days before”. Default is 0 days before Orientation. Set dependency if a task must wait on another.'
-                : 'Anyone can add a task for themselves. Edit or delete only tasks assigned to you (admins can manage all).'}</span>
+              <span class="nh-muted">${adminMode && manageAll
+                ? 'Admin: you can add, edit, or delete anyone’s tasks. Due date = selected date minus “days before”. Set dependency if a task must wait on another.'
+                : 'Add tasks for yourself. Edit or delete only tasks assigned to you. Admins manage everyone’s tasks in Admin → Checklist Process.'}</span>
             </div>
             <div class="nh-template-list">
               ${items.length ? items.map((it) => {
                 const depOn = !!(it.dependsOnPrior || it.dependsOnTaskId);
                 const depLabel = it.dependsOnTaskId ? taskLabelById(it.dependsOnTaskId) : '';
                 const daysBefore = daysBeforeOf(it);
-                const canOwn = ownsProcessItem(it);
+                const canOwn = manageAll || ownsProcessItem(it);
                 return `
                 <div class="nh-template-row${depOn ? ' nh-has-dependency' : ''}${canOwn ? ' nh-mine-owned' : ''}">
                   <div>
                     <div class="nh-field-label" style="font-size:13px;font-weight:600;color:#1e293b">${esc(it.label)}</div>
                     <div class="nh-todo-meta">
-                      <span class="nh-person-role"><span class="nh-owner-chip">${esc(it.assignee)}</span><span class="nh-role-chip">${esc(it.role)}</span></span>
+                      <span class="nh-person-role"><span class="nh-owner-chip">${esc(it.assignee)}</span><span class="nh-role-chip ${roleChipClass(it.role)}">${esc(it.role)}</span></span>
                       <span class="nh-type">${esc(it.inputType)}</span>
                       <span class="nh-due">${esc(dueRuleLabel(it))}</span>
                       ${normalizeSteps(it).length ? `<span class="nh-steps-chip">${normalizeSteps(it).length}-step check-off</span>` : ''}
                       ${taskLinkHtml(it) || ''}
                       ${depOn && adminMode ? `<span class="nh-dep-badge">${depLabel ? 'Depends on: ' + esc(depLabel) : 'Pick prerequisite…'}</span>` : ''}
                     </div>
-                    ${adminMode ? `
+                    ${adminMode && manageAll ? `
                       <div class="nh-due-inline">
                         <label class="nh-check-label">Based on
                           <select class="form-input nh-due-anchor" data-due-anchor="${esc(it.id)}" title="Date used to calculate due date">
@@ -2707,7 +2734,7 @@
                     ` : ''}
                   </div>
                   <div class="nh-template-actions">
-                    ${adminMode ? `
+                    ${adminMode && manageAll ? `
                       <div class="nh-dep-block">
                         <label class="nh-dep-check" title="This task must wait for another task to be done first">
                           <input type="checkbox" data-depends-item="${esc(it.id)}" ${depOn ? 'checked' : ''}>
@@ -2726,7 +2753,7 @@
                     ` : `<span class="nh-muted" style="font-size:11px">Assigned to ${esc(it.assignee || 'other')}</span>`}
                   </div>
                 </div>`;
-              }).join('') : '<div class="nh-empty-block" style="border:none;margin:8px">No tasks in this category yet.</div>'}
+              }).join('') : `<div class="nh-empty-block" style="border:none;margin:8px">${showAllTasks ? 'No tasks in this category yet.' : 'No tasks assigned to you in this category.'}</div>`}
             </div>
           </div>
         </div>`;
@@ -2751,12 +2778,21 @@
       if (processAdminOpen[s.id] === undefined) processAdminOpen[s.id] = false;
     });
     const total = (data.items || []).length;
+    const manageAll = canManageAllTasks();
     root.innerHTML = `
-      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <p class="user-mgmt-subtitle" style="margin:0">${total} tasks across ${(data.sections || []).length} categories. Due date = chosen date minus days before (default: 0 days before Orientation).</p>
+      <div class="nh-process-admin-banner">
+        <p class="user-mgmt-subtitle" style="margin:0">${total} tasks across ${(data.sections || []).length} categories. ${manageAll
+          ? 'You see <strong>everyone’s</strong> tasks and can add, edit, or delete any of them.'
+          : 'Showing tasks assigned to you.'} Due = chosen date minus days before (default: 0 days before Orientation).</p>
         <div style="display:flex;flex-wrap:wrap;gap:8px">
           <button type="button" class="btn-secondary" id="nh-reset-dues">Reset all dues → 0 days before Orientation</button>
         </div>
+      </div>
+      <div class="nh-role-legend" aria-hidden="true">
+        <span class="nh-role-chip nh-role-hr">HR</span>
+        <span class="nh-role-chip nh-role-admin">Admin</span>
+        <span class="nh-role-chip nh-role-logistics">Logistics</span>
+        <span class="nh-role-chip nh-role-training">Training</span>
       </div>
       ${processSectionsHtml({ adminMode: true })}`;
     root.querySelector('#nh-reset-dues')?.addEventListener('click', () => {
@@ -3039,7 +3075,9 @@
 
   function renderTemplate(root) {
     setPageTitle('Edit process');
-    setPageSub('Add tasks for yourself, or edit/delete tasks assigned to you. Admins can manage every task.');
+    setPageSub(canManageAllTasks()
+      ? 'Admin: see and manage everyone’s process tasks. Non-admins only see and edit their own.'
+      : 'Your process tasks only — add, edit, or delete work assigned to you. Admins manage everyone’s tasks under Admin.');
     (data.sections || []).forEach((s) => {
       if (processAdminOpen[s.id] === undefined) processAdminOpen[s.id] = true;
     });
@@ -3049,6 +3087,12 @@
         <div class="nh-detail-actions">
           <button class="btn-primary" type="button" id="nh-add-item">+ Add my task</button>
         </div>
+      </div>
+      <div class="nh-role-legend" aria-hidden="true">
+        <span class="nh-role-chip nh-role-hr">HR</span>
+        <span class="nh-role-chip nh-role-admin">Admin</span>
+        <span class="nh-role-chip nh-role-logistics">Logistics</span>
+        <span class="nh-role-chip nh-role-training">Training</span>
       </div>
       ${processSectionsHtml({ adminMode: canManageAllTasks() })}`;
     root.querySelector('#nh-back-t').addEventListener('click', () => { view = 'dashboard'; render(); });
@@ -3567,6 +3611,62 @@
     return String(p.values._onboard_meeting_invite || '').trim();
   }
 
+  function missingSectionsForHire(hire) {
+    ensureData();
+    const sections = [];
+    let openCount = 0;
+    (data.sections || []).forEach((sec) => {
+      const items = itemsForSection(sec.id)
+        .filter((it) => it.role !== 'PM')
+        .filter((it) => !isFilled(it, hire.values?.[it.id], hire));
+      if (!items.length) return;
+      openCount += items.length;
+      sections.push({ section: sec, items });
+    });
+    const overall = hireProgress(hire, 'all', 'all');
+    return { sections, openCount, overall };
+  }
+
+  function missingDocHtml(hireList) {
+    if (!hireList.length) {
+      return '<div class="nh-empty-block">No active hires in this cohort</div>';
+    }
+    return hireList.map((h) => {
+      const miss = missingSectionsForHire(h);
+      const doneLine = `${miss.overall.done}/${miss.overall.total} complete · ${miss.openCount} open (all roles)`;
+      const body = miss.sections.length
+        ? miss.sections.map(({ section, items }) => `
+            <div class="nh-missing-sec">
+              <div class="nh-missing-sec-title">${esc(section.id)}. ${esc(section.title)} <span class="nh-muted">(${items.length} open)</span></div>
+              <ul class="nh-missing-list">
+                ${items.map((it) => `
+                  <li>
+                    <span class="nh-missing-task">${esc(it.label)}</span>
+                    <span class="nh-person-role">
+                      <span class="nh-owner-chip">${esc(assigneeOf(h, it) || it.assignee || '—')}</span>
+                      <span class="nh-role-chip ${roleChipClass(it.role)}">${esc(it.role || '—')}</span>
+                    </span>
+                  </li>`).join('')}
+              </ul>
+            </div>`).join('')
+        : '<p class="nh-missing-done">Nothing missing — checklist complete for all roles.</p>';
+      return `
+        <article class="nh-missing-card" data-missing-hire="${esc(h.id)}">
+          <header class="nh-missing-head">
+            <div>
+              <h3 class="nh-missing-name">${esc(h.name)}</h3>
+              <div class="nh-muted">${esc(h.division || '—')} · Orient ${esc(h.startDate || '—')} · Bootcamp ${esc(h.bootcampDate || '—')}</div>
+              <div class="nh-missing-prog">${esc(doneLine)}</div>
+            </div>
+            <div class="nh-missing-actions nh-no-print">
+              <button type="button" class="btn-xs primary" data-open-hire="${esc(h.id)}">Open checklist</button>
+            </div>
+          </header>
+          ${body}
+        </article>`;
+    }).join('');
+  }
+
   function renderReports(root) {
     ensureData();
     const dates = orientationCohortDates();
@@ -3588,15 +3688,45 @@
     const usaPassItem = findItemByLabel(/USABalancer password/i);
 
     setPageTitle('Reports');
-    setPageSub('Reports mirror the spreadsheet summaries — pick an orientation cohort, then open a hire to edit details.');
+    setPageSub('Cohort summaries plus a Status / Missing one-pager (all roles) for any hire or the whole cohort — print or save as PDF from the browser.');
 
     const cohortOpts = [
       ...dates.map((d) => `<option value="${esc(d)}" ${d === reportCohort ? 'selected' : ''}>${esc(d)}</option>`),
       `<option value="__none__" ${reportCohort === '__none__' ? 'selected' : ''}>No orientation date</option>`
     ].join('');
 
+    if (reportMissingHireId !== '__all__' && !cohortHires.some((h) => h.id === reportMissingHireId)) {
+      reportMissingHireId = '__all__';
+    }
+    const missingHires = reportMissingHireId === '__all__'
+      ? cohortHires
+      : cohortHires.filter((h) => h.id === reportMissingHireId);
+    const hireOpts = [
+      `<option value="__all__" ${reportMissingHireId === '__all__' ? 'selected' : ''}>All in cohort (${cohortHires.length})</option>`,
+      ...cohortHires.map((h) => `<option value="${esc(h.id)}" ${reportMissingHireId === h.id ? 'selected' : ''}>${esc(h.name)}</option>`)
+    ].join('');
+
     let body = '';
-    if (reportKind === 'cohorts') {
+    if (reportKind === 'missing') {
+      body = `
+        <div class="nh-missing-toolbar nh-no-print">
+          <label class="nh-report-cohort">
+            <span class="nh-filter-label">Hire</span>
+            <select id="nh-report-missing-hire" class="form-input nh-role-select">
+              ${hireOpts || '<option value="__all__">No hires</option>'}
+            </select>
+          </label>
+          <button type="button" class="btn-secondary" id="nh-missing-print">Print / save PDF</button>
+          <span class="nh-muted">General view — incomplete tasks across <strong>all roles</strong>, not only yours.</span>
+        </div>
+        <div class="nh-missing-print" id="nh-missing-print-root">
+          <div class="nh-missing-doc-title">
+            <strong>Status / Missing</strong>
+            <span class="nh-muted"> · Orientation ${esc(cohort || 'none')} · Generated ${esc(todayIso())}</span>
+          </div>
+          ${missingDocHtml(missingHires)}
+        </div>`;
+    } else if (reportKind === 'cohorts') {
       body = `
         <div class="nh-table-wrap nh-report-table">
           <table class="nh-table" data-sort-key="nh-report-cohorts">
@@ -3608,13 +3738,18 @@
             <tbody>
               ${cohortHires.length ? cohortHires.map((h) => {
                 const pr = hireProgress(h, 'all', 'all');
+                const miss = missingSectionsForHire(h);
                 return `<tr>
                   <td><button type="button" class="nh-linkish" data-open-hire="${esc(h.id)}">${esc(h.name)}</button></td>
                   <td>${esc(h.division || '—')}</td>
                   <td>${esc(h.cityCenter || '—')}</td>
                   <td>${esc(h.bootcampDate || '—')}</td>
-                  <td><span class="nh-pct ${pctClass(pr.pct)}">${pr.done}/${pr.total}</span></td>
-                  <td><button class="btn-xs primary" type="button" data-open-hire="${esc(h.id)}">Open</button></td>
+                  <td><span class="nh-pct ${pctClass(pr.pct)}">${pr.done}/${pr.total}</span>
+                    <span class="nh-muted" style="margin-left:6px">${miss.openCount} open</span></td>
+                  <td class="nh-report-row-actions">
+                    <button class="btn-xs" type="button" data-missing-for="${esc(h.id)}">Status / Missing</button>
+                    <button class="btn-xs primary" type="button" data-open-hire="${esc(h.id)}">Open</button>
+                  </td>
                 </tr>`;
               }).join('') : '<tr><td colspan="6" class="nh-empty">No active hires in this cohort</td></tr>'}
             </tbody>
@@ -3648,7 +3783,10 @@
                       <option value="No" ${invite === 'No' ? 'selected' : ''}>No</option>
                     </select>
                   </td>
-                  <td><button class="btn-xs primary" type="button" data-open-hire="${esc(h.id)}">Open</button></td>
+                  <td class="nh-report-row-actions">
+                    <button class="btn-xs" type="button" data-missing-for="${esc(h.id)}">Status / Missing</button>
+                    <button class="btn-xs primary" type="button" data-open-hire="${esc(h.id)}">Open</button>
+                  </td>
                 </tr>`;
               }).join('') : '<tr><td colspan="9" class="nh-empty">No active hires in this cohort</td></tr>'}
             </tbody>
@@ -3679,7 +3817,10 @@
                 <td>${esc(displayProgressValue(h, rentalItem))}</td>
                 <td>${esc(displayProgressValue(h, usaUserItem))}</td>
                 <td>${esc(displayProgressValue(h, usaPassItem))}</td>
-                <td><button class="btn-xs primary" type="button" data-open-hire="${esc(h.id)}">Open</button></td>
+                <td class="nh-report-row-actions">
+                  <button class="btn-xs" type="button" data-missing-for="${esc(h.id)}">Status / Missing</button>
+                  <button class="btn-xs primary" type="button" data-open-hire="${esc(h.id)}">Open</button>
+                </td>
               </tr>`).join('') : '<tr><td colspan="9" class="nh-empty">No active hires in this cohort</td></tr>'}
             </tbody>
           </table>
@@ -3688,11 +3829,12 @@
 
     root.innerHTML = `
       ${roleBar()}
-      <div class="nh-report-chrome">
+      <div class="nh-report-chrome nh-no-print">
         <div class="nh-report-tabs">
           <button type="button" class="wt-filter-btn ${reportKind === 'cohorts' ? 'active' : ''}" data-report="cohorts">Orientation cohorts</button>
           <button type="button" class="wt-filter-btn ${reportKind === 'onboard' ? 'active' : ''}" data-report="onboard">Onboard status</button>
           <button type="button" class="wt-filter-btn ${reportKind === 'it' ? 'active' : ''}" data-report="it">IT summary</button>
+          <button type="button" class="wt-filter-btn ${reportKind === 'missing' ? 'active' : ''}" data-report="missing">Status / Missing</button>
         </div>
         <label class="nh-report-cohort">
           <span class="nh-filter-label">Orientation date</span>
@@ -3715,6 +3857,15 @@
       reportCohort = e.target.value;
       render();
     });
+    root.querySelector('#nh-report-missing-hire')?.addEventListener('change', (e) => {
+      reportMissingHireId = e.target.value || '__all__';
+      render();
+    });
+    root.querySelector('#nh-missing-print')?.addEventListener('click', () => {
+      document.body.classList.add('nh-printing-missing');
+      window.print();
+      setTimeout(() => document.body.classList.remove('nh-printing-missing'), 300);
+    });
     root.querySelector('#nh-report-sensitive')?.addEventListener('change', (e) => {
       revealSensitive = !!e.target.checked;
       render();
@@ -3727,6 +3878,13 @@
         if (v) p.values._onboard_meeting_invite = v;
         else delete p.values._onboard_meeting_invite;
         persist();
+      });
+    });
+    root.querySelectorAll('[data-missing-for]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        reportMissingHireId = btn.getAttribute('data-missing-for') || '__all__';
+        reportKind = 'missing';
+        render();
       });
     });
     root.querySelectorAll('[data-open-hire]').forEach((btn) => {

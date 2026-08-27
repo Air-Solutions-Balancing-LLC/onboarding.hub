@@ -275,13 +275,22 @@
     return state.authorized.filter((user) => String(user.role) === role);
   }
 
+  function roleBadgeClass(role) {
+    const key = String(role || '').toLowerCase().trim();
+    if (key === 'admin') return 'hub-role-badge hub-role-admin';
+    if (key === 'hr' || key === 'finance' || key === 'accounting' || key === 'general_office') return 'hub-role-badge hub-role-hr';
+    if (key === 'logistics') return 'hub-role-badge hub-role-logistics';
+    if (key === 'training') return 'hub-role-badge hub-role-training';
+    return 'hub-role-badge hub-role-other';
+  }
+
   function renderUserRow(user, { leftover = false } = {}) {
     const canRevoke = String(user.role) !== 'admin' || leftover;
     const atlasAdminLocked = !leftover && String(user.role) === 'admin';
     return `<tr data-email="${escapeHtml(user.email)}">
       <td>${escapeHtml(user.full_name || '—')}</td>
       <td>${escapeHtml(user.email)}</td>
-      <td>${escapeHtml(roleLabel(user.role))}</td>
+      <td><span class="${roleBadgeClass(user.role)}">${escapeHtml(roleLabel(user.role))}</span></td>
       <td>${escapeHtml(user.region || '—')}</td>
       <td>${leftover ? 'Hub leftover' : 'Atlas'}</td>
       <td>${
