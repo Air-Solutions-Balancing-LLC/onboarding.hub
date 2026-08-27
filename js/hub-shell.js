@@ -141,6 +141,25 @@
 
     const key = table.getAttribute('data-sort-key');
     if (key) savedSort[key] = { col: colIndex, dir };
+    syncStickyOffsets(table);
+  }
+
+  function syncStickyOffsets(table) {
+    if (!table || !table.classList.contains('nh-sheet')) return;
+    const headerRow = table.tHead && table.tHead.rows[0];
+    if (!headerRow) return;
+    const first = headerRow.querySelector('.nh-sticky:not(.nh-sticky-2)');
+    if (!first) return;
+    const apply = () => {
+      const width = Math.round(first.getBoundingClientRect().width);
+      if (width > 0) table.style.setProperty('--nh-sticky-2-left', width + 'px');
+      const row0 = headerRow.getBoundingClientRect().height;
+      const row1 = table.tHead.rows[1] ? table.tHead.rows[1].getBoundingClientRect().height : 0;
+      if (row0 > 0) table.style.setProperty('--nh-sticky-top-1', Math.round(row0) + 'px');
+      if (row0 + row1 > 0) table.style.setProperty('--nh-sticky-top-2', Math.round(row0 + row1) + 'px');
+    };
+    apply();
+    requestAnimationFrame(apply);
   }
 
   function bindSortableTable(table) {
@@ -176,12 +195,76 @@
       const key = table.getAttribute('data-sort-key');
       const saved = key ? savedSort[key] : null;
       if (saved) applySort(table, saved.col, saved.dir);
+      else syncStickyOffsets(table);
     });
+  }
+
+  function placeFixedPopup(el, anchor, opts) {
+    if (!el || !anchor) return;
+    opts = opts || {};
+    const pad = opts.pad == null ? 8 : opts.pad;
+    const gap = opts.gap == null ? 6 : opts.gap;
+    const prefer = opts.prefer || 'below';
+    const rect = typeof anchor.getBoundingClientRect === 'function'
+      ? anchor.getBoundingClientRect()
+      : anchor;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    el.style.position = 'fixed';
+    el.style.maxHeight = '';
+    el.style.maxWidth = '';
+    el.style.top = '0px';
+    el.style.left = '0px';
+
+    const naturalH = el.scrollHeight;
+    const naturalW = Math.max(el.offsetWidth, el.scrollWidth);
+
+    let top = pad;
+    let left = pad;
+
+    if (prefer === 'right') {
+      const spaceRight = vw - rect.right - pad - gap;
+      const spaceLeft = rect.left - pad - gap;
+      const placeRight = spaceRight >= Math.min(naturalW, 160) || spaceRight >= spaceLeft;
+      const maxW = Math.max(120, placeRight ? spaceRight : spaceLeft);
+      if (naturalW > maxW) el.style.maxWidth = Math.round(maxW) + 'px';
+      const w = Math.min(el.offsetWidth, maxW);
+      left = placeRight ? rect.right + gap : rect.left - gap - w;
+      const maxH = Math.max(96, vh - pad * 2);
+      if (naturalH > maxH) el.style.maxHeight = Math.round(maxH) + 'px';
+      const h = Math.min(naturalH, maxH);
+      top = rect.top;
+      if (top + h > vh - pad) top = vh - pad - h;
+    } else {
+      const spaceBelow = vh - rect.bottom - pad - gap;
+      const spaceAbove = rect.top - pad - gap;
+      let placeBelow = true;
+      if (spaceBelow >= naturalH) placeBelow = true;
+      else if (spaceAbove >= naturalH) placeBelow = false;
+      else placeBelow = spaceBelow >= spaceAbove;
+      const maxH = Math.min(opts.maxHeight || 420, Math.max(96, placeBelow ? spaceBelow : spaceAbove));
+      el.style.maxHeight = Math.round(maxH) + 'px';
+      const h = Math.min(naturalH, maxH);
+      top = placeBelow ? rect.bottom + gap : rect.top - gap - h;
+      const maxW = vw - pad * 2;
+      if (naturalW > maxW) el.style.maxWidth = Math.round(maxW) + 'px';
+      const w = Math.min(el.offsetWidth, maxW);
+      left = rect.left;
+      if (left + w > vw - pad) left = vw - pad - w;
+    }
+
+    if (top < pad) top = pad;
+    if (left < pad) left = pad;
+    el.style.top = Math.round(top) + 'px';
+    el.style.left = Math.round(left) + 'px';
   }
 
   root.HubShell = {
     initSidebar,
     fillUserProfile,
     enhanceTables,
+    syncStickyOffsets,
+    placeFixedPopup,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

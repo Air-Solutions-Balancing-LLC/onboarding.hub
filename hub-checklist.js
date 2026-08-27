@@ -113,6 +113,207 @@
   let mounted = false;
   let todoLimit = 40; // hire groups shown (not flat task rows)
   let todoOpenHires = {}; // hireId -> expanded
+  const COLUMN_VISIBILITY_KEY = 'nh_dashboard_column_visibility_v1';
+  const PROFILE_COLUMNS = [
+    { id: 'position', label: 'Position' },
+    { id: 'region', label: 'Region' },
+    { id: 'city_center', label: 'City center' },
+    { id: 'orientation', label: 'Orientation' },
+    { id: 'start', label: 'Start' },
+    { id: 'bootcamp', label: 'Bootcamp' },
+    { id: 'status', label: 'Status' },
+    { id: 'overall', label: 'Overall' }
+  ];
+  const LOCKED_COLUMNS = ['_num', 'name', '_actions'];
+  let columnVisibility = readColumnVisibility();
+  let columnMenuBound = false;
+
+  function sectionColumns() {
+    return (data && data.sections ? data.sections : []).map((sec) => ({
+      id: 'sec-' + sec.id,
+      label: sec.id + ' — ' + (sec.title || sec.id)
+    }));
+  }
+
+  function toggleableColumns() {
+    return PROFILE_COLUMNS.concat(sectionColumns());
+  }
+
+  function readColumnVisibility() {
+    try {
+      const raw = localStorage.getItem(COLUMN_VISIBILITY_KEY);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  function writeColumnVisibility() {
+    try {
+      localStorage.setItem(COLUMN_VISIBILITY_KEY, JSON.stringify(columnVisibility));
+    } catch (_) { /* ignore */ }
+  }
+
+  function isColumnVisible(id) {
+    return columnVisibility[id] !== false;
+  }
+
+  function visibleColumnCount() {
+    let n = LOCKED_COLUMNS.length;
+    toggleableColumns().forEach((c) => {
+      if (isColumnVisible(c.id)) n += 1;
+    });
+    return n;
+  }
+
+  function ensureColumnHideStyles() {
+    let style = document.getElementById('nhSheetColumnHideStyles');
+    if (!style) {
+      style = document.createElement('style');
+      style.id = 'nhSheetColumnHideStyles';
+      document.head.appendChild(style);
+    }
+    style.textContent = toggleableColumns().map((c) => {
+      const id = String(c.id).replace(/[^a-zA-Z0-9_-]/g, '');
+      return `.nh-sheet.hide-col-${id} th[data-col="${id}"],` +
+        `.nh-sheet.hide-col-${id} td[data-col="${id}"]{display:none !important;}`;
+    }).join('\n');
+  }
+
+  function applyColumnVisibility() {
+    ensureColumnHideStyles();
+    const table = document.querySelector('table.nh-sheet');
+    if (table) {
+      toggleableColumns().forEach((c) => {
+        table.classList.toggle('hide-col-' + c.id, !isColumnVisible(c.id));
+      });
+      if (window.HubShell && HubShell.syncStickyOffsets) HubShell.syncStickyOffsets(table);
+    }
+    const btn = document.getElementById('nh-column-visibility-btn');
+    if (btn) {
+      const hidden = toggleableColumns().filter((c) => !isColumnVisible(c.id)).length;
+      btn.textContent = hidden ? `Show/Hide columns (${hidden} hidden)` : 'Show/Hide columns';
+      btn.classList.toggle('is-active', hidden > 0);
+    }
+    const menu = document.getElementById('nh-column-visibility-menu');
+    if (menu) {
+      menu.querySelectorAll('input[data-col-toggle]').forEach((input) => {
+        input.checked = isColumnVisible(input.getAttribute('data-col-toggle'));
+      });
+    }
+  }
+
+  function setColumnVisible(id, visible) {
+    if (!toggleableColumns().some((c) => c.id === id)) return;
+    columnVisibility[id] = !!visible;
+    writeColumnVisibility();
+    applyColumnVisibility();
+  }
+
+  function setColumnGroupVisible(ids, visible) {
+    ids.forEach((id) => { columnVisibility[id] = !!visible; });
+    writeColumnVisibility();
+    applyColumnVisibility();
+  }
+
+  function closeColumnVisibilityMenu() {
+    const menu = document.getElementById('nh-column-visibility-menu');
+    const btn = document.getElementById('nh-column-visibility-btn');
+    if (menu) menu.remove();
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  }
+
+  function columnOptionHtml(c) {
+    return `<label class="column-visibility-option" role="menuitemcheckbox">
+      <input type="checkbox" data-col-toggle="${esc(c.id)}" ${isColumnVisible(c.id) ? 'checked' : ''} />
+      ${esc(c.label)}
+    </label>`;
+  }
+
+  function openColumnVisibilityMenu() {
+    const btn = document.getElementById('nh-column-visibility-btn');
+    if (!btn) return;
+    closeColumnVisibilityMenu();
+    const rect = btn.getBoundingClientRect();
+    const menu = document.createElement('div');
+    menu.id = 'nh-column-visibility-menu';
+    menu.className = 'column-visibility-menu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', 'Show or hide columns');
+    menu.style.top = Math.round(rect.bottom + 6) + 'px';
+    menu.style.left = Math.round(rect.left) + 'px';
+    const process = sectionColumns();
+    menu.innerHTML = `
+      <div class="column-visibility-actions">
+        <button type="button" data-col-vis="all">Show all</button>
+        ${process.length ? '<button type="button" data-col-vis="hide-process">Hide process</button>' : ''}
+      </div>
+      <div class="column-visibility-heading">Profile</div>
+      ${PROFILE_COLUMNS.map(columnOptionHtml).join('')}
+      ${process.length ? `<div class="column-visibility-heading">Process</div>${process.map(columnOptionHtml).join('')}` : ''}
+    `;
+    menu.addEventListener('mousedown', (e) => {
+      if (e.target.closest('button')) return;
+      e.preventDefault();
+    });
+    menu.addEventListener('change', (e) => {
+      const input = e.target.closest('input[data-col-toggle]');
+      if (!input) return;
+      setColumnVisible(input.getAttribute('data-col-toggle'), input.checked);
+    });
+    menu.addEventListener('click', (e) => {
+      const action = e.target.closest('[data-col-vis]');
+      if (!action) return;
+      if (action.getAttribute('data-col-vis') === 'all') {
+        setColumnGroupVisible(toggleableColumns().map((c) => c.id), true);
+      } else if (action.getAttribute('data-col-vis') === 'hide-process') {
+        setColumnGroupVisible(sectionColumns().map((c) => c.id), false);
+      }
+    });
+    document.body.appendChild(menu);
+    btn.setAttribute('aria-expanded', 'true');
+    const place = () => {
+      if (window.HubShell && HubShell.placeFixedPopup) {
+        HubShell.placeFixedPopup(menu, btn, { prefer: 'below', gap: 6, pad: 8, maxHeight: 420 });
+      }
+    };
+    place();
+    requestAnimationFrame(place);
+  }
+
+  function toggleColumnVisibilityMenu() {
+    if (document.getElementById('nh-column-visibility-menu')) closeColumnVisibilityMenu();
+    else openColumnVisibilityMenu();
+  }
+
+  function bindColumnVisibility(root) {
+    const btn = root.querySelector('#nh-column-visibility-btn');
+    if (!btn) {
+      closeColumnVisibilityMenu();
+      return;
+    }
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleColumnVisibilityMenu();
+    });
+    if (!columnMenuBound) {
+      columnMenuBound = true;
+      document.addEventListener('click', (e) => {
+        const menu = document.getElementById('nh-column-visibility-menu');
+        const currentBtn = document.getElementById('nh-column-visibility-btn');
+        if (!menu) return;
+        if (menu.contains(e.target) || (currentBtn && currentBtn.contains(e.target))) return;
+        closeColumnVisibilityMenu();
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeColumnVisibilityMenu();
+      });
+      window.addEventListener('resize', () => closeColumnVisibilityMenu());
+    }
+    applyColumnVisibility();
+  }
 
   function client() {
     return window.HubAuth && HubAuth.getClient ? HubAuth.getClient() : null;
@@ -909,6 +1110,20 @@
     return String(type || '—').replace(/_/g, ' ');
   }
 
+  function positionText(type) {
+    if (!type) return '—';
+    return esc(formatType(normalizePosition(type)));
+  }
+
+  function regionText(region) {
+    return esc(normalizeRegion(region) || region || '—');
+  }
+
+  function cityCenterText(city) {
+    const v = String(city || '').trim();
+    return esc(v || '—');
+  }
+
   function normalizePosition(type) {
     const t = String(type || '').toLowerCase().trim();
     if (!t) return 'technician';
@@ -938,30 +1153,6 @@
       'rocky mountains': 'Rocky Mountain'
     };
     return aliases[lower] || raw;
-  }
-
-  function optionSelect(empId, field, value, options, extraClass) {
-    const cur = value || '';
-    const vals = options.map((o) => (typeof o === 'string' ? { value: o, label: o } : o));
-    const known = vals.some((o) => o.value === cur);
-    const opts = known || !cur ? vals : [{ value: cur, label: cur }, ...vals];
-    return `<select class="nh-status-select nh-profile-select ${extraClass || ''}" data-emp-field="${esc(field)}" data-emp-id="${esc(empId)}" title="${esc(field)}">
-      <option value="">—</option>
-      ${opts.map((o) => `<option value="${esc(o.value)}" ${o.value === cur ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}
-    </select>`;
-  }
-
-  function positionSelect(empId, type) {
-    return optionSelect(empId, 'employee_type', normalizePosition(type), POSITION_OPTIONS);
-  }
-
-  function regionSelect(empId, region) {
-    // Always show the normalized region so old values like "KES Assistant…" become just KES
-    return optionSelect(empId, 'region', normalizeRegion(region) || '', REGION_OPTIONS);
-  }
-
-  function cityCenterSelect(empId, city) {
-    return `<input class="form-input nh-profile-select nh-city-input" type="text" data-emp-field="city_center" data-emp-id="${esc(empId)}" value="${esc(city || '')}" placeholder="City center" title="City center">`;
   }
 
   function filteredEmployees() {
@@ -1079,6 +1270,16 @@
     render();
   }
 
+  function setPageTitle(text) {
+    const el = document.querySelector('#page-checklist .page-title');
+    if (el) el.textContent = text;
+    const headerTitle = document.getElementById('hub-header-title');
+    const checklistPage = document.getElementById('page-checklist');
+    if (headerTitle && checklistPage && checklistPage.classList.contains('active')) {
+      headerTitle.textContent = text;
+    }
+  }
+
   function setPageSub(text) {
     const el = document.querySelector('#page-checklist .page-sub');
     if (el) el.textContent = text;
@@ -1087,6 +1288,51 @@
     if (headerSub && checklistPage && checklistPage.classList.contains('active')) {
       headerSub.textContent = text;
     }
+  }
+
+  function navViewKey() {
+    if (view === 'detail') return detailReturnView || 'dashboard';
+    if (['dashboard', 'todo', 'roster', 'archive', 'template'].includes(view)) return view;
+    return 'dashboard';
+  }
+
+  function syncChecklistNav() {
+    const page = document.getElementById('page-checklist');
+    if (!page || !page.classList.contains('active')) return;
+    const key = navViewKey();
+    document.querySelectorAll('.sidebar-nav .nav-item').forEach((b) => b.classList.remove('active'));
+    const match = document.querySelector(`.sidebar-nav .nav-item[data-nh-view="${key}"]`);
+    if (match) match.classList.add('active');
+  }
+
+  function syncHeaderActions() {
+    const wrap = document.getElementById('hub-header-actions');
+    if (!wrap) return;
+    const page = document.getElementById('page-checklist');
+    const onChecklist = !!(page && page.classList.contains('active'));
+    wrap.hidden = !(onChecklist && ['dashboard', 'roster', 'archive'].includes(view));
+  }
+
+  function setView(next, opts) {
+    const allowed = ['dashboard', 'todo', 'roster', 'archive', 'template'];
+    view = allowed.includes(next) ? next : 'dashboard';
+    selectedHireId = null;
+    if (!(opts && opts.silent) && mounted) render();
+    else {
+      syncChecklistNav();
+      syncHeaderActions();
+    }
+  }
+
+  function getView() {
+    return view;
+  }
+
+  function bindHeaderAdd() {
+    const btn = document.getElementById('nh-header-add');
+    if (!btn || btn.dataset.bound === '1') return;
+    btn.dataset.bound = '1';
+    btn.addEventListener('click', () => openHireModal());
   }
 
   function statusSelect(empId, status, extraClass) {
@@ -1133,36 +1379,6 @@
     if (region) p.values[regionItem.id] = region;
     else delete p.values[regionItem.id];
     persist();
-  }
-
-  function bindProfileSelects(root) {
-    root.querySelectorAll('[data-emp-field]').forEach((el) => {
-      const commit = async () => {
-        const id = el.getAttribute('data-emp-id');
-        const field = el.getAttribute('data-emp-field');
-        const emp = employees.find((e) => e.id === id);
-        if (!emp || !field) return;
-        const prev = emp[field];
-        let next = (el.value || '').trim() || null;
-        if (field === 'employee_type') next = normalizePosition(next || 'technician');
-        if (field === 'region') next = normalizeRegion(next) || null;
-        if ((prev || null) === next) return;
-        emp[field] = next;
-        el.classList.add('nh-saving');
-        try {
-          await syncEmployeePatch(id, { [field]: next });
-          if (field === 'region') syncRegionProgress(id, next || '');
-        } catch (e) {
-          emp[field] = prev;
-          el.value = prev || '';
-          alert('Could not update ' + field.replace(/_/g, ' ') + ': ' + (e.message || e));
-        }
-        el.classList.remove('nh-saving');
-        if (field !== 'city_center' && (view === 'roster' || view === 'dashboard' || view === 'archive')) render();
-      };
-      el.addEventListener('change', commit);
-      if (el.tagName === 'INPUT') el.addEventListener('blur', commit);
-    });
   }
 
   async function deleteEmployee(id) {
@@ -1245,8 +1461,8 @@
       <div class="nh-filter-panel">
         <div class="nh-filter-group">
           <span class="nh-filter-label">Quick</span>
-          <button type="button" class="nh-my-tasks-btn ${mineActive ? 'active' : ''}" id="nh-my-tasks" title="Show only tasks assigned to you">
-            My tasks${me !== 'all' ? ` · ${esc(myLabel)}` : ''}
+          <button type="button" class="nh-my-tasks-btn ${mineActive ? 'active' : ''}" id="nh-my-tasks" title="Filter this list to tasks assigned to you">
+            Assigned to me${me !== 'all' ? ` · ${esc(myLabel)}` : ''}
           </button>
         </div>
         <div class="nh-filter-divider" aria-hidden="true"></div>
@@ -1268,17 +1484,10 @@
 
   function roleBar(opts) {
     const showRoleFilter = !!(opts && opts.showRoleFilter);
+    if (!showRoleFilter) return '';
     return `
       <div class="nh-rolebar">
-        ${showRoleFilter ? roleFilterControls('nh-role') : '<div class="nh-rolebar-left"></div>'}
-        <div class="nh-rolebar-right">
-          <button class="btn-secondary ${view === 'dashboard' ? 'nh-tab-on' : ''}" type="button" data-view="dashboard">Dashboard</button>
-          <button class="btn-secondary ${view === 'todo' ? 'nh-tab-on' : ''}" type="button" data-view="todo">My To-Do</button>
-          <button class="btn-secondary ${view === 'roster' ? 'nh-tab-on' : ''}" type="button" data-view="roster">Roster</button>
-          <button class="btn-secondary ${view === 'archive' ? 'nh-tab-on' : ''}" type="button" data-view="archive">Archive</button>
-          <button class="btn-secondary" type="button" id="nh-btn-template">Edit process</button>
-          <button class="btn-primary" type="button" id="nh-btn-add">+ Add new hire</button>
-        </div>
+        ${roleFilterControls('nh-role')}
       </div>`;
   }
 
@@ -1320,22 +1529,10 @@
       render();
     });
     bindPersonChips(root);
-    root.querySelectorAll('[data-view]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        view = btn.getAttribute('data-view');
-        selectedHireId = null;
-        render();
-      });
-    });
-    root.querySelector('#nh-btn-add')?.addEventListener('click', () => openHireModal());
-    root.querySelector('#nh-btn-template')?.addEventListener('click', () => {
-      // Everyone can edit process tasks they own; Admins also have the Admin process card
-      view = 'template';
-      render();
-    });
   }
 
   function renderTodo(root) {
+    setPageTitle('My To-Do');
     setPageSub('Grouped by hire — check off, enter dates/values, or Edit tasks here. Role / person filters from Dashboard still apply.');
     const entries = todoEntries();
     const groups = todoGroups(entries);
@@ -1376,7 +1573,7 @@
       <div class="nh-todo-list nh-todo-grouped">
         ${shownGroups.length
           ? shownGroups.map(todoHireGroup).join('')
-          : '<div class="nh-empty-block">No tasks for this filter. Try Open, or set Role / My tasks on Dashboard.</div>'}
+          : '<div class="nh-empty-block">No tasks for this filter. Try Open, or set Role / Person on Dashboard.</div>'}
       </div>
       ${groups.length > todoLimit
         ? `<div style="margin-top:12px;text-align:center"><button class="btn-secondary" type="button" id="nh-todo-more">Show more hires (${groups.length - todoLimit} left)</button></div>`
@@ -1572,18 +1769,18 @@
   function dashboardColFilterRow(sections) {
     const c = filters.cols || {};
     return `<tr class="nh-sheet-filters">
-      <th class="nh-sticky"></th>
-      <th class="nh-sticky nh-sticky-2">${colFilterInput('name', 'Filter name…')}</th>
-      <th>${colFilterSelect('position', POSITION_OPTIONS, 'All positions')}</th>
-      <th>${colFilterSelect('region', REGION_OPTIONS, 'All regions')}</th>
-      <th>${colFilterInput('city_center', 'City…')}</th>
-      <th>${colFilterInput('orientation', 'YYYY-MM-DD')}</th>
-      <th>${colFilterInput('start', 'YYYY-MM-DD')}</th>
-      <th>${colFilterInput('bootcamp', 'YYYY-MM-DD')}</th>
-      <th>${colFilterSelect('status', STATUS_OPTIONS.map((s) => ({ value: s, label: formatStatusLabel(s) })), 'All statuses')}</th>
-      <th></th>
-      ${sections.map(() => '<th></th>').join('')}
-      <th>${Object.values(c).some(Boolean) ? '<button type="button" class="btn-xs" id="nh-clear-col-filters" title="Clear column filters">Clear</button>' : ''}</th>
+      <th class="nh-sticky" data-col="_num"></th>
+      <th class="nh-sticky nh-sticky-2" data-col="name">${colFilterInput('name', 'Filter name…')}</th>
+      <th data-col="position">${colFilterSelect('position', POSITION_OPTIONS, 'All positions')}</th>
+      <th data-col="region">${colFilterSelect('region', REGION_OPTIONS, 'All regions')}</th>
+      <th data-col="city_center">${colFilterInput('city_center', 'City…')}</th>
+      <th data-col="orientation">${colFilterInput('orientation', 'YYYY-MM-DD')}</th>
+      <th data-col="start">${colFilterInput('start', 'YYYY-MM-DD')}</th>
+      <th data-col="bootcamp">${colFilterInput('bootcamp', 'YYYY-MM-DD')}</th>
+      <th data-col="status">${colFilterSelect('status', STATUS_OPTIONS.map((s) => ({ value: s, label: formatStatusLabel(s) })), 'All statuses')}</th>
+      <th data-col="overall"></th>
+      ${sections.map((sec) => `<th data-col="sec-${esc(sec.id)}"></th>`).join('')}
+      <th data-col="_actions">${Object.values(c).some(Boolean) ? '<button type="button" class="btn-xs" id="nh-clear-col-filters" title="Clear column filters">Clear</button>' : ''}</th>
     </tr>`;
   }
 
@@ -1620,7 +1817,6 @@
   function bindRosterChrome(root) {
     bindRoleBar(root);
     bindStatusSelects(root);
-    bindProfileSelects(root);
     bindColFilters(root);
     root.querySelector('#nh-search')?.addEventListener('input', (e) => {
       filters.q = e.target.value;
@@ -1659,9 +1855,11 @@
       });
     });
     if (window.HubShell && HubShell.enhanceTables) HubShell.enhanceTables(root);
+    bindColumnVisibility(root);
   }
 
   function renderDashboard(root) {
+    setPageTitle('Onboarding Dashboard');
     setPageSub(`Filter by Role and Person — currently viewing ${filterScopeLabel()}. Named owners open on their own tasks; admins see everyone by default.`);
     ensureData();
     const s = stats();
@@ -1679,6 +1877,7 @@
       <div class="nh-toolbar">
         <input type="search" class="nh-search" id="nh-search" placeholder="Search by name, email, or #..." value="${esc(filters.q)}" />
         <div class="nh-filters">
+          <button type="button" class="btn-secondary" id="nh-column-visibility-btn" aria-expanded="false" aria-haspopup="menu" aria-controls="nh-column-visibility-menu">Show/Hide columns</button>
           <span class="nh-muted">Showing active hires · archived are under Archive</span>
         </div>
       </div>
@@ -1686,26 +1885,33 @@
         <table class="nh-sheet" data-sort-key="nh-dashboard">
           <thead>
             <tr>
-              <th class="nh-sticky">#</th>
-              <th class="nh-sticky nh-sticky-2">Name</th>
-              <th>Position</th>
-              <th>Region</th>
-              <th>City center</th>
-              <th>Orientation</th>
-              <th>Start</th>
-              <th>Bootcamp</th>
-              <th>Status</th>
-              <th>Overall</th>
-              ${sections.map((sec) => `<th title="${esc(sec.title)}" class="nh-sec-col">${esc(sec.id)}</th>`).join('')}
-              <th></th>
+              <th class="nh-sticky" data-col="_num">#</th>
+              <th class="nh-sticky nh-sticky-2" data-col="name">Name</th>
+              <th data-col="position">Position</th>
+              <th data-col="region">Region</th>
+              <th data-col="city_center">City center</th>
+              <th data-col="orientation">Orientation</th>
+              <th data-col="start">Start</th>
+              <th data-col="bootcamp">Bootcamp</th>
+              <th data-col="status">Status</th>
+              <th data-col="overall">Overall</th>
+              ${sections.map((sec) => `<th title="${esc(sec.title)}" class="nh-sec-col" data-col="sec-${esc(sec.id)}">${esc(sec.id)}</th>`).join('')}
+              <th data-col="_actions"></th>
             </tr>
             ${dashboardColFilterRow(sections)}
             <tr class="nh-sheet-subhead">
-              <th class="nh-sticky"></th>
-              <th class="nh-sticky nh-sticky-2"></th>
-              <th colspan="8" class="nh-muted">Profile</th>
-              ${sections.map((sec) => `<th class="nh-sec-sub">${esc(sec.title)}</th>`).join('')}
-              <th></th>
+              <th class="nh-sticky" data-col="_num"></th>
+              <th class="nh-sticky nh-sticky-2" data-col="name"></th>
+              <th data-col="position" class="nh-muted">Profile</th>
+              <th data-col="region"></th>
+              <th data-col="city_center"></th>
+              <th data-col="orientation"></th>
+              <th data-col="start"></th>
+              <th data-col="bootcamp"></th>
+              <th data-col="status"></th>
+              <th data-col="overall"></th>
+              ${sections.map((sec) => `<th class="nh-sec-sub" data-col="sec-${esc(sec.id)}">${esc(sec.title)}</th>`).join('')}
+              <th data-col="_actions"></th>
             </tr>
           </thead>
           <tbody>
@@ -1713,27 +1919,27 @@
               const hire = empToHire(emp);
               const overall = hireProgress(hire);
               return `<tr>
-                <td class="nh-sticky nh-muted">${esc(emp.employee_number ?? '—')}</td>
-                <td class="nh-sticky nh-sticky-2 nh-name">
+                <td class="nh-sticky nh-muted" data-col="_num">${esc(emp.employee_number ?? '—')}</td>
+                <td class="nh-sticky nh-sticky-2 nh-name" data-col="name">
                   <button type="button" class="nh-linkish" data-open-hire="${esc(emp.id)}">${esc(displayHireName(emp))}</button>
                 </td>
-                <td>${positionSelect(emp.id, emp.employee_type)}</td>
-                <td>${regionSelect(emp.id, emp.region)}</td>
-                <td>${cityCenterSelect(emp.id, emp.city_center)}</td>
-                <td>${esc(emp.start_date || '—')}</td>
-                <td>${esc(emp.work_start_date || '—')}</td>
-                <td>${esc(emp.bootcamp_start_date || '—')}</td>
-                <td>${statusSelect(emp.id, emp.status)}</td>
-                <td><span class="nh-pct ${pctClass(overall.pct)}" title="${overall.done}/${overall.total} for ${esc(filterScopeLabel())}">${overall.done}/${overall.total}</span></td>
+                <td data-col="position">${positionText(emp.employee_type)}</td>
+                <td data-col="region">${regionText(emp.region)}</td>
+                <td data-col="city_center">${cityCenterText(emp.city_center)}</td>
+                <td data-col="orientation">${esc(emp.start_date || '—')}</td>
+                <td data-col="start">${esc(emp.work_start_date || '—')}</td>
+                <td data-col="bootcamp">${esc(emp.bootcamp_start_date || '—')}</td>
+                <td data-col="status">${statusSelect(emp.id, emp.status)}</td>
+                <td data-col="overall"><span class="nh-pct ${pctClass(overall.pct)}" title="${overall.done}/${overall.total} for ${esc(filterScopeLabel())}">${overall.done}/${overall.total}</span></td>
                 ${sections.map((sec) => {
                   const sp = sectionProgress(hire, sec.id);
-                  return `<td class="nh-sec-cell">
+                  return `<td class="nh-sec-cell" data-col="sec-${esc(sec.id)}">
                     <button type="button" class="nh-pct ${pctClass(sp.pct)}" data-open-hire="${esc(emp.id)}" title="${esc(sec.title)} · ${esc(filterScopeLabel())}: ${sp.done}/${sp.total}">${sp.done}/${sp.total}</button>
                   </td>`;
                 }).join('')}
-                <td><button class="btn-xs primary" type="button" data-open-hire="${esc(emp.id)}">Open</button></td>
+                <td data-col="_actions"><button class="btn-xs primary" type="button" data-open-hire="${esc(emp.id)}">Open</button></td>
               </tr>`;
-            }).join('') : `<tr><td colspan="${11 + sections.length}" class="nh-empty">No employees found</td></tr>`}
+            }).join('') : `<tr><td colspan="${visibleColumnCount()}" class="nh-empty">No employees found</td></tr>`}
           </tbody>
         </table>
       </div>
@@ -1743,6 +1949,7 @@
   }
 
   function renderRoster(root) {
+    setPageTitle('Roster');
     setPageSub('Active employee roster — change Status to move someone to Archive. Open a hire for the full checklist.');
     const s = stats();
     const rows = filteredEmployees();
@@ -1773,9 +1980,9 @@
               return `<tr>
                 <td class="nh-muted">${esc(emp.employee_number ?? '—')}</td>
                 <td class="nh-name"><button type="button" class="nh-linkish" data-open-hire="${esc(emp.id)}">${esc(displayHireName(emp))}</button></td>
-                <td>${positionSelect(emp.id, emp.employee_type)}</td>
-                <td>${regionSelect(emp.id, emp.region)}</td>
-                <td>${cityCenterSelect(emp.id, emp.city_center)}</td>
+                <td>${positionText(emp.employee_type)}</td>
+                <td>${regionText(emp.region)}</td>
+                <td>${cityCenterText(emp.city_center)}</td>
                 <td>${esc(emp.start_date || '—')}</td>
                 <td>${esc(emp.work_start_date || '—')}</td>
                 <td>${esc(emp.bootcamp_start_date || '—')}</td>
@@ -1792,6 +1999,7 @@
   }
 
   function renderArchive(root) {
+    setPageTitle('Archive');
     setPageSub('Archived hires (Archive, Terminated, Quit, Rescinded, Resigned). Set Status back to Active to restore, or Delete permanently.');
     ensureData();
     const s = stats();
@@ -1826,9 +2034,9 @@
               return `<tr>
                 <td class="nh-muted">${esc(emp.employee_number ?? '—')}</td>
                 <td class="nh-name"><button type="button" class="nh-linkish" data-open-hire="${esc(emp.id)}">${esc(displayHireName(emp))}</button></td>
-                <td>${positionSelect(emp.id, emp.employee_type)}</td>
-                <td>${regionSelect(emp.id, emp.region)}</td>
-                <td>${cityCenterSelect(emp.id, emp.city_center)}</td>
+                <td>${positionText(emp.employee_type)}</td>
+                <td>${regionText(emp.region)}</td>
+                <td>${cityCenterText(emp.city_center)}</td>
                 <td>${esc(emp.start_date || '—')}</td>
                 <td>${esc(emp.work_start_date || '—')}</td>
                 <td>${esc(emp.bootcamp_start_date || '—')}</td>
@@ -1916,6 +2124,7 @@
     const archived = isArchivedStatus(hire.status);
     const p = hireProgress(hire);
     const scoped = filterScopeLabel();
+    setPageTitle(displayHireName(hire));
     setPageSub(archived
       ? 'Archived hire — set Status back to Active on Archive to restore, or Delete from Archive.'
       : `Showing tasks for ${scoped} (${p.done}/${p.total}). Use Role and your name below to see only your tasks.`);
@@ -1973,9 +2182,9 @@
         <div>
           <div class="nh-profile-name">${esc(hire.name)}</div>
           <div class="nh-profile-meta nh-profile-selects">
-            <label class="nh-check-label">Position ${positionSelect(hire.id, hire.employeeType)}</label>
-            <label class="nh-check-label">Region ${regionSelect(hire.id, hire.division)}</label>
-            <label class="nh-check-label">City center ${cityCenterSelect(hire.id, hire.cityCenter)}</label>
+            <span class="nh-check-label">Position ${positionText(hire.employeeType)}</span>
+            <span class="nh-check-label">Region ${regionText(hire.division)}</span>
+            <span class="nh-check-label">City center ${cityCenterText(hire.cityCenter)}</span>
             <label class="nh-check-label">Status ${statusSelect(hire.id, hire.status)}</label>
           </div>
           <div class="nh-profile-meta nh-date-meta">
@@ -2009,7 +2218,6 @@
         render();
       }
     });
-    bindProfileSelects(root);
     bindStatusSelects(root);
     root.querySelector('#nh-role-d').addEventListener('change', (e) => {
       filters.role = e.target.value;
@@ -2810,6 +3018,7 @@
   }
 
   function renderTemplate(root) {
+    setPageTitle('Edit process');
     setPageSub('Add tasks for yourself, or edit/delete tasks assigned to you. Admins can manage every task.');
     (data.sections || []).forEach((s) => {
       if (processAdminOpen[s.id] === undefined) processAdminOpen[s.id] = true;
@@ -2818,17 +3027,11 @@
       <div class="nh-detail-top">
         <button class="btn-secondary" type="button" id="nh-back-t">← Back</button>
         <div class="nh-detail-actions">
-          <button class="btn-secondary" type="button" id="nh-my-tasks-t">My tasks</button>
           <button class="btn-primary" type="button" id="nh-add-item">+ Add my task</button>
         </div>
       </div>
       ${processSectionsHtml({ adminMode: canManageAllTasks() })}`;
     root.querySelector('#nh-back-t').addEventListener('click', () => { view = 'dashboard'; render(); });
-    root.querySelector('#nh-my-tasks-t')?.addEventListener('click', () => {
-      applyMyTasksFilter();
-      view = 'dashboard';
-      render();
-    });
     root.querySelector('#nh-add-item').addEventListener('click', () => openItemModal(null, null, { forSelf: true }));
     bindProcessEditor(root, { adminMode: canManageAllTasks(), onRefresh: () => renderTemplate(root) });
   }
@@ -2852,6 +3055,7 @@
             <div class="form-row-2">
               <div><label class="form-label">Position *</label>
                 <select id="nh-hire-role" class="form-input">
+                  <option value="">— Select position —</option>
                   <option value="technician">TAB Technician</option>
                   <option value="kes_installer">KES Installer</option>
                   <option value="office_staff">Office Staff</option>
@@ -2869,9 +3073,17 @@
               <input id="nh-hire-city" class="form-input" type="text" list="nh-city-dl" placeholder="e.g. Boston, Dallas, Denver…">
               <datalist id="nh-city-dl"></datalist>
             </div>
-            <div class="form-row-2">
-              <div><label class="form-label">Orientation date *</label><input id="nh-hire-start" class="form-input" type="date"></div>
-              <div><label class="form-label">Start date</label><input id="nh-hire-work-start" class="form-input" type="date" title="For technicians for now; office start rules later"></div>
+            <div class="form-row">
+              <label class="form-label">Orientation date *</label>
+              <input id="nh-hire-start" class="form-input" type="date">
+              <label class="nh-check-label" style="margin-top:8px;white-space:normal">
+                <input type="checkbox" id="nh-hire-diff-start">
+                Different start date
+              </label>
+              <div id="nh-hire-work-start-wrap" hidden style="margin-top:10px">
+                <label class="form-label">Start date</label>
+                <input id="nh-hire-work-start" class="form-input" type="date" title="Work start when it is not the orientation date">
+              </div>
             </div>
             <div class="form-row">
               <label class="form-label">Bootcamp date</label>
@@ -2914,14 +3126,30 @@
     document.getElementById('nh-hire-name').value = fullForForm;
     document.getElementById('nh-hire-goes-by').value = goesForForm;
     document.getElementById('nh-hire-division').value = normalizeRegion(emp?.region) || emp?.region || '';
-    document.getElementById('nh-hire-role').value = normalizePosition(emp?.employee_type);
+    document.getElementById('nh-hire-role').value = emp ? normalizePosition(emp.employee_type) : '';
     document.getElementById('nh-hire-city').value = emp?.city_center || '';
     document.getElementById('nh-hire-start').value = (emp?.start_date || '').slice(0, 10);
-    document.getElementById('nh-hire-work-start').value = (emp?.work_start_date || '').slice(0, 10);
+    const orient = (emp?.start_date || '').slice(0, 10);
+    const work = (emp?.work_start_date || '').slice(0, 10);
+    const differentStart = !!(work && orient && work !== orient);
+    document.getElementById('nh-hire-work-start').value = differentStart ? work : '';
+    document.getElementById('nh-hire-diff-start').checked = differentStart;
+    document.getElementById('nh-hire-work-start-wrap').hidden = !differentStart;
+    document.getElementById('nh-hire-diff-start').addEventListener('change', syncHireWorkStartUi);
     document.getElementById('nh-hire-boot').value = (emp?.bootcamp_start_date || '').slice(0, 10);
     document.getElementById('nh-hire-status').value = emp?.status || 'active';
     document.getElementById('nh-hire-note').value = emp?.status_note || '';
     modal.classList.add('open');
+  }
+
+  function syncHireWorkStartUi() {
+    const on = document.getElementById('nh-hire-diff-start')?.checked;
+    const wrap = document.getElementById('nh-hire-work-start-wrap');
+    const work = document.getElementById('nh-hire-work-start');
+    const orient = document.getElementById('nh-hire-start')?.value || '';
+    if (!wrap || !work) return;
+    wrap.hidden = !on;
+    if (on && !work.value && orient) work.value = orient;
   }
 
   function closeHireModal() {
@@ -2939,15 +3167,22 @@
       if (!preferred_name) preferred_name = embedded.preferred_name;
     }
     const region = normalizeRegion(document.getElementById('nh-hire-division').value.trim());
-    const employee_type = normalizePosition(document.getElementById('nh-hire-role').value);
+    const roleRaw = document.getElementById('nh-hire-role').value.trim();
+    const employee_type = normalizePosition(roleRaw);
     const city_center = document.getElementById('nh-hire-city').value.trim() || null;
     const start_date = document.getElementById('nh-hire-start').value || null; // Orientation date
-    const work_start_date = document.getElementById('nh-hire-work-start').value || null;
+    const differentStart = !!document.getElementById('nh-hire-diff-start')?.checked;
+    let work_start_date = document.getElementById('nh-hire-work-start').value || null;
+    if (!differentStart) work_start_date = start_date;
+    else if (!work_start_date) {
+      alert('Pick a start date, or uncheck Different start date.');
+      return;
+    }
     const bootcamp_start_date = document.getElementById('nh-hire-boot').value || null;
     const status = document.getElementById('nh-hire-status').value;
     const status_note = document.getElementById('nh-hire-note').value.trim() || null;
-    if (!full_name || !region || !start_date) {
-      alert('Name, region, and Orientation date are required (task due dates use Orientation date).');
+    if (!full_name || !roleRaw || !region || !start_date) {
+      alert('Name, position, region, and Orientation date are required.');
       return;
     }
     const supabase = client();
@@ -3231,10 +3466,14 @@
 
     if (loading) {
       root.innerHTML = '<p class="nh-status">Loading employees…</p>';
+      syncChecklistNav();
+      syncHeaderActions();
       return;
     }
     if (loadError) {
       root.innerHTML = `<p class="nh-status nh-error">Failed to load employees: ${esc(loadError)}. Run the New Hire Checklist section of supabase-schema.sql if you have not yet.</p>`;
+      syncChecklistNav();
+      syncHeaderActions();
       return;
     }
 
@@ -3244,6 +3483,8 @@
     else if (view === 'archive') renderArchive(root);
     else if (view === 'todo') renderTodo(root);
     else renderDashboard(root);
+    syncChecklistNav();
+    syncHeaderActions();
   }
 
   function applyRemote(value) {
@@ -3270,6 +3511,7 @@
     // Prefer signed-in user's role + name on first open (e.g. Ana → Admin / Ana)
     applySignedInUserDefaults(!mounted);
     bindBrowserNav();
+    bindHeaderAdd();
 
     // Avoid reloading/re-rendering a huge todo list every time the nav tab is clicked
     if (mounted && !forceReload && !loading) {
@@ -3293,6 +3535,8 @@
     render,
     mountProcessAdmin,
     openItemModal,
-    applyViewerDefaults
+    applyViewerDefaults,
+    setView,
+    getView
   };
 })();

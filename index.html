@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Airadigm Onboarding Hub</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/hub-sidebar.css">
-<link rel="stylesheet" href="css/hub-shell.css">
+<link rel="stylesheet" href="css/hub-sidebar.css?v=nav1">
+<link rel="stylesheet" href="css/hub-shell.css?v=pop1">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 [hidden] { display: none !important; }
@@ -771,15 +771,27 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .nh-template-row:last-child { border-bottom: none; }
 .nh-template-actions { display: flex; gap: 6px; }
 .nh-sheet-wrap { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: auto; max-height: calc(100vh - 280px); }
-.nh-sheet { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; }
+.nh-sheet { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; --nh-sticky-2-left: 52px; }
 .nh-sheet th, .nh-sheet td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; border-right: 1px solid #f8fafc; white-space: nowrap; vertical-align: middle; }
 .nh-sheet thead th { position: sticky; top: 0; z-index: 3; background: #f8fafc; color: #64748b; font-weight: 700; text-align: left; box-shadow: inset 0 -1px 0 #e2e8f0; }
-.nh-sheet .nh-sheet-filters th { top: 34px; z-index: 3; background: #f1f5f9; font-weight: 500; padding: 6px 8px; box-shadow: inset 0 -1px 0 #e2e8f0; }
-.nh-sheet .nh-sheet-subhead th { top: 72px; font-weight: 500; font-size: 10px; color: #94a3b8; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
-.nh-sheet .nh-sticky { position: sticky; left: 0; z-index: 2; background: #fff; }
-.nh-sheet thead .nh-sticky { z-index: 4; background: #f8fafc; }
-.nh-sheet .nh-sheet-filters .nh-sticky { background: #f1f5f9; }
-.nh-sheet .nh-sticky-2 { left: 48px; min-width: 160px; box-shadow: 2px 0 4px rgba(15,23,42,.04); }
+.nh-sheet .nh-sheet-filters th { top: var(--nh-sticky-top-1, 34px); z-index: 3; background: #f1f5f9; font-weight: 500; padding: 6px 8px; box-shadow: inset 0 -1px 0 #e2e8f0; }
+.nh-sheet .nh-sheet-subhead th { top: var(--nh-sticky-top-2, 72px); font-weight: 500; font-size: 10px; color: #94a3b8; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
+.nh-sheet .nh-sticky { position: sticky; left: 0; z-index: 2; background: #fff; min-width: 52px; box-sizing: border-box; }
+.nh-sheet thead .nh-sticky { z-index: 5; background: #f8fafc; }
+.nh-sheet .nh-sheet-filters .nh-sticky { background: #f1f5f9; z-index: 5; }
+.nh-sheet .nh-sheet-subhead .nh-sticky { z-index: 5; background: #f8fafc; }
+.nh-sheet .nh-sticky-2 {
+  left: var(--nh-sticky-2-left, 52px);
+  z-index: 3;
+  min-width: 160px;
+  background: #fff;
+  box-shadow: 4px 0 10px -6px rgba(15, 23, 42, 0.28);
+}
+.nh-sheet thead .nh-sticky-2 { z-index: 6; background: #f8fafc; }
+.nh-sheet .nh-sheet-filters .nh-sticky-2 { z-index: 6; background: #f1f5f9; }
+.nh-sheet .nh-sheet-subhead .nh-sticky-2 { z-index: 6; background: #f8fafc; }
+.nh-sheet tbody tr:hover .nh-sticky { background: #fff; }
+.nh-sheet tbody tr:hover .nh-sticky-2 { background: #fff; }
 .nh-col-filter {
   width: 100%; min-width: 72px; max-width: 140px; box-sizing: border-box;
   font-size: 11px; font-family: inherit; color: #334155;
@@ -821,11 +833,11 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="js/hub-access.js"></script>
-<script src="js/hub-shell.js"></script>
-<script src="hub-auth.js"></script>
+<script src="js/hub-shell.js?v=pop1"></script>
+<script src="hub-auth.js?v=nav1"></script>
 <script src="hub-admin.js"></script>
 <script src="new-hire-seed.js"></script>
-<script src="hub-checklist.js"></script>
+<script src="hub-checklist.js?v=name1"></script>
 </head>
 <body>
 
@@ -844,16 +856,35 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 
 <div id="app-shell" hidden>
 <aside class="sidebar">
-  <a href="#" class="sidebar-logo" onclick="showPage('checklist', document.querySelector('.nav-item.nav-checklist')); return false;">
+  <a href="#" class="sidebar-logo" onclick="showChecklistView('dashboard'); return false;">
     <img src="assets/airadigm-logo.png" alt="Airadigm Solutions" />
     <div class="app-name">Onboarding Hub</div>
     <div class="company-text">HR &amp; Training · Air Solutions &amp; Balancing</div>
   </a>
   <nav class="sidebar-nav" aria-label="Main">
-    <button type="button" class="nav-item nav-checklist active" onclick="showPage('checklist', this)">
-      <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
-      <span class="nav-label">New Hire Checklist</span>
-    </button>
+    <div class="nav-section">
+      <div class="nav-section-label">New hire</div>
+      <button type="button" class="nav-item nav-checklist active" data-nh-view="dashboard" title="Onboarding Dashboard" onclick="showChecklistView('dashboard', this)">
+        <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg></span>
+        <span class="nav-label">Onboarding Dashboard</span>
+      </button>
+      <button type="button" class="nav-item" data-nh-view="todo" title="My To-Do" onclick="showChecklistView('todo', this)">
+        <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+        <span class="nav-label">My To-Do</span>
+      </button>
+      <button type="button" class="nav-item" data-nh-view="roster" title="Roster" onclick="showChecklistView('roster', this)">
+        <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 2.5-5 6-5s6 2 6 5"/><circle cx="17" cy="9" r="2.5"/><path d="M21 19c0-2.2-1.6-3.8-4-4.4"/></svg></span>
+        <span class="nav-label">Roster</span>
+      </button>
+      <button type="button" class="nav-item" data-nh-view="archive" title="Archive" onclick="showChecklistView('archive', this)">
+        <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/></svg></span>
+        <span class="nav-label">Archive</span>
+      </button>
+      <button type="button" class="nav-item" data-nh-view="template" title="Edit process" onclick="showChecklistView('template', this)">
+        <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
+        <span class="nav-label">Edit process</span>
+      </button>
+    </div>
     <button type="button" class="nav-item nav-admin" id="nav-admin" style="display:none" onclick="showPage('admin', this)">
       <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M5 5l1.5 1.5M17.5 17.5 19 19M3 12h2M19 12h2M5 19l1.5-1.5M17.5 6.5 19 5"/></svg></span>
       <span class="nav-label">Admin</span>
@@ -896,8 +927,11 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 <div class="main">
   <header class="header">
     <div class="header-title">
-      <h1 id="hub-header-title">New Hire Checklist</h1>
+      <h1 id="hub-header-title">Onboarding Dashboard</h1>
       <div class="region" id="hub-header-sub">HR &amp; Training · Air Solutions &amp; Balancing</div>
+    </div>
+    <div class="header-actions" id="hub-header-actions" hidden>
+      <button class="btn-primary" type="button" id="nh-header-add">+ Add new hire</button>
     </div>
   </header>
   <div id="view-as-banner" class="view-as-banner" hidden></div>
@@ -1147,8 +1181,8 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 <!-- PAGE: NEW HIRE CHECKLIST -->
 <div id="page-checklist" class="page page-checklist active">
   <div class="main">
-    <div class="page-title">New Hire Checklist</div>
-    <div class="page-sub">Shared dashboard like the NH Checklist spreadsheet — full team visibility, editable status, My To-Do by role, and roster.</div>
+    <div class="page-title">Onboarding Dashboard</div>
+    <div class="page-sub">Shared onboarding dashboard — full team visibility, hire status, My To-Do by role, and roster.</div>
     <div id="nh-checklist-root">
       <p class="nh-status">Loading employees…</p>
     </div>
@@ -1323,8 +1357,8 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 const PAULA_ONLY_PAGES = ['resources', 'responsibilities', 'orientation', 'weekly'];
 const HUB_PAGE_META = {
   checklist: {
-    title: 'New Hire Checklist',
-    sub: 'Shared dashboard — full team visibility, editable status, My To-Do by role, and roster.'
+    title: 'Onboarding Dashboard',
+    sub: 'Shared onboarding dashboard — full team visibility, hire status, My To-Do by role, and roster.'
   },
   admin: {
     title: 'Admin',
@@ -1348,6 +1382,17 @@ const HUB_PAGE_META = {
   }
 };
 
+function checklistNavButton(nhView) {
+  const key = nhView === 'detail' ? 'dashboard' : (nhView || 'dashboard');
+  return document.querySelector(`.sidebar-nav .nav-item[data-nh-view="${key}"]`)
+    || document.querySelector('.sidebar-nav .nav-item[data-nh-view="dashboard"]');
+}
+
+function showChecklistView(nhView, btn) {
+  if (window.HubChecklist && HubChecklist.setView) HubChecklist.setView(nhView, { silent: true });
+  showPage('checklist', btn || checklistNavButton(nhView));
+}
+
 function showPage(id, btn) {
   try {
     if (id === 'admin' && !(window.HubAuth && HubAuth.canAccessAdmin && HubAuth.canAccessAdmin())) {
@@ -1356,8 +1401,7 @@ function showPage(id, btn) {
     }
     if (PAULA_ONLY_PAGES.includes(id) && !(window.HubAuth && HubAuth.canAccessHubExtras && HubAuth.canAccessHubExtras())) {
       alert('That tab is only available to Paula Quintero.');
-      const checklistBtn = document.querySelector('.nav-item.nav-checklist');
-      showPage('checklist', checklistBtn);
+      showChecklistView('dashboard');
       return;
     }
     const page = document.getElementById('page-' + id);
@@ -1369,11 +1413,14 @@ function showPage(id, btn) {
     document.querySelectorAll('.sidebar-nav .nav-item').forEach(b => b.classList.remove('active'));
     page.classList.add('active');
     if (btn) btn.classList.add('active');
-    else {
+    else if (id === 'checklist') {
+      const match = checklistNavButton(window.HubChecklist && HubChecklist.getView && HubChecklist.getView());
+      if (match) match.classList.add('active');
+    } else {
       const match = document.querySelector(`.sidebar-nav .nav-item[onclick*="'${id}'"]`);
       if (match) match.classList.add('active');
     }
-    const meta = HUB_PAGE_META[id];
+    const meta = id === 'checklist' ? null : HUB_PAGE_META[id];
     const titleEl = document.getElementById('hub-header-title');
     const subEl = document.getElementById('hub-header-sub');
     if (meta && titleEl) titleEl.textContent = meta.title;
@@ -1387,6 +1434,10 @@ function showPage(id, btn) {
       if (window.HubChecklist && HubChecklist.mountProcessAdmin) HubChecklist.mountProcessAdmin();
     }
     if (id === 'checklist' && window.HubChecklist) HubChecklist.mount();
+    else {
+      const actions = document.getElementById('hub-header-actions');
+      if (actions) actions.hidden = true;
+    }
   } catch (err) {
     console.error('showPage failed', id, err);
   }
@@ -1400,7 +1451,7 @@ const DEFAULT_RESOURCES = [
     what:'Live Hub tab: My To-Do by role (HR / Admin / Logistics / Training) on the employee roster, with due dates from start date.',
     when:'Used during the hiring and onboarding process, and as an ongoing reference for team information.',
     why:'Used to track onboarding completion and quickly access any required information for team members.',
-    links:['Open the New Hire Checklist tab in this Hub'] },
+    links:['Open the Onboarding Dashboard in this Hub'] },
   { id:'r2', cat:'Hiring / Onboarding', name:'Diploma / GED / OSHA List',
     what:'Confirms whether each technician has submitted required documents: OSHA 10/30 certification and a Diploma or GED.',
     when:'Requested immediately after the offer letter is sent. Documents collected via Indeed messages.',
@@ -2624,14 +2675,19 @@ function openPopover(taskId, day, evt) {
 
   const pop = document.getElementById('ev-popover');
   pop.style.display = 'block';
-  const rect = evt.target.closest('.cal-event').getBoundingClientRect();
-  const pw = 280, ph = 200;
-  let left = rect.right + 8;
-  let top = rect.top;
-  if (left + pw > window.innerWidth - 10) left = rect.left - pw - 8;
-  if (top + ph > window.innerHeight - 10) top = window.innerHeight - ph - 10;
-  pop.style.left = Math.max(8, left) + 'px';
-  pop.style.top = Math.max(8, top) + 'px';
+  const anchor = evt.target.closest('.cal-event') || evt.target;
+  if (window.HubShell && HubShell.placeFixedPopup) {
+    HubShell.placeFixedPopup(pop, anchor, { prefer: 'right', gap: 8, pad: 8 });
+  } else {
+    const rect = anchor.getBoundingClientRect();
+    const pw = 280, ph = pop.offsetHeight || 200;
+    let left = rect.right + 8;
+    let top = rect.top;
+    if (left + pw > window.innerWidth - 10) left = rect.left - pw - 8;
+    if (top + ph > window.innerHeight - 10) top = window.innerHeight - ph - 10;
+    pop.style.left = Math.max(8, left) + 'px';
+    pop.style.top = Math.max(8, top) + 'px';
+  }
   evt.stopPropagation();
 }
 
@@ -2893,8 +2949,7 @@ window.startHubApp = function() {
   calMonth = new Date().getMonth();
   const calSel = document.getElementById('cal-month-select');
   if (calSel) calSel.value = calMonth;
-  const checklistBtn = document.querySelector('.nav-item.nav-checklist');
-  showPage('checklist', checklistBtn);
+  showChecklistView('dashboard');
 };
 
 HubAuth.init();

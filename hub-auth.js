@@ -389,8 +389,8 @@
       const active = document.querySelector('.page.active');
       const id = active?.id || '';
       if (/page-(resources|responsibilities|orientation|weekly)/.test(id)) {
-        const btn = document.querySelector('.nav-item.nav-checklist');
-        if (typeof showPage === 'function') showPage('checklist', btn);
+        if (typeof showChecklistView === 'function') showChecklistView('dashboard');
+        else if (typeof showPage === 'function') showPage('checklist');
       }
     }
   }
