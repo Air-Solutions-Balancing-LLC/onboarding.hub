@@ -319,6 +319,87 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .nh-process-cat-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 12px; border-bottom: 1px solid #f1f5f9; background: #fafbfc; }
 .nh-process-admin .nh-template-row { padding: 10px 12px; align-items: flex-start; }
 .nh-process-admin .nh-template-actions { flex-wrap: wrap; justify-content: flex-end; max-width: 280px; }
+.nh-process-admin-banner {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between;
+  margin-bottom: 12px; padding: 12px 14px; border-radius: 10px;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e8eef5 100%);
+  border: 1px solid #c8d0da;
+}
+.nh-role-legend { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.user-mgmt-kicker {
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: #64748b; margin-bottom: 0.2rem;
+}
+.user-mgmt-card--access {
+  border-left: 4px solid #2f74a5;
+  box-shadow: 0 1px 2px rgba(27, 36, 48, 0.06);
+}
+.user-mgmt-card--process {
+  border-left: 4px solid #1a2540;
+  box-shadow: 0 1px 2px rgba(27, 36, 48, 0.06);
+}
+.user-mgmt-card--access .user-mgmt-kicker { color: #2f74a5; }
+.user-mgmt-card--process .user-mgmt-kicker { color: #1a2540; }
+.hub-role-badge {
+  display: inline-block; font-size: 11px; font-weight: 700; border-radius: 4px;
+  padding: 2px 8px; letter-spacing: 0.02em;
+}
+.hub-role-badge.hub-role-admin { color: #f8fafc; background: #1a2540; }
+.hub-role-badge.hub-role-hr { color: #0c4a6e; background: #e0f2fe; }
+.hub-role-badge.hub-role-social { color: #9f1239; background: #ffe4e6; }
+.hub-role-badge.hub-role-logistics { color: #115e59; background: #ccfbf1; }
+.hub-role-badge.hub-role-training { color: #854d0e; background: #fef3c7; }
+.hub-role-badge.hub-role-other { color: #334155; background: #e2e8f0; }
+.nh-role-chip.nh-role-hr { color: #0c4a6e; background: #e0f2fe; }
+.nh-role-chip.nh-role-admin { color: #f8fafc; background: #1a2540; }
+.nh-role-chip.nh-role-logistics { color: #115e59; background: #ccfbf1; }
+.nh-role-chip.nh-role-training { color: #854d0e; background: #fef3c7; }
+.nh-role-chip.nh-role-pm,
+.nh-role-chip.nh-role-other { color: #334155; background: #e2e8f0; }
+.nh-process-sec.nh-tone-nh-role-hr .nh-process-sec-head { border-left-color: #0284c7; }
+.nh-process-sec.nh-tone-nh-role-admin .nh-process-sec-head { border-left-color: #1a2540; }
+.nh-process-sec.nh-tone-nh-role-logistics .nh-process-sec-head { border-left-color: #0d9488; }
+.nh-process-sec.nh-tone-nh-role-training .nh-process-sec-head { border-left-color: #ca8a04; }
+.nh-missing-toolbar {
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 14px;
+}
+.nh-missing-print { display: grid; gap: 14px; }
+.nh-missing-doc-title { font-size: 14px; color: #1e293b; margin-bottom: 4px; }
+.nh-missing-card {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px;
+  border-left: 4px solid #1a2540;
+}
+.nh-missing-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.nh-missing-name { margin: 0; font-size: 16px; font-weight: 700; color: #0f172a; }
+.nh-missing-prog { font-size: 12px; font-weight: 600; color: #334155; margin-top: 4px; }
+.nh-missing-sec { margin-top: 10px; padding-top: 8px; border-top: 1px solid #f1f5f9; }
+.nh-missing-sec-title { font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 6px; }
+.nh-missing-list { margin: 0; padding-left: 18px; }
+.nh-missing-list li {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between;
+  font-size: 13px; color: #334155; margin-bottom: 4px;
+}
+.nh-missing-task { flex: 1 1 200px; }
+.nh-missing-done { font-size: 13px; color: #166534; margin: 0; }
+.nh-report-row-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+@media print {
+  body.nh-printing-missing .sidebar,
+  body.nh-printing-missing .hub-topbar,
+  body.nh-printing-missing .hub-header,
+  body.nh-printing-missing .page-header,
+  body.nh-printing-missing .nh-no-print,
+  body.nh-printing-missing .nh-rolebar,
+  body.nh-printing-missing .nh-report-chrome {
+    display: none !important;
+  }
+  body.nh-printing-missing .nh-missing-card {
+    break-inside: avoid;
+    box-shadow: none;
+  }
+  body.nh-printing-missing #nh-checklist-root {
+    padding: 0 !important;
+  }
+}
 .nh-dep-block { display: flex; flex-direction: column; gap: 6px; min-width: 220px; max-width: 280px; }
 .nh-due-inline { display: flex; flex-wrap: wrap; gap: 10px 14px; margin-top: 8px; align-items: center; }
 .nh-due-inline .nh-check-label { gap: 6px; }
@@ -450,7 +531,7 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .nh-template-row.nh-has-dependency { background: #fffbeb; }
 .nh-steps-chip {
   display: inline-block; font-size: 10px; font-weight: 700;
-  color: #5b21b6; background: #ede9fe; border-radius: 4px; padding: 2px 7px;
+  color: #1e3a5f; background: #e2e8f0; border-radius: 4px; padding: 2px 7px;
 }
 .nh-item-steps-block { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; }
 .nh-step-edit-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
@@ -675,6 +756,21 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .nh-badge-intl { background: #e0e7ff; color: #4338ca; }
 .nh-toolbar-plain { background: transparent; border: none; padding: 0; box-shadow: none; }
 .nh-toolbar-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.nh-report-chrome {
+  display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: flex-end;
+  margin-bottom: 14px; padding: 12px 14px; background: #fff;
+  border: 1px solid #e2e8f0; border-radius: 12px;
+}
+.nh-report-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.nh-report-cohort { display: flex; flex-direction: column; gap: 6px; min-width: 180px; }
+.nh-report-table { margin-top: 0; }
+.nh-report-select { font-size: 12px; padding: 4px 6px; min-width: 72px; }
+.nh-resume-cell { white-space: nowrap; }
+.nh-resume-link { font-size: 12px; font-weight: 600; color: #1E3A5F; text-decoration: none; }
+.nh-resume-link:hover { text-decoration: underline; }
+.nh-resume-field { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.nh-resume-field .nh-field-input { flex: 1 1 200px; min-width: 160px; }
+.nh-resume-hint { font-size: 11px; width: 100%; }
 .nh-stats-todo { grid-template-columns: repeat(4, minmax(0,1fr)); }
 .nh-stats-todo .stat { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; }
 .nh-stats-todo .stat-label { font-size: 11px; color: #64748b; margin-top: 4px; }
@@ -950,9 +1046,9 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 <script src="js/hub-access.js"></script>
 <script src="js/hub-shell.js?v=pop1"></script>
 <script src="hub-auth.js?v=nav1"></script>
-<script src="hub-admin.js?v=view1"></script>
+<script src="hub-admin.js?v=merge1"></script>
 <script src="new-hire-seed.js"></script>
-<script src="hub-checklist.js?v=tl3"></script>
+<script src="hub-checklist.js?v=merge1"></script>
 </head>
 <body>
 
@@ -979,19 +1075,23 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
   <nav class="sidebar-nav" aria-label="Main">
     <div class="nav-section">
       <div class="nav-section-label">New hire</div>
-      <button type="button" class="nav-item nav-checklist active" data-nh-view="dashboard" title="Onboarding Dashboard" onclick="showChecklistView('dashboard', this)">
+      <button type="button" class="nav-item nav-checklist active" data-nh-view="dashboard" title="People — onboarding-window hires" onclick="showChecklistView('dashboard', this)">
         <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg></span>
-        <span class="nav-label">Onboarding Dashboard</span>
+        <span class="nav-label">People</span>
       </button>
-      <button type="button" class="nav-item" data-nh-view="todo" title="My To-Do" onclick="showChecklistView('todo', this)">
+      <button type="button" class="nav-item" data-nh-view="todo" title="My work" onclick="showChecklistView('todo', this)">
         <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
-        <span class="nav-label">My To-Do</span>
+        <span class="nav-label">My work</span>
       </button>
-      <button type="button" class="nav-item" data-nh-view="roster" title="Roster" onclick="showChecklistView('roster', this)">
+      <button type="button" class="nav-item" data-nh-view="reports" title="Reports" onclick="showChecklistView('reports', this)">
+        <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 17V9"/><path d="M12 17v-5"/><path d="M16 17V7"/></svg></span>
+        <span class="nav-label">Reports</span>
+      </button>
+      <button type="button" class="nav-item" data-nh-view="roster" title="Roster — all active hires" onclick="showChecklistView('roster', this)">
         <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 2.5-5 6-5s6 2 6 5"/><circle cx="17" cy="9" r="2.5"/><path d="M21 19c0-2.2-1.6-3.8-4-4.4"/></svg></span>
         <span class="nav-label">Roster</span>
       </button>
-      <button type="button" class="nav-item" data-nh-view="archive" title="Archive" onclick="showChecklistView('archive', this)">
+      <button type="button" class="nav-item" data-nh-view="archive" title="Archive — quit, terminated, resigned" onclick="showChecklistView('archive', this)">
         <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/></svg></span>
         <span class="nav-label">Archive</span>
       </button>
@@ -1042,7 +1142,7 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 <div class="main">
   <header class="header">
     <div class="header-title">
-      <h1 id="hub-header-title">Onboarding Dashboard</h1>
+      <h1 id="hub-header-title">People</h1>
       <div class="region" id="hub-header-sub">HR &amp; Training · Air Solutions &amp; Balancing</div>
     </div>
     <div class="header-actions" id="hub-header-actions" hidden>
@@ -1296,8 +1396,8 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 <!-- PAGE: NEW HIRE CHECKLIST -->
 <div id="page-checklist" class="page page-checklist active">
   <div class="main">
-    <div class="page-title">Onboarding Dashboard</div>
-    <div class="page-sub">Shared onboarding dashboard — full team visibility, hire status, My To-Do by role, and roster.</div>
+    <div class="page-title">People</div>
+    <div class="page-sub">People = onboarding-window hires · Roster = full active list · Reports include Status / Missing for any hire.</div>
     <div id="nh-checklist-root">
       <p class="nh-status">Loading employees…</p>
     </div>
@@ -1324,9 +1424,10 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
         <h1 class="admin-page-title">Admin</h1>
         <p class="admin-page-sub">Hub people come from Atlas. Grant or revoke Onboarding Hub access in Atlas Admin. Atlas Admins always have Hub Admin. Use <strong>View as</strong> to preview another user’s checklist filters while staying signed in as admin.</p>
       </div>
-      <div class="user-mgmt-card" id="hub-user-mgmt-card">
+      <div class="user-mgmt-card user-mgmt-card--access" id="hub-user-mgmt-card">
         <div class="user-mgmt-header">
           <div>
+            <div class="user-mgmt-kicker">Access</div>
             <h2 class="user-mgmt-title">User Management</h2>
             <p class="user-mgmt-subtitle">
               People and roles come from Atlas. Grant or revoke Hub access in Atlas Admin. Atlas Admins always have Hub Admin.
@@ -1338,12 +1439,13 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
         </div>
       </div>
 
-      <div class="user-mgmt-card nh-process-admin" id="nh-process-admin-card">
+      <div class="user-mgmt-card user-mgmt-card--process nh-process-admin" id="nh-process-admin-card">
         <div class="user-mgmt-header">
           <div>
+            <div class="user-mgmt-kicker">Checklist</div>
             <h2 class="user-mgmt-title">New Hire Checklist Process</h2>
             <p class="user-mgmt-subtitle">
-              All checklist tasks by category (A–J). Edit existing tasks or add new ones as the process changes. Updates apply for the whole team.
+              All tasks by category (A–J), color-coded by role. Admins can add, edit, or delete anyone’s tasks; everyone else’s Edit process stays scoped to their own.
             </p>
           </div>
         </div>
@@ -1472,8 +1574,8 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 const PAULA_ONLY_PAGES = ['resources', 'responsibilities', 'orientation', 'weekly'];
 const HUB_PAGE_META = {
   checklist: {
-    title: 'Onboarding Dashboard',
-    sub: 'Shared onboarding dashboard — full team visibility, hire status, My To-Do by role, and roster.'
+    title: 'People',
+    sub: 'People = onboarding-window hires · Roster = full active list · Reports include Status / Missing.'
   },
   admin: {
     title: 'Admin',

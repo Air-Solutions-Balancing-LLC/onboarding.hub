@@ -302,7 +302,10 @@
       if (isImpersonating()) {
         const name = effectiveUser().full_name || effectiveUser().email;
         banner.hidden = false;
-        banner.innerHTML = `Viewing checklist as <strong>${escapeAttr(name)}</strong> (${escapeAttr(effectiveUser().role)}) — you remain signed in as admin. <button type="button" class="view-as-exit" id="view-as-exit-btn">Exit</button>`;
+        const roleText = accessApi().roleLabel
+          ? accessApi().roleLabel(effectiveUser().role)
+          : effectiveUser().role;
+        banner.innerHTML = `Viewing checklist as <strong>${escapeAttr(name)}</strong> (${escapeAttr(roleText)}) — you remain signed in as admin. <button type="button" class="view-as-exit" id="view-as-exit-btn">Exit</button>`;
         document.getElementById('view-as-exit-btn')?.addEventListener('click', () => stopViewAs());
       } else {
         banner.hidden = true;
@@ -319,6 +322,12 @@
       .replace(/"/g, '&quot;');
   }
 
+  function isHubEditorRole(role) {
+    const r = String(role || '').toLowerCase();
+    // PMs and technicians are not Hub editors (View as / allowlist preview)
+    return !['pm', 'project_manager', 'technician'].includes(r);
+  }
+
   async function loadViewAsUsers() {
     if (!isRealAdmin()) {
       viewAsUsers = [];
@@ -326,7 +335,7 @@
     }
     try {
       const people = await listAuthorizedStaff();
-      viewAsUsers = people;
+      viewAsUsers = (people || []).filter((u) => isHubEditorRole(u.role));
     } catch (err) {
       console.warn('view-as users load failed', err);
       viewAsUsers = [];
@@ -404,6 +413,10 @@
     let target = viewAsUsers.find((u) => String(u.id) === String(userId));
     if (!target) {
       alert('Could not find that user.');
+      return;
+    }
+    if (!isHubEditorRole(target.role)) {
+      alert('PMs and technicians are not Hub editors. Remove them from the allowlist or change their role in Admin.');
       return;
     }
     window.hubCurrentUser = target;

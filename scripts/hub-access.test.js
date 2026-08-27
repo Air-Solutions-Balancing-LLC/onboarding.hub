@@ -5,6 +5,7 @@ const {
   isAtlasAdmin,
   isAtlasInactive,
   mapLegacyHubRole,
+  roleLabel,
 } = require('../js/hub-access.js');
 
 function atlas(overrides) {
@@ -121,6 +122,18 @@ describe('decideHubAccess', () => {
     assert.equal(result.role, 'logistics');
   });
 
+  it('grant flag allows social_media at Atlas role', () => {
+    const result = decideHubAccess({
+      atlasUser: atlas({
+        role: 'social_media',
+        onboarding_hub_access: true,
+      }),
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.reason, 'ok_grant');
+    assert.equal(result.role, 'social_media');
+  });
+
   it('missing both rows is missing_email', () => {
     const result = decideHubAccess({});
     assert.equal(result.ok, false);
@@ -147,5 +160,10 @@ describe('helpers', () => {
     assert.equal(mapLegacyHubRole('accounting'), 'finance');
     assert.equal(mapLegacyHubRole('pm'), 'project_manager');
     assert.equal(mapLegacyHubRole('HR'), 'general_office');
+    assert.equal(mapLegacyHubRole('social_media'), 'social_media');
+  });
+
+  it('labels social_media as Social Media Specialist', () => {
+    assert.equal(roleLabel('social_media'), 'Social Media Specialist');
   });
 });

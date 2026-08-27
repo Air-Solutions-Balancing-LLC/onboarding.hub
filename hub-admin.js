@@ -116,11 +116,21 @@
     return hay.includes(q);
   }
 
+  function roleBadgeClass(role) {
+    const key = String(role || '').toLowerCase().trim();
+    if (key === 'admin') return 'hub-role-badge hub-role-admin';
+    if (key === 'hr' || key === 'finance' || key === 'accounting' || key === 'general_office') return 'hub-role-badge hub-role-hr';
+    if (key === 'social_media') return 'hub-role-badge hub-role-social';
+    if (key === 'logistics') return 'hub-role-badge hub-role-logistics';
+    if (key === 'training') return 'hub-role-badge hub-role-training';
+    return 'hub-role-badge hub-role-other';
+  }
+
   function renderUserRow(user) {
     return `<tr data-email="${escapeHtml(user.email)}">
       <td>${escapeHtml(user.full_name || '—')}</td>
       <td>${escapeHtml(user.email)}</td>
-      <td>${escapeHtml(roleLabel(user.role))}</td>
+      <td><span class="${roleBadgeClass(user.role)}">${escapeHtml(roleLabel(user.role))}</span></td>
       <td>${escapeHtml(user.region || '—')}</td>
       <td>${user._leftover ? 'Hub leftover' : 'Atlas'}</td>
       <td><span class="user-mgmt-footnote" style="font-style:normal;margin:0;">${escapeHtml(accessLabel(user))}</span></td>

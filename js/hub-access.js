@@ -14,6 +14,7 @@
     project_manager: 'Project Manager',
     finance: 'Finance',
     general_office: 'General Office',
+    social_media: 'Social Media Specialist',
     logistics: 'Logistics',
     bid_coordinator: 'Bid Coordinator',
     estimator: 'Estimator',
@@ -29,6 +30,7 @@
     hr: 'general_office',
     logistics: 'logistics',
     training: 'general_office',
+    social_media: 'social_media',
   };
 
   function lower(value) {
