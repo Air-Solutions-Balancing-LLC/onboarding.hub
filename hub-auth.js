@@ -302,7 +302,10 @@
       if (isImpersonating()) {
         const name = effectiveUser().full_name || effectiveUser().email;
         banner.hidden = false;
-        banner.innerHTML = `Viewing checklist as <strong>${escapeAttr(name)}</strong> (${escapeAttr(effectiveUser().role)}) — you remain signed in as admin. <button type="button" class="view-as-exit" id="view-as-exit-btn">Exit</button>`;
+        const roleText = accessApi().roleLabel
+          ? accessApi().roleLabel(effectiveUser().role)
+          : effectiveUser().role;
+        banner.innerHTML = `Viewing checklist as <strong>${escapeAttr(name)}</strong> (${escapeAttr(roleText)}) — you remain signed in as admin. <button type="button" class="view-as-exit" id="view-as-exit-btn">Exit</button>`;
         document.getElementById('view-as-exit-btn')?.addEventListener('click', () => stopViewAs());
       } else {
         banner.hidden = true;

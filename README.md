@@ -26,7 +26,8 @@ Hub access is controlled in Atlas, the same people directory Vulcan uses — but
 - **Atlas Admins** can sign into Hub as Admin with no extra grant.
 - **Everyone else** must be granted from the Atlas roster (Atlas Admin checkbox **Onboarding Hub**, or Hub Admin picker).
 - People already on Hub stay authorized (matched by email).
-- Hub displays Atlas roles. Terminated/deactivated Atlas people cannot sign in.
+- Hub displays Atlas roles (including `social_media` → **Social Media Specialist**). Terminated/deactivated Atlas people cannot sign in.
+- Job titles are edited in **Atlas Admin**, not Hub Admin (Hub only grants/revokes access). Checklist person **Maria** (Maria Huard) still matches HR tasks by name even when her Atlas role is `social_media`.
 
 Apply the Atlas migration `supabase/migrations/20260827090000_onboarding_hub_access.sql` in the **Atlas** Supabase SQL editor before relying on the checkbox.
 

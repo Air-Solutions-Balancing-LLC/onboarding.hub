@@ -5,6 +5,7 @@
     { role: 'project_manager', title: 'Project Managers' },
     { role: 'finance', title: 'Finance' },
     { role: 'general_office', title: 'General Office' },
+    { role: 'social_media', title: 'Social Media Specialists' },
     { role: 'logistics', title: 'Logistics' },
     { role: 'bid_coordinator', title: 'Bid Coordinators' },
     { role: 'estimator', title: 'Estimators' },
@@ -279,6 +280,7 @@
     const key = String(role || '').toLowerCase().trim();
     if (key === 'admin') return 'hub-role-badge hub-role-admin';
     if (key === 'hr' || key === 'finance' || key === 'accounting' || key === 'general_office') return 'hub-role-badge hub-role-hr';
+    if (key === 'social_media') return 'hub-role-badge hub-role-social';
     if (key === 'logistics') return 'hub-role-badge hub-role-logistics';
     if (key === 'training') return 'hub-role-badge hub-role-training';
     return 'hub-role-badge hub-role-other';

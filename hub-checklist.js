@@ -743,6 +743,7 @@
       hr: 'HR',
       finance: 'HR',
       general_office: 'HR',
+      social_media: 'HR', // checklist person Maria stays on HR tasks
       accounting: 'HR',
       logistics: 'Logistics',
       training: 'Training',
