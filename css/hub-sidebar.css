@@ -70,6 +70,19 @@
   -webkit-overflow-scrolling: touch;
 }
 
+.nav-section {
+  margin-bottom: 14px;
+}
+
+.nav-section-label {
+  padding: 2px 12px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+
 .nav-item {
   display: flex;
   align-items: center;
@@ -221,12 +234,14 @@ body.sidebar-collapsed .sidebar {
 
 html.sidebar-collapsed .sidebar-logo,
 html.sidebar-collapsed .nav-item .nav-label,
+html.sidebar-collapsed .nav-section-label,
 html.sidebar-collapsed .user-info .name,
 html.sidebar-collapsed .user-info .role,
 html.sidebar-collapsed .nav-view-as,
 html.sidebar-collapsed .hub-sign-out,
 body.sidebar-collapsed .sidebar-logo,
 body.sidebar-collapsed .nav-item .nav-label,
+body.sidebar-collapsed .nav-section-label,
 body.sidebar-collapsed .user-info .name,
 body.sidebar-collapsed .user-info .role,
 body.sidebar-collapsed .nav-view-as,
@@ -311,6 +326,7 @@ body.sidebar-collapsed .user-profile {
 
   .sidebar-logo,
   .nav-item .nav-label,
+  .nav-section-label,
   .user-info .name,
   .user-info .role,
   .nav-view-as,

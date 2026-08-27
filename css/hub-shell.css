@@ -69,6 +69,12 @@ body.hub-app .main {
   margin-top: 2px;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .content {
   padding: 24px 28px;
   overflow-y: auto;
@@ -106,10 +112,17 @@ body.hub-app .page-admin .main {
 
 /* Sortable table headers — Atlas finance/projects pattern */
 .nh-table th.sortable,
-.nh-sheet thead tr:first-child th.sortable,
 .data-table th.sortable {
   cursor: pointer;
   user-select: none;
+  position: relative;
+  padding-right: 22px;
+}
+
+.nh-sheet thead tr:first-child th.sortable {
+  cursor: pointer;
+  user-select: none;
+  padding-right: 22px;
 }
 
 .nh-table th.sortable:hover,
@@ -119,10 +132,19 @@ body.hub-app .page-admin .main {
   background: #F3F4F6;
 }
 
+.nh-sheet thead tr:first-child th.sortable.nh-sticky:hover {
+  background: #f8fafc;
+}
+
 .sort-ind {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
   font-size: 11px;
   color: var(--blue);
   font-weight: 700;
+  pointer-events: none;
 }
 
 .data-table {
@@ -158,4 +180,79 @@ body.hub-app .page-admin .main {
 .data-table .btn {
   height: 32px;
   padding: 0 12px;
+}
+
+.btn-secondary.is-active {
+  border-color: #93C5FD;
+  color: var(--blue);
+}
+
+.column-visibility-menu {
+  position: fixed;
+  z-index: 400;
+  min-width: 240px;
+  max-height: min(420px, calc(100vh - 16px));
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
+}
+
+.column-visibility-heading {
+  margin: 6px 8px 2px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.column-visibility-actions {
+  display: flex;
+  gap: 6px;
+  padding: 4px 4px 8px;
+  border-bottom: 1px solid #F1F5F9;
+  margin-bottom: 4px;
+}
+
+.column-visibility-actions button {
+  flex: 1;
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.column-visibility-actions button:hover {
+  background: #F3F4F6;
+}
+
+.column-visibility-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 7px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text-primary);
+}
+
+.column-visibility-option:hover {
+  background: #EEF2F7;
+}
+
+.column-visibility-option input {
+  margin: 0;
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
 }
