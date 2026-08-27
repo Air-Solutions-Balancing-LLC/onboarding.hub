@@ -842,6 +842,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
+<script src="js/hub-access.js"></script>
 <script src="hub-auth.js"></script>
 <script src="hub-admin.js"></script>
 <script src="new-hire-seed.js"></script>
@@ -853,7 +854,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="auth-card">
     <div class="auth-logo">🏢</div>
     <h1>Airadigm Onboarding Hub</h1>
-    <p>Sign in with your Air Solutions Microsoft account. Only users on the Hub allowlist (Admin → User Management) can access the app.</p>
+    <p>Sign in with your Air Solutions Microsoft account. Atlas Admins can sign in automatically. Everyone else must be granted Hub access from the Atlas roster.</p>
     <button class="btn-microsoft" type="button" onclick="HubAuth.signInWithMicrosoft()">
       <svg width="20" height="20" viewBox="0 0 21 21" fill="none" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
       Sign in with Microsoft
@@ -1162,36 +1163,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div class="user-mgmt-shell">
       <div>
         <h1 class="admin-page-title">Admin</h1>
-        <p class="admin-page-sub">Manage Onboarding Hub users by region and role. Admins can use <strong>View as</strong> to preview another user’s checklist filters while staying signed in as admin.</p>
+        <p class="admin-page-sub">Grant Onboarding Hub access from the Atlas roster. Atlas Admins always have Hub Admin. Use <strong>View as</strong> to preview another user’s checklist filters while staying signed in as admin.</p>
       </div>
-      <div class="user-mgmt-card">
+      <div class="user-mgmt-card" id="hub-user-mgmt-card">
         <div class="user-mgmt-header">
           <div>
             <h2 class="user-mgmt-title">User Management</h2>
             <p class="user-mgmt-subtitle">
-              Add, edit, or remove Admins, Technicians, Accounting, HR, Logistics, and Training.
+              People and roles come from Atlas. Grant or revoke Hub access by selecting an Atlas person. Atlas Admins cannot be revoked.
             </p>
           </div>
-          <div class="user-mgmt-header-actions">
-            <button type="button" class="btn btn-secondary" onclick="HubAdmin.downloadUserImportTemplate()">📄 Download template</button>
-            <button type="button" class="btn btn-primary" id="userImportBtn" onclick="document.getElementById('userImportInput').click()">
-              📥 Import users
-            </button>
-            <input
-              type="file"
-              id="userImportInput"
-              accept=".csv,.xls,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-              style="display:none"
-              onchange="HubAdmin.handleUserImportFile(event)"
-            />
-          </div>
         </div>
-        <p class="user-import-hint">
-          Template columns: <strong>Full Name</strong>, <strong>Email</strong>, <strong>Position</strong>
-          (Admin / Technician / Accounting / HR / Logistics / Training), <strong>Region</strong>
-          (e.g. Southwest, Intermountain). Existing emails are skipped.
-        </p>
-        <div id="userImportSummary" class="import-summary-box" hidden></div>
         <div id="userMgmtRoot">
           <p class="login-status">Loading users…</p>
         </div>

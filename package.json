@@ -2,7 +2,8 @@
   "name": "onboarding-hub",
   "private": true,
   "scripts": {
-    "dev": "serve . -l 3000"
+    "dev": "serve . -l 3000",
+    "test": "node --test scripts/hub-access.test.js"
   },
   "devDependencies": {
     "serve": "^14.2.4"

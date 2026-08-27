@@ -16,10 +16,16 @@
   ];
 
   let supabase = null;
+  let atlasClient = null;
+  let atlasWriteReady = false;
   let accessDenyMessage = '';
   let authGateInProgress = false;
   let hubRealUser = null; // Microsoft-signed-in allowlisted user
   let viewAsUsers = [];
+  const ATLAS_USER_COLS =
+    'id, email, full_name, role, region, deleted_at, employment_status, onboarding_hub_access';
+  const ATLAS_USER_COLS_FALLBACK =
+    'id, email, full_name, role, region, deleted_at, employment_status';
 
   function getConfig() {
     const cfg = window.HUB_CONFIG || {};
@@ -27,6 +33,115 @@
       return null;
     }
     return cfg;
+  }
+
+  function getAtlasClient() {
+    if (atlasClient) return atlasClient;
+    const cfg = getConfig();
+    if (!cfg?.ATLAS_URL || !cfg.ATLAS_ANON_KEY || !window.supabase) return null;
+    atlasClient = window.supabase.createClient(cfg.ATLAS_URL, cfg.ATLAS_ANON_KEY, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: false,
+        storageKey: 'hub-atlas-auth',
+      },
+    });
+    return atlasClient;
+  }
+
+  function accessApi() {
+    return window.HubAccess || {};
+  }
+
+  function emailKey(value) {
+    return String(value || '').trim().toLowerCase();
+  }
+
+  function toStaffUser(atlasUser, hubLedgerRow, decision) {
+    const atlas = atlasUser || null;
+    const ledger = hubLedgerRow || null;
+    return {
+      id: atlas?.id || ledger?.id,
+      atlas_id: atlas?.id || null,
+      ledger_id: ledger?.id || null,
+      email: decision.email || emailKey(atlas?.email || ledger?.email),
+      full_name: atlas?.full_name || ledger?.full_name || '',
+      role: decision.role || 'technician',
+      region: atlas?.region || ledger?.region || '',
+      onboarding_hub_access: !!(atlas && atlas.onboarding_hub_access),
+      employment_status: atlas?.employment_status || 'active',
+      source: decision.source || null,
+      deleted_at: null,
+    };
+  }
+
+  async function fetchAtlasUserByEmail(email) {
+    const atlas = getAtlasClient();
+    if (!atlas) return { data: null, error: new Error('Atlas is not configured.') };
+    let { data, error } = await atlas
+      .from('app_users')
+      .select(ATLAS_USER_COLS)
+      .eq('email', email)
+      .maybeSingle();
+    if (error && /onboarding_hub_access/.test(error.message || '')) {
+      const retry = await atlas
+        .from('app_users')
+        .select(ATLAS_USER_COLS_FALLBACK)
+        .eq('email', email)
+        .maybeSingle();
+      data = retry.data ? { ...retry.data, onboarding_hub_access: false } : null;
+      error = retry.error;
+    }
+    return { data, error };
+  }
+
+  async function listAtlasUsers() {
+    const atlas = getAtlasClient();
+    if (!atlas) throw new Error('Atlas is not configured.');
+    let { data, error } = await atlas
+      .from('app_users')
+      .select(ATLAS_USER_COLS)
+      .order('full_name', { ascending: true });
+    if (error && /onboarding_hub_access/.test(error.message || '')) {
+      const retry = await atlas
+        .from('app_users')
+        .select(ATLAS_USER_COLS_FALLBACK)
+        .order('full_name', { ascending: true });
+      data = (retry.data || []).map((row) => ({ ...row, onboarding_hub_access: false }));
+      error = retry.error;
+    }
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function fetchHubLedgerByEmail(email) {
+    const { data, error } = await supabase
+      .from('app_users')
+      .select('*')
+      .eq('email', email)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (error) throw error;
+    return data || null;
+  }
+
+  async function attachAtlasSession(hubSession) {
+    atlasWriteReady = false;
+    const atlas = getAtlasClient();
+    if (!atlas || !hubSession) return false;
+    const token = hubSession.provider_token || hubSession.id_token;
+    if (!token) return false;
+    const { error } = await atlas.auth.signInWithIdToken({
+      provider: 'azure',
+      token,
+    });
+    if (error) {
+      console.warn('Atlas write session failed:', error.message);
+      return false;
+    }
+    atlasWriteReady = true;
+    return true;
   }
 
   function effectiveUser() {
@@ -133,6 +248,10 @@
     if (adminBtn) {
       adminBtn.style.display = signedIn ? '' : 'none';
     }
+    const userMgmtCard = document.getElementById('hub-user-mgmt-card');
+    if (userMgmtCard) {
+      userMgmtCard.style.display = isRealAdmin() ? '' : 'none';
+    }
     document.querySelectorAll('[data-paula-only]').forEach((el) => {
       el.style.display = paula ? '' : 'none';
     });
@@ -158,7 +277,7 @@
       ...viewAsUsers
         .filter((u) => String(u.id) !== String(hubRealUser.id))
         .map((u) => {
-          const label = `${u.full_name || u.email} (${u.role})`;
+          const label = `${u.full_name || u.email} (${accessApi().roleLabel ? accessApi().roleLabel(u.role) : u.role})`;
           return `<option value="${escapeAttr(u.id)}"${String(u.id) === currentId && isImpersonating() ? ' selected' : ''}>${escapeAttr(label)}</option>`;
         })
     ];
@@ -187,21 +306,55 @@
   }
 
   async function loadViewAsUsers() {
-    if (!supabase || !isRealAdmin()) {
+    if (!isRealAdmin()) {
       viewAsUsers = [];
       return;
     }
+    try {
+      const people = await listAuthorizedStaff();
+      viewAsUsers = people;
+    } catch (err) {
+      console.warn('view-as users load failed', err);
+      viewAsUsers = [];
+    }
+  }
+
+  async function listHubLedgerRows() {
     const { data, error } = await supabase
       .from('app_users')
-      .select('id, email, full_name, role, region')
+      .select('*')
       .is('deleted_at', null)
       .order('full_name', { ascending: true });
-    if (error) {
-      console.warn('view-as users load failed', error);
-      viewAsUsers = [];
-      return;
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function listAuthorizedStaff() {
+    const [atlasPeople, ledgerRows] = await Promise.all([listAtlasUsers(), listHubLedgerRows()]);
+    const ledgerByEmail = new Map(ledgerRows.map((row) => [emailKey(row.email), row]));
+    const decide = accessApi().decideHubAccess;
+    const staff = [];
+    const seen = new Set();
+    for (const atlasUser of atlasPeople) {
+      const ledger = ledgerByEmail.get(emailKey(atlasUser.email)) || null;
+      const decision = decide
+        ? decide({ atlasUser, hubLedgerRow: ledger })
+        : { ok: false };
+      if (!decision.ok) continue;
+      staff.push(toStaffUser(atlasUser, ledger, decision));
+      seen.add(emailKey(atlasUser.email));
     }
-    viewAsUsers = data || [];
+    for (const ledger of ledgerRows) {
+      const email = emailKey(ledger.email);
+      if (seen.has(email)) continue;
+      const decision = decide
+        ? decide({ atlasUser: null, hubLedgerRow: ledger })
+        : { ok: false };
+      if (!decision.ok) continue;
+      staff.push(toStaffUser(null, ledger, decision));
+    }
+    staff.sort((a, b) => String(a.full_name || a.email).localeCompare(String(b.full_name || b.email)));
+    return staff;
   }
 
   function refreshAfterIdentityChange() {
@@ -235,15 +388,6 @@
       return;
     }
     let target = viewAsUsers.find((u) => String(u.id) === String(userId));
-    if (!target && supabase) {
-      const { data } = await supabase
-        .from('app_users')
-        .select('*')
-        .eq('id', userId)
-        .is('deleted_at', null)
-        .maybeSingle();
-      target = data;
-    }
     if (!target) {
       alert('Could not find that user.');
       return;
@@ -274,26 +418,38 @@
     const email = (session?.user?.email || '').trim().toLowerCase();
     if (!email) return { ok: false, reason: 'missing_email' };
 
-    const { data, error } = await supabase
-      .from('app_users')
-      .select('*')
-      .eq('email', email)
-      .is('deleted_at', null)
-      .maybeSingle();
-
-    if (error) {
-      console.error('app_users lookup failed:', error.message);
-      return { ok: false, reason: 'lookup_failed', message: error.message };
+    const decide = accessApi().decideHubAccess;
+    if (typeof decide !== 'function') {
+      return { ok: false, reason: 'lookup_failed', message: 'Hub access helper is not loaded.' };
     }
 
-    if (!data) {
-      return { ok: false, reason: 'not_allowlisted' };
+    let atlasUser = null;
+    let hubLedgerRow = null;
+    try {
+      const [atlasRes, ledger] = await Promise.all([
+        fetchAtlasUserByEmail(email),
+        fetchHubLedgerByEmail(email),
+      ]);
+      if (atlasRes.error) {
+        console.error('Atlas app_users lookup failed:', atlasRes.error.message);
+        return { ok: false, reason: 'lookup_failed', message: atlasRes.error.message };
+      }
+      atlasUser = atlasRes.data || null;
+      hubLedgerRow = ledger;
+    } catch (err) {
+      console.error('app_users lookup failed:', err);
+      return { ok: false, reason: 'lookup_failed', message: err.message || String(err) };
     }
 
-    hubRealUser = data;
-    window.hubCurrentUser = data;
+    const decision = decide({ atlasUser, hubLedgerRow });
+    if (!decision.ok) {
+      return { ok: false, reason: decision.reason || 'not_allowlisted' };
+    }
+
+    hubRealUser = toStaffUser(atlasUser, hubLedgerRow, decision);
+    window.hubCurrentUser = hubRealUser;
     applyNavVisibility();
-    return { ok: true, user: data };
+    return { ok: true, user: hubRealUser };
   }
 
   async function denyAccess(message) {
@@ -334,6 +490,10 @@
 
   async function signOut() {
     try { sessionStorage.removeItem('hub_view_as_id'); } catch (e) { /* ignore */ }
+    try {
+      if (atlasClient) await atlasClient.auth.signOut();
+    } catch (e) { /* ignore */ }
+    atlasWriteReady = false;
     await supabase.auth.signOut();
     window.hubCurrentUser = null;
     hubRealUser = null;
@@ -361,18 +521,21 @@
       const access = await loadAppUser(session);
       if (!access.ok) {
         let message =
-          'Access denied. Your Microsoft account is not on the approved Hub user list. Ask an Admin to add you under Admin → User Management.';
+          'Access denied. Your Microsoft account is not on the approved Hub list. Ask an Admin to grant access from the Atlas roster (Atlas Admin or Hub Admin → User Management).';
         if (access.reason === 'missing_email') {
           message = 'Access denied. Your Microsoft sign-in did not return an email address.';
         } else if (access.reason === 'lookup_failed') {
           message =
-            'Access denied. Could not verify your account against the approved user list. Try again or contact an Admin.';
+            'Access denied. Could not verify your account against Atlas. Try again or contact an Admin.';
+        } else if (access.reason === 'inactive') {
+          message = 'Access denied. This account is deactivated in Atlas.';
         }
         await denyAccess(message);
         return;
       }
 
       accessDenyMessage = '';
+      await attachAtlasSession(session);
       showAppShell(session);
       bindViewAsControls();
       await loadViewAsUsers();
@@ -436,6 +599,13 @@
     signInWithMicrosoft,
     signOut,
     getClient: () => supabase,
+    getAtlasClient,
+    isAtlasWriteReady: () => atlasWriteReady,
+    listAtlasUsers,
+    listHubLedgerRows,
+    listAuthorizedStaff,
+    emailKey,
+    toStaffUser,
     isAdmin: () => isRealAdmin() || !!(effectiveUser() && effectiveUser().role === 'admin'),
     isRealAdmin,
     isImpersonating,

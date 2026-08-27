@@ -530,10 +530,17 @@
     const role = String(appUser?.role || '').toLowerCase().trim();
     const map = {
       admin: 'Admin',
+      project_manager: 'PM',
+      project_engineer: 'PM',
+      bid_coordinator: 'PM',
+      estimator: 'PM',
+      pm: 'PM',
       hr: 'HR',
+      finance: 'HR',
+      general_office: 'HR',
+      accounting: 'HR',
       logistics: 'Logistics',
       training: 'Training',
-      accounting: 'HR',
       technician: 'all'
     };
     return map[role] || 'all';
