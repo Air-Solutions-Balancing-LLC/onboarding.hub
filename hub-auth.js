@@ -21,6 +21,8 @@
   let atlasWriteReady = false;
   let accessDenyMessage = '';
   let authGateInProgress = false;
+  let appBooted = false;
+  let bootedAuthUserId = null;
   let hubRealUser = null; // Microsoft-signed-in allowlisted user
   let viewAsUsers = [];
   const ATLAS_USER_COLS =
@@ -128,11 +130,11 @@
   }
 
   async function attachAtlasSession(hubSession) {
-    atlasWriteReady = false;
     const atlas = getAtlasClient();
     if (!atlas || !hubSession) return false;
     const token = hubSession.provider_token || hubSession.id_token;
     if (!token) return false;
+    atlasWriteReady = false;
     const { error } = await atlas.auth.signInWithIdToken({
       provider: 'azure',
       token,
@@ -481,6 +483,7 @@
   }
 
   async function denyAccess(message) {
+    resetBoot();
     window.hubCurrentUser = null;
     hubRealUser = null;
     try { sessionStorage.removeItem('hub_view_as_id'); } catch (e) { /* ignore */ }
@@ -517,6 +520,7 @@
   }
 
   async function signOut() {
+    resetBoot();
     try { sessionStorage.removeItem('hub_view_as_id'); } catch (e) { /* ignore */ }
     try {
       if (atlasClient) await atlasClient.auth.signOut();
@@ -540,7 +544,22 @@
     }
   }
 
+  function authUserId(session) {
+    return session?.user?.id || null;
+  }
+
+  function alreadyBootedFor(session) {
+    const id = authUserId(session);
+    return !!(appBooted && id && id === bootedAuthUserId && hubRealUser);
+  }
+
+  function resetBoot() {
+    appBooted = false;
+    bootedAuthUserId = null;
+  }
+
   async function onAuthenticated(session) {
+    if (alreadyBootedFor(session)) return;
     if (authGateInProgress) return;
     authGateInProgress = true;
     try {
@@ -573,6 +592,8 @@
       if (typeof window.applyHubData === 'function') window.applyHubData(data);
       if (typeof window.startHubApp === 'function') window.startHubApp();
       refreshAfterIdentityChange();
+      appBooted = true;
+      bootedAuthUserId = authUserId(session);
     } finally {
       authGateInProgress = false;
     }
@@ -610,13 +631,27 @@
     }
 
     supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session) await onAuthenticated(session);
+      // Tab focus / token refresh recover the session and emit SIGNED_IN.
+      // That is not a new login — do not flash the auth screen or reset the page.
+      if (event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        return;
+      }
+      if (event === 'SIGNED_IN' && session) {
+        if (alreadyBootedFor(session)) return;
+        await onAuthenticated(session);
+        return;
+      }
       if (event === 'SIGNED_OUT') {
-        window.hubCurrentUser = null;
-        hubRealUser = null;
-        viewAsUsers = [];
-        applyNavVisibility();
-        showAuthScreen(accessDenyMessage);
+        window.setTimeout(async () => {
+          const { data: { session: still } } = await supabase.auth.getSession();
+          if (still) return;
+          resetBoot();
+          window.hubCurrentUser = null;
+          hubRealUser = null;
+          viewAsUsers = [];
+          applyNavVisibility();
+          showAuthScreen(accessDenyMessage);
+        }, 0);
       }
     });
   }
