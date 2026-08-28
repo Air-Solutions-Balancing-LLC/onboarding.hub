@@ -408,7 +408,8 @@
       roles: base.roles,
       sections: base.sections,
       items,
-      progress
+      progress,
+      profileFields: Array.isArray(raw.profileFields) ? raw.profileFields : undefined
     };
   }
 
@@ -422,6 +423,7 @@
 
   function persist() {
     ensureData();
+    ensureProfileFields();
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       if (window.HubAuth && HubAuth.save) {
@@ -430,7 +432,8 @@
           roles: data.roles,
           sections: data.sections,
           items: data.items,
-          progress: data.progress
+          progress: data.progress,
+          profileFields: data.profileFields || []
         });
       }
     }, 250);
@@ -438,6 +441,119 @@
 
   function uid(prefix) {
     return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+
+  function optionValue(o) {
+    if (o == null) return '';
+    if (typeof o === 'string') return o;
+    return o.value != null ? String(o.value) : String(o.label || '');
+  }
+
+  function optionText(o) {
+    if (o == null) return '';
+    if (typeof o === 'string') return o;
+    return String(o.label || o.value || '');
+  }
+
+  function findItemByLabelRaw(re) {
+    return (data.items || []).find((i) => re.test(i.label || ''));
+  }
+
+  function ensureProcessItem(re, spec) {
+    const existing = findItemByLabelRaw(re);
+    if (existing) return { item: existing, created: false };
+    const maxOrder = (data.items || []).reduce((m, i) => Math.max(m, i.order || 0), 0);
+    const assignee = spec.assignee || 'Lisa';
+    const item = {
+      id: uid('t'),
+      sectionId: spec.sectionId || 'A',
+      label: spec.label,
+      role: spec.role || 'HR',
+      assignee,
+      owner: assignee,
+      inputType: spec.inputType || 'text',
+      options: spec.options || [],
+      dueOffsetDays: 0,
+      dueDaysBefore: 0,
+      dueAnchor: 'orientation',
+      order: maxOrder + 1,
+      sensitive: !!spec.sensitive,
+      dependsOnPrior: false,
+      dependsOnTaskId: null,
+      checklistSteps: [],
+      link: ''
+    };
+    data.items.push(normalizeItemDue(item));
+    return { item, created: true };
+  }
+
+  function defaultProfileFieldSpecs() {
+    return [
+      { re: /^Personal email/i, label: 'Personal Email' },
+      { re: /^Cell phone/i, label: 'Cell Phone Number' },
+      { re: /^Home address, line 1/i, label: 'Mailing Address' },
+      { re: /^Region$/i, label: 'Region' },
+      { re: /^Position$/i, label: 'Position' },
+      { re: /^Pay rate$/i, label: 'Pay Rate' }
+    ];
+  }
+
+  function normalizeProfileFields(list) {
+    const seen = new Set();
+    return (list || []).map((f) => ({
+      id: f.id || uid('pf'),
+      itemId: f.itemId,
+      label: String(f.label || '').trim()
+    })).filter((f) => {
+      if (!f.itemId || seen.has(f.itemId)) return false;
+      if (!(data.items || []).some((it) => it.id === f.itemId)) return false;
+      seen.add(f.itemId);
+      return true;
+    });
+  }
+
+  function ensureProfileFields() {
+    if (!data || !Array.isArray(data.items)) return false;
+    let changed = false;
+    const pay = ensureProcessItem(/^Pay rate$/i, {
+      label: 'Pay Rate',
+      sectionId: 'E',
+      inputType: 'text',
+      sensitive: true
+    });
+    const pos = ensureProcessItem(/^Position$/i, {
+      label: 'Position',
+      sectionId: 'A',
+      inputType: 'select',
+      options: POSITION_OPTIONS.slice()
+    });
+    if (pay.created || pos.created) changed = true;
+    if (!Array.isArray(data.profileFields)) {
+      data.profileFields = defaultProfileFieldSpecs().map((spec) => {
+        const it = findItemByLabelRaw(spec.re);
+        if (!it) return null;
+        return { id: uid('pf'), itemId: it.id, label: spec.label };
+      }).filter(Boolean);
+      changed = true;
+    } else {
+      const next = normalizeProfileFields(data.profileFields);
+      if (JSON.stringify(next.map((f) => f.itemId)) !== JSON.stringify((data.profileFields || []).map((f) => f.itemId))) {
+        data.profileFields = next;
+        changed = true;
+      } else {
+        data.profileFields = next;
+      }
+    }
+    return changed;
+  }
+
+  function profileFieldsList() {
+    ensureProfileFields();
+    return (data.profileFields || []).map((f) => {
+      const item = (data.items || []).find((i) => i.id === f.itemId);
+      if (!item) return null;
+      return { id: f.id, itemId: f.itemId, label: f.label || item.label, item };
+    }).filter(Boolean);
   }
 
   function esc(s) {
@@ -532,10 +648,12 @@
     const startItem = data.items.find((i) => /START DATE/i.test(i.label));
     const bootItem = data.items.find((i) => /First Day of BOOTCAMP/i.test(i.label));
     const pmItem = data.items.find((i) => /Assigned Project Manager/i.test(i.label));
+    const positionItem = data.items.find((i) => /^Position$/i.test(i.label));
     if (regionItem && emp.region && !p.values[regionItem.id]) p.values[regionItem.id] = emp.region;
     if (startItem && emp.start_date && !p.values[startItem.id]) p.values[startItem.id] = emp.start_date;
     if (bootItem && emp.bootcamp_start_date && !p.values[bootItem.id]) p.values[bootItem.id] = emp.bootcamp_start_date;
     if (pmItem && emp.assigned_pm && !p.values[pmItem.id]) p.values[pmItem.id] = emp.assigned_pm;
+    if (positionItem && emp.employee_type && !p.values[positionItem.id]) p.values[positionItem.id] = emp.employee_type;
 
     return {
       id: emp.id,
@@ -2249,6 +2367,66 @@
     return due < today;
   }
 
+  function valueControlHtml(hire, it) {
+    const raw = hire.values?.[it.id];
+    const filled = isFilled(it, raw, hire);
+    const stepProg = checklistProgress(hire, it);
+    const isRegionField = /^Region$/i.test(it.label);
+    const isPositionField = /^Position$/i.test(it.label);
+    if (stepProg) {
+      return `<button type="button" class="btn-secondary nh-checklist-btn" data-open-checklist="${esc(it.id)}">
+        Open check-off list (${stepProg.done}/${stepProg.total})
+      </button>`;
+    }
+    if (it.inputType === 'checkbox') {
+      return `<label class="nh-check-label"><input type="checkbox" data-field="${esc(it.id)}" ${filled ? 'checked' : ''}> Done</label>`;
+    }
+    if (isRegionField || isPositionField || it.inputType === 'select') {
+      const optsList = isRegionField ? REGION_OPTIONS : (isPositionField ? POSITION_OPTIONS : (it.options || []));
+      const cur = isRegionField
+        ? (normalizeRegion(raw) || raw || hire.division || '')
+        : isPositionField
+          ? String(raw || hire.employeeType || '')
+          : String(raw || '');
+      const opts = optsList.map((o) => {
+        const v = optionValue(o);
+        return `<option value="${esc(v)}" ${String(cur) === v ? 'selected' : ''}>${esc(optionText(o))}</option>`;
+      }).join('');
+      return `<select class="form-input nh-field-input" data-field="${esc(it.id)}"><option value="">—</option>${opts}</select>`;
+    }
+    if (it.inputType === 'date') {
+      const v = typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}/.test(raw) ? raw.slice(0, 10) : '';
+      return `<input class="form-input nh-field-input" type="date" data-field="${esc(it.id)}" value="${esc(v)}">`;
+    }
+    let display = raw == null ? '' : String(raw);
+    if (it.sensitive && !revealSensitive && display) display = '••••••••';
+    return `<input class="form-input nh-field-input" type="text" data-field="${esc(it.id)}" value="${esc(display)}" ${it.sensitive && !revealSensitive && raw ? 'readonly' : ''} placeholder="Not on file yet">`;
+  }
+
+  function hireProfileSheetHtml(hire) {
+    const fields = profileFieldsList();
+    if (!fields.length) return '';
+    const filledN = fields.filter((f) => isFilled(f.item, hire.values?.[f.item.id], hire)).length;
+    const rows = fields.map((f) => {
+      const filled = isFilled(f.item, hire.values?.[f.item.id], hire);
+      return `<div class="nh-dossier-row${filled ? ' is-filled' : ''}">
+        <div class="nh-dossier-label">${esc(f.label)}${f.item.sensitive ? ' <span class="nh-lock">sensitive</span>' : ''}</div>
+        <div class="nh-dossier-value">${valueControlHtml(hire, f.item)}</div>
+      </div>`;
+    }).join('');
+    return `
+      <section class="nh-dossier" aria-label="Candidate profile">
+        <div class="nh-dossier-head">
+          <div>
+            <div class="nh-dossier-kicker">Candidate profile</div>
+            <div class="nh-dossier-title">Filled as onboarding steps are completed</div>
+          </div>
+          <div class="nh-dossier-count">${filledN} of ${fields.length} on file</div>
+        </div>
+        <div class="nh-dossier-grid">${rows}</div>
+      </section>`;
+  }
+
   function renderDetail(root) {
     const hire = hires().find((h) => h.id === selectedHireId);
     if (!hire) { view = 'dashboard'; return renderDashboard(root); }
@@ -2334,6 +2512,7 @@
           </div>
         </div>
       </div>
+      ${hireProfileSheetHtml(hire)}
       ${sectionsHtml || `<div class="nh-empty-block">No tasks assigned to ${esc(scoped)} for this hire.</div>`}`;
 
     root.querySelector('#nh-back').addEventListener('click', () => {
@@ -2453,8 +2632,8 @@
       const optsList = isRegionField ? REGION_OPTIONS : (it.options || []);
       const cur = isRegionField ? (normalizeRegion(raw) || raw || '') : String(raw || '');
       const opts = optsList.map((o) => {
-        const v = typeof o === 'string' ? o : o.value;
-        return `<option value="${esc(v)}" ${String(cur) === v ? 'selected' : ''}>${esc(v)}</option>`;
+        const v = optionValue(o);
+        return `<option value="${esc(v)}" ${String(cur) === v ? 'selected' : ''}>${esc(optionText(o))}</option>`;
       }).join('');
       control = `<select class="form-input nh-field-input" data-field="${esc(it.id)}"><option value="">—</option>${opts}</select>`;
     } else if (it.inputType === 'date') {
@@ -2610,11 +2789,13 @@
     const emp = employees.find((e) => e.id === hireId);
     if (emp) {
       if (/^Region$/i.test(item.label)) emp.region = String(value || '');
+      if (/^Position$/i.test(item.label) && value) emp.employee_type = String(value);
       if (/START DATE/i.test(item.label)) emp.start_date = String(value || '') || null;
       if (/First Day of BOOTCAMP/i.test(item.label)) emp.bootcamp_start_date = String(value || '') || null;
       if (/Assigned Project Manager/i.test(item.label)) emp.assigned_pm = String(value || '');
       syncEmployeePatch(hireId, {
         region: emp.region,
+        employee_type: emp.employee_type,
         start_date: emp.start_date,
         bootcamp_start_date: emp.bootcamp_start_date,
         assigned_pm: emp.assigned_pm
@@ -2654,6 +2835,9 @@
     }
     if (!confirm(`Delete "${it.label}" from the shared process?`)) return false;
     data.items = data.items.filter((i) => i.id !== id);
+    if (Array.isArray(data.profileFields)) {
+      data.profileFields = data.profileFields.filter((f) => f.itemId !== id);
+    }
     data.items.forEach((item) => {
       if (item.dependsOnTaskId === id) {
         item.dependsOnTaskId = null;
@@ -3180,6 +3364,191 @@
     }).join('');
   }
 
+  function profileTaskOptionsHtml(selectedId, usedIds) {
+    ensureData();
+    return (data.sections || []).map((sec) => {
+      const opts = itemsForSection(sec.id)
+        .filter((i) => i.id === selectedId || !usedIds.has(i.id))
+        .map((i) => `<option value="${esc(i.id)}" ${i.id === selectedId ? 'selected' : ''}>${esc(i.label)}</option>`)
+        .join('');
+      if (!opts) return '';
+      return `<optgroup label="${esc(sec.id)}. ${esc(sec.title)}">${opts}</optgroup>`;
+    }).join('');
+  }
+
+  function renderProfileFieldsAdmin() {
+    const root = document.getElementById('nh-profile-fields-root');
+    if (!root) return;
+    ensureData();
+    ensureProfileFields();
+    const manageAll = canManageAllTasks();
+    const fields = profileFieldsList();
+    const used = new Set(fields.map((f) => f.itemId));
+    const unusedPicker = profileTaskOptionsHtml('', used);
+    const sectionOpts = (data.sections || []).map((s) =>
+      `<option value="${esc(s.id)}" ${s.id === 'A' ? 'selected' : ''}>${esc(s.id)}. ${esc(s.title)}</option>`
+    ).join('');
+
+    const rows = fields.length
+      ? fields.map((f, idx) => `
+        <tr data-pf-id="${esc(f.id)}">
+          <td>
+            ${manageAll
+              ? `<input class="form-input" data-pf-label="${esc(f.id)}" value="${esc(f.label)}" />`
+              : esc(f.label)}
+          </td>
+          <td>
+            ${manageAll
+              ? `<select class="form-input" data-pf-item="${esc(f.id)}">${profileTaskOptionsHtml(f.itemId, used)}</select>`
+              : esc(f.item.label)}
+          </td>
+          <td>${f.item.sensitive ? 'Yes' : 'No'}</td>
+          <td>
+            ${manageAll ? `
+              <div class="nh-pf-row-actions">
+                <button type="button" class="btn-xs" data-pf-up="${esc(f.id)}" ${idx === 0 ? 'disabled' : ''} title="Move up">↑</button>
+                <button type="button" class="btn-xs" data-pf-down="${esc(f.id)}" ${idx === fields.length - 1 ? 'disabled' : ''} title="Move down">↓</button>
+                <button type="button" class="btn-xs danger" data-pf-remove="${esc(f.id)}">Remove</button>
+              </div>
+            ` : '—'}
+          </td>
+        </tr>`).join('')
+      : `<tr><td colspan="4" class="nh-empty">No profile fields yet.</td></tr>`;
+
+    root.innerHTML = `
+      <p class="user-mgmt-footnote" style="font-style:normal;margin:0 0 1rem;">
+        These fields appear on each hire’s profile. They fill when the linked process step is completed. Removing a field here only hides it from the profile — the process task stays.
+      </p>
+      <div class="nh-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>Profile label</th><th>Process step</th><th>Sensitive</th><th></th></tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      ${manageAll ? `
+        <div class="nh-pf-add">
+          <div class="nh-pf-add-block">
+            <div class="form-label">Add existing step</div>
+            <div class="nh-pf-add-row">
+              <select class="form-input" id="nh-pf-pick">${unusedPicker || '<option value="">No unused steps</option>'}</select>
+              <button type="button" class="btn-secondary" id="nh-pf-add-existing" ${unusedPicker ? '' : 'disabled'}>Add to profile</button>
+            </div>
+          </div>
+          <div class="nh-pf-add-block">
+            <div class="form-label">Add new field</div>
+            <div class="nh-pf-add-row nh-pf-add-new">
+              <input class="form-input" id="nh-pf-new-label" type="text" placeholder="e.g. Emergency contact" />
+              <select class="form-input" id="nh-pf-new-section">${sectionOpts}</select>
+              <select class="form-input" id="nh-pf-new-type">
+                <option value="text">Text</option>
+                <option value="date">Date</option>
+                <option value="select">Dropdown</option>
+              </select>
+              <label class="nh-check-label"><input type="checkbox" id="nh-pf-new-sensitive"> Sensitive</label>
+              <button type="button" class="btn-primary" id="nh-pf-add-new">Add field</button>
+            </div>
+            <input class="form-input" id="nh-pf-new-options" type="text" placeholder="Dropdown options, comma-separated" hidden />
+          </div>
+        </div>
+      ` : '<p class="user-mgmt-footnote">Only Hub Admins can edit the profile field list.</p>'}
+    `;
+    bindProfileFieldsAdmin(root);
+  }
+
+  function moveProfileField(id, dir) {
+    const list = data.profileFields || [];
+    const i = list.findIndex((f) => f.id === id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= list.length) return;
+    const tmp = list[i];
+    list[i] = list[j];
+    list[j] = tmp;
+    persist();
+    renderProfileFieldsAdmin();
+  }
+
+  function bindProfileFieldsAdmin(root) {
+    root.querySelectorAll('[data-pf-label]').forEach((inp) => {
+      const commit = () => {
+        const f = (data.profileFields || []).find((x) => x.id === inp.getAttribute('data-pf-label'));
+        if (!f) return;
+        f.label = inp.value.trim() || f.label;
+        persist();
+      };
+      inp.addEventListener('change', commit);
+      inp.addEventListener('blur', commit);
+    });
+    root.querySelectorAll('[data-pf-item]').forEach((sel) => {
+      sel.addEventListener('change', () => {
+        const f = (data.profileFields || []).find((x) => x.id === sel.getAttribute('data-pf-item'));
+        if (!f) return;
+        f.itemId = sel.value;
+        persist();
+        renderProfileFieldsAdmin();
+      });
+    });
+    root.querySelectorAll('[data-pf-up]').forEach((btn) => {
+      btn.addEventListener('click', () => moveProfileField(btn.getAttribute('data-pf-up'), -1));
+    });
+    root.querySelectorAll('[data-pf-down]').forEach((btn) => {
+      btn.addEventListener('click', () => moveProfileField(btn.getAttribute('data-pf-down'), 1));
+    });
+    root.querySelectorAll('[data-pf-remove]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        data.profileFields = (data.profileFields || []).filter((f) => f.id !== btn.getAttribute('data-pf-remove'));
+        persist();
+        renderProfileFieldsAdmin();
+      });
+    });
+    const typeSel = root.querySelector('#nh-pf-new-type');
+    const optsInp = root.querySelector('#nh-pf-new-options');
+    typeSel?.addEventListener('change', () => {
+      if (optsInp) optsInp.hidden = typeSel.value !== 'select';
+    });
+    root.querySelector('#nh-pf-add-existing')?.addEventListener('click', () => {
+      const itemId = root.querySelector('#nh-pf-pick')?.value;
+      const item = (data.items || []).find((i) => i.id === itemId);
+      if (!item) return;
+      if ((data.profileFields || []).some((f) => f.itemId === itemId)) return;
+      data.profileFields = data.profileFields || [];
+      data.profileFields.push({ id: uid('pf'), itemId, label: item.label });
+      persist();
+      renderProfileFieldsAdmin();
+    });
+    root.querySelector('#nh-pf-add-new')?.addEventListener('click', () => {
+      const label = String(root.querySelector('#nh-pf-new-label')?.value || '').trim();
+      if (!label) {
+        alert('Enter a field label.');
+        return;
+      }
+      const sectionId = root.querySelector('#nh-pf-new-section')?.value || 'A';
+      const inputType = root.querySelector('#nh-pf-new-type')?.value || 'text';
+      const sensitive = !!root.querySelector('#nh-pf-new-sensitive')?.checked;
+      const options = String(root.querySelector('#nh-pf-new-options')?.value || '')
+        .split(',').map((s) => s.trim()).filter(Boolean);
+      const created = ensureProcessItem(new RegExp('^' + label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i'), {
+        label,
+        sectionId,
+        inputType,
+        sensitive,
+        options
+      });
+      if (!created.created && (data.profileFields || []).some((f) => f.itemId === created.item.id)) {
+        alert('That field is already on the profile. Use Add existing step, or pick a different label.');
+        return;
+      }
+      data.profileFields = data.profileFields || [];
+      if (!(data.profileFields || []).some((f) => f.itemId === created.item.id)) {
+        data.profileFields.push({ id: uid('pf'), itemId: created.item.id, label });
+      }
+      persist();
+      renderProfileFieldsAdmin();
+      refreshAfterProcessChange();
+    });
+  }
+
   function renderProcessAdmin(root) {
     if (!root) return;
     ensureData();
@@ -3222,7 +3591,9 @@
   function mountProcessAdmin() {
     ensureData();
     if (!data || !data.items?.length) data = seed();
+    if (ensureProfileFields()) persist();
     processAdminOpen = {};
+    renderProfileFieldsAdmin();
     renderProcessAdmin(document.getElementById('nh-process-admin-root'));
   }
 
@@ -3483,6 +3854,7 @@
   function refreshAfterProcessChange() {
     const adminRoot = document.getElementById('nh-process-admin-root');
     if (adminRoot) renderProcessAdmin(adminRoot);
+    renderProfileFieldsAdmin();
     if (document.getElementById('page-checklist')?.classList.contains('active')) render();
   }
 
@@ -4352,6 +4724,7 @@
   function applyRemote(value) {
     data = migrate(value);
     ensureData();
+    if (ensureProfileFields()) persist();
     const role = localStorage.getItem(ROLE_PREF_KEY);
     const person = localStorage.getItem(PERSON_PREF_KEY);
     if (role) filters.role = role;
@@ -4366,6 +4739,7 @@
     const forceReload = !!(opts && opts.forceReload);
     ensureData();
     if (!data || !data.items?.length) data = seed();
+    if (ensureProfileFields()) persist();
     const role = localStorage.getItem(ROLE_PREF_KEY);
     const person = localStorage.getItem(PERSON_PREF_KEY);
     if (role) filters.role = role;

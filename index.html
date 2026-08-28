@@ -6,7 +6,7 @@
 <title>Airadigm Onboarding Hub</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/hub-sidebar.css?v=nav1">
-<link rel="stylesheet" href="css/hub-shell.css?v=pop1">
+<link rel="stylesheet" href="css/hub-shell.css?v=beta4">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 [hidden] { display: none !important; }
@@ -912,6 +912,181 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .nh-profile-name { font-size: 22px; font-weight: 600; color: #1e293b; }
 .nh-profile-meta { font-size: 13px; color: #64748b; margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
 .nh-profile-right { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.nh-dossier {
+  --ds-navy: #1a2540;
+  --ds-gold: #c4a35a;
+  --ds-paper: #f7f4ee;
+  background: var(--ds-paper);
+  border: 1px solid #d9d1c3;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  overflow: hidden;
+  box-shadow: 0 1px 0 rgba(26,37,64,.06);
+}
+.nh-dossier-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 14px 18px 12px;
+  background: var(--ds-navy);
+  color: #f8fafc;
+}
+.nh-dossier-kicker {
+  font-size: 10px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ds-gold);
+  font-weight: 700;
+}
+.nh-dossier-title { font-size: 15px; font-weight: 650; margin-top: 2px; }
+.nh-dossier-count {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ds-gold);
+  white-space: nowrap;
+}
+.nh-dossier-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  background: #fff;
+}
+.nh-dossier-row {
+  display: grid;
+  grid-template-columns: minmax(8rem, 38%) minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid #ece7dc;
+  border-right: 1px solid #ece7dc;
+}
+.nh-dossier-row:nth-child(2n) { border-right: none; }
+.nh-dossier-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: #6b645a;
+}
+.nh-dossier-value .form-input,
+.nh-dossier-value .nh-field-input { width: 100%; background: #fff; }
+.nh-dossier-row.is-filled .nh-dossier-label { color: var(--ds-navy); }
+.nh-pf-add { display: grid; gap: 16px; margin-top: 16px; }
+.nh-pf-add-block { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; }
+.nh-pf-add-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.nh-pf-add-row .form-input { min-width: 160px; flex: 1; }
+.nh-pf-add-new { align-items: center; }
+.nh-pf-row-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+@media (max-width: 800px) {
+  .nh-dossier-grid { grid-template-columns: 1fr; }
+  .nh-dossier-row { border-right: none; }
+}
+.page-beta { background: transparent; min-height: 0; padding-bottom: 32px; }
+.beta-shell { --beta-ink: #0c1a33; --beta-mark: #2ee6a6; --beta-paper: #f4f6f8; --beta-line: #c5d0dc; width: 100%; max-width: none; }
+.beta-mast { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 22px; }
+.beta-stamp {
+  flex-shrink: 0;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 18px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--beta-ink);
+  background: var(--beta-mark);
+  border: 2px solid var(--beta-ink);
+  padding: 8px 10px 6px;
+  transform: rotate(-8deg);
+  box-shadow: 3px 3px 0 var(--beta-ink);
+}
+.beta-title { font-size: 26px; font-weight: 800; color: var(--beta-ink); letter-spacing: -.02em; }
+.beta-lede { margin-top: 6px; font-size: 14px; color: #3d4a5c; max-width: 42rem; line-height: 1.45; }
+.beta-kicker { font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #5b6b7c; }
+.beta-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 18px; align-items: start; }
+.beta-layout-3 { grid-template-columns: 200px 240px minmax(0, 1fr); }
+.beta-roles, .beta-bench {
+  background: var(--beta-paper);
+  border: 1px dashed var(--beta-ink);
+  padding: 16px;
+}
+.beta-role-list { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 14px; }
+.beta-role {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  width: 100%; text-align: left; font: inherit; font-weight: 650; color: var(--beta-ink);
+  background: #fff; border: 1px solid var(--beta-line); padding: 8px 10px; cursor: pointer;
+}
+.beta-role:hover { border-color: var(--beta-ink); }
+.beta-role.is-on { background: var(--beta-ink); color: #fff; border-color: var(--beta-ink); }
+.beta-role-n { font-size: 11px; font-weight: 800; opacity: .7; }
+.beta-add-role { display: grid; gap: 8px; }
+.beta-role-del { margin-top: 12px; background: none; border: none; padding: 0; font: inherit; font-size: 12px; color: #9f1239; cursor: pointer; text-decoration: underline; }
+.beta-bench-title { font-size: 22px; font-weight: 800; color: var(--beta-ink); margin: 2px 0 4px; }
+.beta-bench-sub { font-size: 13px; color: #5b6b7c; margin-bottom: 14px; }
+.beta-steps { list-style: none; display: flex; flex-direction: column; gap: 8px; margin: 0 0 18px; }
+.beta-step {
+  display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 10px; align-items: start;
+  background: #fff; border: 1px solid var(--beta-line); padding: 10px 12px;
+}
+.beta-step-index {
+  font-family: 'Barlow Condensed', sans-serif; font-size: 22px; color: var(--beta-ink); line-height: 1.1; padding-top: 4px;
+}
+.beta-step-name { width: 100%; font: inherit; font-weight: 650; color: var(--beta-ink); border: none; border-bottom: 1px solid transparent; background: transparent; padding: 2px 0; }
+.beta-step-name:focus { outline: none; border-bottom-color: var(--beta-ink); }
+.beta-step-result { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-top: 8px; }
+.beta-toggle { font-size: 12px; color: #3d4a5c; display: flex; align-items: center; gap: 5px; }
+.beta-kind { font: inherit; font-size: 12px; padding: 4px 6px; border: 1px solid var(--beta-line); background: #fff; }
+.beta-step-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.beta-empty { list-style: none; padding: 22px 12px; text-align: center; color: #5b6b7c; font-size: 13px; border: 1px dashed var(--beta-line); background: #fff; }
+.beta-composer { border-top: 1px solid var(--beta-line); padding-top: 14px; display: grid; gap: 10px; }
+.beta-outcome-picks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.beta-pick {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--beta-line);
+  background: #fff;
+  cursor: pointer;
+}
+.beta-pick input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.beta-pick strong { font-size: 13px; color: var(--beta-ink); }
+.beta-pick span { font-size: 12px; color: #5b6b7c; line-height: 1.35; }
+.beta-pick.is-on { border-color: var(--beta-ink); box-shadow: inset 3px 0 0 var(--beta-mark); }
+.beta-composer-data { display: grid; gap: 8px; }
+.beta-composer-data.is-collapsed { display: none !important; }
+.beta-catalog {
+  background: var(--beta-paper);
+  border: 1px dashed var(--beta-ink);
+  padding: 16px;
+  margin-bottom: 18px;
+}
+.beta-catalog-add { grid-template-columns: minmax(0, 1fr) 140px auto; display: grid; gap: 8px; margin-top: 12px; align-items: center; }
+.beta-field-picks { display: flex; flex-wrap: wrap; gap: 6px; }
+.beta-field-check {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 650; color: var(--beta-ink);
+  background: #fff; border: 1px solid var(--beta-line); padding: 5px 8px; cursor: pointer;
+}
+.beta-field-check.is-on { border-color: var(--beta-ink); box-shadow: inset 3px 0 0 var(--beta-mark); }
+.beta-step-fields { margin-top: 8px; }
+.beta-step-notes { display: grid; gap: 4px; margin-top: 10px; }
+.beta-step-notes .form-label { margin: 0; }
+.beta-step-notes-input { resize: vertical; min-height: 52px; background: #fff; font-size: 12px; line-height: 1.45; }
+@media (max-width: 860px) {
+  .beta-layout, .beta-layout-3, .beta-outcome-picks, .beta-catalog-add { grid-template-columns: 1fr; }
+  .beta-step { grid-template-columns: 28px minmax(0, 1fr); }
+  .beta-step-actions { grid-column: 2; }
+}
 .nh-prog { min-width: 0; }
 .nh-prog.big { min-width: 160px; margin-top: 8px; }
 .nh-prog-bar { height: 7px; background: #e2e8f0; border-radius: 99px; overflow: hidden; }
@@ -1045,10 +1220,11 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 <script src="config.js"></script>
 <script src="js/hub-access.js"></script>
 <script src="js/hub-shell.js?v=pop1"></script>
-<script src="hub-auth.js?v=nav1"></script>
+<script src="hub-auth.js?v=beta1"></script>
 <script src="hub-admin.js?v=merge1"></script>
 <script src="new-hire-seed.js"></script>
-<script src="hub-checklist.js?v=merge1"></script>
+<script src="hub-checklist.js?v=profile1"></script>
+<script src="hub-beta.js?v=beta5"></script>
 </head>
 <body>
 
@@ -1098,6 +1274,13 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
       <button type="button" class="nav-item" data-nh-view="template" title="Edit process" onclick="showChecklistView('template', this)">
         <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
         <span class="nav-label">Edit process</span>
+      </button>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Experiments</div>
+      <button type="button" class="nav-item" title="Beta Testing — role-based process (does not change the live checklist)" onclick="showPage('beta', this)">
+        <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6"/><path d="M10 3v6L5 18a2 2 0 0 0 1.7 3h10.6A2 2 0 0 0 19 18L14 9V3"/><path d="M8.5 14h7"/></svg></span>
+        <span class="nav-label">Beta Testing</span>
       </button>
     </div>
     <button type="button" class="nav-item nav-admin" id="nav-admin" style="display:none" onclick="showPage('admin', this)">
@@ -1439,6 +1622,21 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
         </div>
       </div>
 
+      <div class="user-mgmt-card" id="nh-profile-fields-card">
+        <div class="user-mgmt-header">
+          <div>
+            <div class="user-mgmt-kicker">Hires</div>
+            <h2 class="user-mgmt-title">Candidate profile</h2>
+            <p class="user-mgmt-subtitle">
+              Fields shown on each hire. They fill when the linked onboarding step is completed. Add or reorder fields here.
+            </p>
+          </div>
+        </div>
+        <div id="nh-profile-fields-root">
+          <p class="login-status">Loading profile fields…</p>
+        </div>
+      </div>
+
       <div class="user-mgmt-card user-mgmt-card--process nh-process-admin" id="nh-process-admin-card">
         <div class="user-mgmt-header">
           <div>
@@ -1454,6 +1652,13 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- PAGE: BETA TESTING -->
+<div id="page-beta" class="page page-beta">
+  <div id="beta-root">
+    <p class="login-status">Loading beta process…</p>
   </div>
 </div>
 
@@ -1581,6 +1786,10 @@ const HUB_PAGE_META = {
     title: 'Admin',
     sub: 'Hub people come from Atlas. Grant or revoke access in Atlas Admin. Atlas Admins always have Hub Admin.'
   },
+  beta: {
+    title: 'Beta Testing',
+    sub: 'Department → job title → steps. Sandbox only — does not change the live New Hire Checklist.'
+  },
   resources: {
     title: 'Onboarding Resources',
     sub: 'Key files, platforms, and links used in the onboarding process.'
@@ -1650,6 +1859,7 @@ function showPage(id, btn) {
       if (window.HubAdmin) HubAdmin.mount();
       if (window.HubChecklist && HubChecklist.mountProcessAdmin) HubChecklist.mountProcessAdmin();
     }
+    if (id === 'beta' && window.HubBeta) HubBeta.mount();
     if (id === 'checklist' && window.HubChecklist) HubChecklist.mount();
     else {
       const actions = document.getElementById('hub-header-actions');
@@ -3157,6 +3367,9 @@ window.applyHubData = function(data) {
   if (data.task_notes) taskNotes = data.task_notes;
   if (window.HubChecklist && HubChecklist.applyRemote) {
     HubChecklist.applyRemote(data.new_hire_checklist || null);
+  }
+  if (window.HubBeta && HubBeta.applyRemote) {
+    HubBeta.applyRemote(data.beta_role_process || null);
   }
 };
 

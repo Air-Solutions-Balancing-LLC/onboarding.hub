@@ -12,7 +12,8 @@
     'bootcamp_checks',
     'airadigm_tasks_v2',
     'task_notes',
-    'new_hire_checklist'
+    'new_hire_checklist',
+    'beta_role_process'
   ];
 
   let supabase = null;
