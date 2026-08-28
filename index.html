@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Airadigm Onboarding Hub</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/hub-sidebar.css?v=nav1">
-<link rel="stylesheet" href="css/hub-shell.css?v=beta4">
+<link rel="stylesheet" href="css/hub-sidebar.css?v=nav2">
+<link rel="stylesheet" href="css/hub-shell.css?v=beta5">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 [hidden] { display: none !important; }
@@ -1366,6 +1366,10 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
       <span class="nav-label">Resources</span>
     </button>
   </nav>
+  <a href="#" id="otherAppsNav" class="nav-item nav-other-apps" title="Other Apps — Atlas and Vulcan" onclick="showPage('apps', this); return false;">
+    <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
+    <span class="nav-label">Other Apps</span>
+  </a>
   <div class="sidebar-bottom">
     <label id="nav-view-as" class="nav-view-as" hidden title="Preview Hub as another allowlisted user">
       <span class="nav-view-as-label">View as</span>
@@ -1623,6 +1627,26 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 
 <!-- ═══════════════════ PAGES ═══════════════════ -->
 
+<!-- PAGE: OTHER APPS -->
+<div id="page-apps" class="page page-apps">
+  <p class="page-sub" style="max-width:42rem;margin-bottom:18px">
+    Jump to the other Airadigm tools that use the same company sign-in.
+    Apps are listed here even if your account doesn’t have access yet — each app still checks permissions when you open it.
+  </p>
+  <div class="apps-grid">
+    <a class="app-tile" href="https://atlasops.netlify.app" target="_blank" rel="noopener noreferrer">
+      <div class="app-tile-name">Atlas</div>
+      <div class="app-tile-summary">Project management — jobs, scheduling, accounts, manpower, and the company roster.</div>
+      <span class="app-tile-open">Open app →</span>
+    </a>
+    <a class="app-tile" href="https://vulcanops.netlify.app" target="_blank" rel="noopener noreferrer">
+      <div class="app-tile-name">Vulcan</div>
+      <div class="app-tile-summary">Tool and equipment tracking — kits, calibration, and logistics requests.</div>
+      <span class="app-tile-open">Open app →</span>
+    </a>
+  </div>
+</div>
+
 <!-- PAGE: RESOURCES -->
 <div id="page-resources" class="page">
   <div class="main">
@@ -1852,6 +1876,10 @@ const HUB_PAGE_META = {
     title: 'Beta Testing',
     sub: 'Department → job title → steps. Sandbox only — does not change the live New Hire Checklist.'
   },
+  apps: {
+    title: 'Other Apps',
+    sub: 'Jump to Atlas and Vulcan. Each app still checks your access when you open it.'
+  },
   resources: {
     title: 'Onboarding Resources',
     sub: 'Key files, platforms, and links used in the onboarding process.'
@@ -1898,12 +1926,15 @@ function showPage(id, btn) {
       return;
     }
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.sidebar-nav .nav-item').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.sidebar-nav .nav-item, .nav-other-apps').forEach(b => b.classList.remove('active'));
     page.classList.add('active');
     if (btn) btn.classList.add('active');
     else if (id === 'checklist') {
       const match = checklistNavButton(window.HubChecklist && HubChecklist.getView && HubChecklist.getView());
       if (match) match.classList.add('active');
+    } else if (id === 'apps') {
+      const appsNav = document.getElementById('otherAppsNav');
+      if (appsNav) appsNav.classList.add('active');
     } else {
       const match = document.querySelector(`.sidebar-nav .nav-item[onclick*="'${id}'"]`);
       if (match) match.classList.add('active');
