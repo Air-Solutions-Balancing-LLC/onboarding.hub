@@ -42,7 +42,8 @@
     { id: 'email', label: 'Email' },
     { id: 'phone', label: 'Phone' },
     { id: 'date', label: 'Date' },
-    { id: 'number', label: 'Number' }
+    { id: 'number', label: 'Number' },
+    { id: 'file', label: 'File (PDF or image)' }
   ];
   const GATE_RESULTS = [
     { id: 'pass', label: 'Pass' },
@@ -298,6 +299,10 @@
     return (dept.titles || []).reduce((n, t) => n + stepsFor(t.id).length, 0);
   }
 
+  function inputTypeLabel(id) {
+    return (INPUT_TYPES.find((t) => t.id === id) || {}).label || 'Text';
+  }
+
   function inputTypeOptions(selected) {
     return INPUT_TYPES.map((t) =>
       `<option value="${esc(t.id)}" ${t.id === selected ? 'selected' : ''}>${esc(t.label)}</option>`
@@ -317,6 +322,7 @@
           : `data-step-output="${esc(stepId)}" value="${esc(f.id)}"`}
           ${picked.has(f.id) ? 'checked' : ''}>
         ${esc(f.label)}
+        <span class="beta-field-kind">${esc(inputTypeLabel(f.input))}</span>
       </label>
     `).join('')}</div>`;
   }
@@ -332,7 +338,7 @@
     return `
       <section class="beta-catalog" aria-label="What data">
         <div class="beta-kicker">What data</div>
-        <p class="beta-bench-sub">This is the shared list of data a step can produce. Rename, change the input type, or add fields. A step can check more than one.</p>
+        <p class="beta-bench-sub">This is the shared list of data a step can produce. Use File (PDF or image) for things like a diploma or OSHA card. A step can check more than one.</p>
         <div class="nh-table-wrap">
           <table class="data-table">
             <thead><tr><th>Field name</th><th>Input</th><th></th></tr></thead>
@@ -340,7 +346,7 @@
           </table>
         </div>
         <div class="beta-add-role beta-catalog-add">
-          <input class="form-input" id="beta-new-field" type="text" placeholder="e.g. Mailing address" />
+          <input class="form-input" id="beta-new-field" type="text" placeholder="e.g. HS diploma" />
           <select class="form-input" id="beta-new-field-input">${inputTypeOptions('text')}</select>
           <button type="button" class="btn-secondary" id="beta-add-field">Add data field</button>
         </div>
@@ -453,7 +459,10 @@
       <section class="beta-stage" data-stage-id="${esc(stage.id)}">
         <div class="beta-stage-head">
           <div class="beta-kicker">Stage</div>
-          <input class="beta-stage-name" data-stage-label="${esc(stage.id)}" value="${esc(stage.label)}" />
+          <label class="beta-stage-name-wrap">
+            <span class="form-label">Stage name</span>
+            <input class="form-input beta-stage-name" data-stage-label="${esc(stage.id)}" value="${esc(stage.label)}" placeholder="e.g. Through BG/DS" />
+          </label>
           <p class="beta-bench-sub">${esc(whenSummary(stage.when, stages))}</p>
           ${stageWhenControls(stage, stages)}
           <div class="beta-stage-actions">
@@ -713,11 +722,18 @@
           inp.value = stage.label;
           return;
         }
+        if (next === stage.label) return;
         stage.label = next;
         persist();
+        render();
       };
       inp.addEventListener('change', commit);
-      inp.addEventListener('blur', commit);
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          inp.blur();
+        }
+      });
     });
     root.querySelectorAll('[data-stage-when]').forEach((sel) => {
       sel.addEventListener('change', () => {
