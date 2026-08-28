@@ -61,6 +61,9 @@
   let addFieldIds = [];
   let addDraftLabel = '';
   let addDraftNotes = '';
+  let betaView = 'build';
+  let mapTitleId = null;
+  let mapStageId = null;
 
   function cloneDepts() {
     return JSON.parse(JSON.stringify(DEFAULT_DEPARTMENTS));
@@ -228,25 +231,67 @@
     return stages;
   }
 
-  function normalizeStep(step, order, fields) {
-    if (!step) return null;
+  function workFields(item, order, fields, prefix) {
+    if (!item) return null;
     const catalog = fields || data.dataFields || DEFAULT_DATA_FIELDS;
     const known = new Set(catalog.map((f) => f.id));
-    let outputs = Array.isArray(step.outputs) ? step.outputs.map((id) => String(id)) : [];
-    if (!outputs.length && step.dataKind) outputs = [String(step.dataKind)];
+    let outputs = Array.isArray(item.outputs) ? item.outputs.map((id) => String(id)) : [];
+    if (!outputs.length && item.dataKind) outputs = [String(item.dataKind)];
     outputs = [...new Set(outputs.filter((id) => known.has(id)))];
     let outcome = 'confirm';
-    if (step.outcome === 'decision') outcome = 'decision';
-    else if (step.outcome === 'data' || outputs.length) outcome = 'data';
+    if (item.outcome === 'decision') outcome = 'decision';
+    else if (item.outcome === 'data' || outputs.length) outcome = 'data';
     return {
-      id: step.id || uid('bs'),
-      label: String(step.label || '').trim() || 'Untitled step',
-      notes: String(step.notes || '').trim(),
+      id: item.id || uid(prefix || 'bs'),
+      label: String(item.label || '').trim() || 'Untitled step',
+      notes: String(item.notes || '').trim(),
       outcome,
       outputs: outcome === 'data' ? outputs : [],
-      stageId: String(step.stageId || ''),
-      order: step.order != null ? step.order : order
+      order: item.order != null ? item.order : order
     };
+  }
+
+  function normalizeSub(sub, order, fields) {
+    const base = workFields(sub, order, fields, 'bss');
+    if (!base) return null;
+    if (base.outcome === 'decision') {
+      base.outcome = 'confirm';
+      base.outputs = [];
+    }
+    return base;
+  }
+
+  function normalizeStep(step, order, fields) {
+    const base = workFields(step, order, fields, 'bs');
+    if (!base) return null;
+    const subs = Array.isArray(step.subs)
+      ? step.subs.map((s, i) => normalizeSub(s, i, fields)).filter(Boolean)
+      : [];
+    return {
+      id: base.id,
+      label: base.label,
+      notes: base.notes,
+      outcome: base.outcome,
+      outputs: base.outputs,
+      stageId: String(step.stageId || ''),
+      order: base.order,
+      subs
+    };
+  }
+
+  function subLetter(i) {
+    return i < 26 ? String.fromCharCode(65 + i) : String(i + 1);
+  }
+
+  function findOwnedStep(stepId) {
+    return stepsFor(selectedTitleId).find((s) => s.id === stepId) || null;
+  }
+
+  function findOwnedSub(parentId, subId) {
+    const step = findOwnedStep(parentId);
+    if (!step) return null;
+    if (!Array.isArray(step.subs)) step.subs = [];
+    return step.subs.find((s) => s.id === subId) || null;
   }
 
   function persist() {
@@ -347,12 +392,13 @@
     return always + grouped;
   }
 
-  function gateTargetLabel(when) {
+  function gateTargetLabel(when, ownerTitleId) {
     if (!when || when.type !== 'gate') return 'another stage';
     const meta = titleMeta(when.titleId);
     const stage = ((data.stagesByTitle || {})[when.titleId] || []).find((s) => s.id === when.stageId);
     const stageName = stage ? stage.label : 'a stage';
-    if (!meta || when.titleId === selectedTitleId) return stageName;
+    const owner = ownerTitleId || selectedTitleId;
+    if (!meta || when.titleId === owner) return stageName;
     return `${meta.title.label} · ${stageName}`;
   }
 
@@ -368,13 +414,172 @@
     });
   }
 
+  function titlesWithStages() {
+    const rows = [];
+    (data.departments || []).forEach((dept) => {
+      (dept.titles || []).forEach((title) => {
+        rows.push({ dept, title, stages: stagesFor(title.id) });
+      });
+    });
+    return rows;
+  }
+
+  function collectGateEdges() {
+    const edges = [];
+    titlesWithStages().forEach(({ title, stages }) => {
+      stages.forEach((stage) => {
+        if (!stage.when || stage.when.type !== 'gate') return;
+        edges.push({
+          fromTitle: stage.when.titleId,
+          fromStage: stage.when.stageId,
+          toTitle: title.id,
+          toStage: stage.id,
+          result: stage.when.result || 'complete'
+        });
+      });
+    });
+    return edges;
+  }
+
+  function viewToggleHtml() {
+    return `
+      <div class="beta-views" role="tablist" aria-label="Beta views">
+        <button type="button" class="beta-view ${betaView === 'build' ? 'is-on' : ''}" data-beta-view="build">Process</button>
+        <button type="button" class="beta-view ${betaView === 'gates' ? 'is-on' : ''}" data-beta-view="gates">Gate map</button>
+      </div>
+    `;
+  }
+
+  function gateMapHtml() {
+    const lanes = titlesWithStages();
+    if (!lanes.length) {
+      return `<div class="beta-empty">Add stages in Process. They will show up here as columns, with arrows for gates.</div>`;
+    }
+    const edges = collectGateEdges();
+    const stillThere = lanes.some((l) => l.title.id === mapTitleId && l.stages.some((s) => s.id === mapStageId));
+    if (!stillThere) {
+      if (edges[0]) {
+        mapTitleId = edges[0].toTitle;
+        mapStageId = edges[0].toStage;
+      } else {
+        mapTitleId = lanes[0].title.id;
+        mapStageId = lanes[0].stages[0].id;
+      }
+    }
+    const selStage = mapTitleId ? stagesFor(mapTitleId).find((s) => s.id === mapStageId) : null;
+    const selMeta = mapTitleId ? titleMeta(mapTitleId) : null;
+    const laneHtml = lanes.map(({ dept, title, stages }) => `
+      <div class="beta-map-lane">
+        <div class="beta-kicker">${esc(dept.label)}</div>
+        <h3 class="beta-map-lane-title">${esc(title.label)}</h3>
+        ${stages.map((stage, i) => {
+          const stageSteps = stepsInStage(title.id, stage.id);
+          const n = stageSteps.length;
+          const subN = stageSteps.reduce((sum, s) => sum + ((s.subs || []).length), 0);
+          const gated = stage.when && stage.when.type === 'gate';
+          const on = title.id === mapTitleId && stage.id === mapStageId;
+          return `
+            <button type="button" class="beta-map-node ${on ? 'is-on' : ''} ${gated ? 'is-gated' : ''}"
+              data-gate-title="${esc(title.id)}" data-gate-stage="${esc(stage.id)}">
+              <span class="beta-map-idx">${i + 1}</span>
+              <strong>${esc(stage.label)}</strong>
+              <span>${n} step${n === 1 ? '' : 's'}${subN ? ` · ${subN} sub` : ''}${gated ? ' · waits' : ''}</span>
+            </button>`;
+        }).join('')}
+      </div>
+    `).join('');
+    const legend = edges.length
+      ? `<ul class="beta-map-legend">${edges.map((e) => {
+          const fromMeta = titleMeta(e.fromTitle);
+          const toMeta = titleMeta(e.toTitle);
+          const fromSt = ((data.stagesByTitle || {})[e.fromTitle] || []).find((s) => s.id === e.fromStage);
+          const toSt = ((data.stagesByTitle || {})[e.toTitle] || []).find((s) => s.id === e.toStage);
+          return `<li><strong>${esc(toMeta ? toMeta.title.label : '')} · ${esc(toSt ? toSt.label : '')}</strong>
+            waits on <strong>${esc(fromMeta ? fromMeta.title.label : '')} · ${esc(fromSt ? fromSt.label : '')}</strong>
+            · ${esc(gateResultLabel(e.result))}</li>`;
+        }).join('')}</ul>`
+      : `<p class="beta-bench-sub">No gates yet. Select a stage and set what it waits on.</p>`;
+    return `
+      <div class="beta-map-shell">
+        <p class="beta-bench-sub">Each column is a job title. Arrows are gates. Click a stage to change what it waits on — including another person’s work.</p>
+        <div class="beta-map-layout">
+          <div class="beta-map-canvas" id="beta-map-canvas">
+            <svg class="beta-map-svg" aria-hidden="true"></svg>
+            <div class="beta-map-lanes">${laneHtml}</div>
+          </div>
+          <aside class="beta-map-inspect" aria-label="Edit selected stage gate">
+            ${selStage && selMeta ? `
+              <div class="beta-kicker">${esc(selMeta.dept.label)} · ${esc(selMeta.title.label)}</div>
+              <h3 class="beta-map-lane-title">${esc(selStage.label)}</h3>
+              <p class="beta-bench-sub">${esc(whenSummary(selStage.when, mapTitleId))}</p>
+              ${stageWhenControls(selStage, stagesFor(mapTitleId), mapTitleId)}
+              <button type="button" class="btn-secondary" data-beta-open-process="${esc(mapTitleId)}">Edit steps in Process</button>
+            ` : '<p class="beta-empty">Select a stage.</p>'}
+          </aside>
+        </div>
+        ${legend}
+      </div>
+    `;
+  }
+
+  function drawGateArrows(root) {
+    const canvas = root.querySelector('#beta-map-canvas');
+    const svg = root.querySelector('.beta-map-svg');
+    const lanes = root.querySelector('.beta-map-lanes');
+    if (!canvas || !svg || !lanes) return;
+    const w = Math.max(canvas.clientWidth, lanes.scrollWidth, 1);
+    const h = Math.max(canvas.clientHeight, lanes.scrollHeight, 1);
+    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    svg.setAttribute('width', String(w));
+    svg.setAttribute('height', String(h));
+    const cRect = canvas.getBoundingClientRect();
+    function pt(el, side) {
+      const r = el.getBoundingClientRect();
+      const x = r.left - cRect.left + canvas.scrollLeft;
+      const y = r.top - cRect.top + canvas.scrollTop;
+      if (side === 'bottom') return { x: x + r.width / 2, y: y + r.height };
+      if (side === 'top') return { x: x + r.width / 2, y: y };
+      if (side === 'right') return { x: x + r.width, y: y + r.height / 2 };
+      return { x: x, y: y + r.height / 2 };
+    }
+    function findNode(titleId, stageId) {
+      return Array.from(canvas.querySelectorAll('[data-gate-title]')).find((el) =>
+        el.getAttribute('data-gate-title') === titleId && el.getAttribute('data-gate-stage') === stageId
+      );
+    }
+    const parts = [
+      '<defs>',
+      '<marker id="beta-arrow-ink" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><polygon points="0 0, 10 4, 0 8" fill="#0c1a33"/></marker>',
+      '<marker id="beta-arrow-pass" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><polygon points="0 0, 10 4, 0 8" fill="#0f766e"/></marker>',
+      '<marker id="beta-arrow-fail" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><polygon points="0 0, 10 4, 0 8" fill="#9f1239"/></marker>',
+      '</defs>'
+    ];
+    collectGateEdges().forEach((e) => {
+      const a = findNode(e.fromTitle, e.fromStage);
+      const b = findNode(e.toTitle, e.toStage);
+      if (!a || !b) return;
+      const sameCol = e.fromTitle === e.toTitle;
+      const p1 = pt(a, sameCol ? 'bottom' : 'right');
+      const p2 = pt(b, sameCol ? 'top' : 'left');
+      const dx = Math.max(40, Math.abs(p2.x - p1.x) * 0.35);
+      const dy = Math.max(24, Math.abs(p2.y - p1.y) * 0.35);
+      const d = sameCol
+        ? `M ${p1.x} ${p1.y} C ${p1.x} ${p1.y + dy}, ${p2.x} ${p2.y - dy}, ${p2.x} ${p2.y}`
+        : `M ${p1.x} ${p1.y} C ${p1.x + dx} ${p1.y}, ${p2.x - dx} ${p2.y}, ${p2.x} ${p2.y}`;
+      const color = e.result === 'fail' ? '#9f1239' : (e.result === 'pass' ? '#0f766e' : '#0c1a33');
+      const marker = e.result === 'fail' ? 'beta-arrow-fail' : (e.result === 'pass' ? 'beta-arrow-pass' : 'beta-arrow-ink');
+      parts.push(`<path d="${d}" fill="none" stroke="${color}" stroke-width="2.25" marker-end="url(#${marker})"/>`);
+    });
+    svg.innerHTML = parts.join('');
+  }
+
   function gateResultLabel(id) {
     return (GATE_RESULTS.find((r) => r.id === id) || {}).label || id;
   }
 
-  function whenSummary(when) {
+  function whenSummary(when, ownerTitleId) {
     if (!when || when.type !== 'gate') return 'No wait — this work can start anytime.';
-    const name = gateTargetLabel(when);
+    const name = gateTargetLabel(when, ownerTitleId);
     if (!when.result || when.result === 'complete') {
       return `Waits until ${name} is complete. Later work does not start until every step in that stage is done.`;
     }
@@ -415,7 +620,9 @@
       <label class="beta-field-check ${picked.has(f.id) ? 'is-on' : ''}">
         <input type="checkbox" ${add
           ? `data-add-field="${esc(f.id)}"`
-          : `data-step-output="${esc(stepId)}" value="${esc(f.id)}"`}
+          : (opts && opts.parentId
+            ? `data-sub-output="${esc(opts.parentId)}" data-sub-id="${esc(stepId)}" value="${esc(f.id)}"`
+            : `data-step-output="${esc(stepId)}" value="${esc(f.id)}"`)}
           ${picked.has(f.id) ? 'checked' : ''}>
         ${esc(f.label)}
         <span class="beta-field-kind">${esc(inputTypeLabel(f.input))}</span>
@@ -479,24 +686,32 @@
     return 'confirm';
   }
 
-  function stepOutcomeRadios(step) {
+  function stepOutcomeRadios(step, opts) {
     const cur = outcomeValue(step);
+    const parent = opts && opts.parentId;
+    const allowDecision = !(opts && opts.noDecision);
+    const name = parent ? `out-${parent}-${step.id}` : `out-${step.id}`;
+    const bind = parent
+      ? `data-sub-outcome="${esc(step.id)}" data-parent="${esc(parent)}"`
+      : `data-step-outcome="${esc(step.id)}"`;
+    const shown = (cur === 'decision' && !allowDecision) ? 'confirm' : cur;
     return `
       <div class="beta-step-result">
         <label class="beta-toggle">
-          <input type="radio" name="out-${esc(step.id)}" data-step-outcome="${esc(step.id)}" value="confirm" ${cur === 'confirm' ? 'checked' : ''}>
+          <input type="radio" name="${esc(name)}" ${bind} value="confirm" ${shown === 'confirm' ? 'checked' : ''}>
           Confirmation only
         </label>
         <label class="beta-toggle">
-          <input type="radio" name="out-${esc(step.id)}" data-step-outcome="${esc(step.id)}" value="data" ${cur === 'data' ? 'checked' : ''}>
+          <input type="radio" name="${esc(name)}" ${bind} value="data" ${shown === 'data' ? 'checked' : ''}>
           Produces data
         </label>
+        ${allowDecision ? `
         <label class="beta-toggle">
-          <input type="radio" name="out-${esc(step.id)}" data-step-outcome="${esc(step.id)}" value="decision" ${cur === 'decision' ? 'checked' : ''}>
+          <input type="radio" name="${esc(name)}" ${bind} value="decision" ${shown === 'decision' ? 'checked' : ''}>
           Decision
-        </label>
+        </label>` : ''}
       </div>
-      ${cur === 'decision' ? '<p class="beta-gate-note">Pass continues. Fail goes to the Fail stage (rescind). Review required holds later stages until someone decides.</p>' : ''}
+      ${shown === 'decision' ? '<p class="beta-gate-note">Pass continues. Fail goes to the Fail stage (rescind). Review required holds later stages until someone decides.</p>' : ''}
     `;
   }
 
@@ -511,12 +726,12 @@
     return `
       <div class="beta-stage-when">
         <label class="form-label">Waits until this stage is complete</label>
-        <select class="form-input" data-stage-wait="${esc(stage.id)}">
+        <select class="form-input" data-stage-wait="${esc(stage.id)}" data-wait-title="${esc(titleId)}">
           ${waitOptionsHtml(targets, selectedKey)}
         </select>
         ${srcHasDecision ? `
           <label class="form-label">And that stage’s decision must be</label>
-          <select class="form-input" data-stage-wait-result="${esc(stage.id)}">
+          <select class="form-input" data-stage-wait-result="${esc(stage.id)}" data-wait-title="${esc(titleId)}">
             ${GATE_RESULTS.map((r) =>
               `<option value="${esc(r.id)}" ${result === r.id ? 'selected' : ''}>${esc(r.label)}</option>`
             ).join('')}
@@ -526,18 +741,65 @@
     `;
   }
 
+  function subRowHtml(step, sub, parentIdx, idx, subs) {
+    return `
+      <li class="beta-sub" data-sub-id="${esc(sub.id)}">
+        <div class="beta-step-index">${parentIdx + 1}.${subLetter(idx)}</div>
+        <div class="beta-step-body">
+          <label class="beta-stage-name-wrap">
+            <span class="form-label">Sub-step name</span>
+            <input class="form-input beta-step-name" data-sub-label="${esc(sub.id)}" data-parent="${esc(step.id)}" value="${esc(sub.label)}" placeholder="e.g. Install software" />
+          </label>
+          ${stepOutcomeRadios(sub, { parentId: step.id, noDecision: true })}
+          ${sub.outcome === 'data' ? `<div class="beta-step-fields">${fieldChecksHtml(sub.outputs || [], { stepId: sub.id, parentId: step.id })}</div>` : ''}
+          <label class="beta-step-notes">
+            <span class="form-label">Notes for the person doing this</span>
+            <textarea class="form-input beta-step-notes-input" data-sub-notes="${esc(sub.id)}" data-parent="${esc(step.id)}" rows="2" placeholder="Context, how to do it, or anything they should know">${esc(sub.notes || '')}</textarea>
+          </label>
+        </div>
+        <div class="beta-step-actions">
+          <button type="button" class="btn-xs" data-sub-up="${esc(sub.id)}" data-parent="${esc(step.id)}" ${idx === 0 ? 'disabled' : ''} title="Move up">↑</button>
+          <button type="button" class="btn-xs" data-sub-down="${esc(sub.id)}" data-parent="${esc(step.id)}" ${idx === subs.length - 1 ? 'disabled' : ''} title="Move down">↓</button>
+          <button type="button" class="btn-xs danger" data-sub-del="${esc(sub.id)}" data-parent="${esc(step.id)}">Remove</button>
+        </div>
+      </li>
+    `;
+  }
+
+  function subsBlockHtml(step, parentIdx) {
+    const subs = step.subs || [];
+    const names = subs.map((_, i) => `${parentIdx + 1}.${subLetter(i)}`);
+    return `
+      <div class="beta-subs">
+        <div class="beta-kicker">Sub-steps</div>
+        ${subs.length
+          ? `<p class="beta-gate-note">Step ${parentIdx + 1} cannot be complete until ${names.join(', ')} ${subs.length === 1 ? 'is' : 'are'} done.</p>`
+          : `<p class="beta-bench-sub">Optional. Add ${parentIdx + 1}.A, ${parentIdx + 1}.B if this work has parts. The parent step stays incomplete until every sub-step is done.</p>`}
+        ${subs.length ? `<ol class="beta-sub-list">${subs.map((sub, i) => subRowHtml(step, sub, parentIdx, i, subs)).join('')}</ol>` : ''}
+        <div class="beta-sub-add">
+          <input class="form-input" data-sub-new="${esc(step.id)}" type="text" placeholder="e.g. Install OS, create local admin" />
+          <button type="button" class="btn-secondary" data-sub-add="${esc(step.id)}">Add sub-step</button>
+        </div>
+      </div>
+    `;
+  }
+
   function stepRowHtml(step, idx, stageSteps) {
     return `
       <li class="beta-step" data-step-id="${esc(step.id)}">
         <div class="beta-step-index">${idx + 1}</div>
         <div class="beta-step-body">
-          <input class="beta-step-name" data-step-label="${esc(step.id)}" value="${esc(step.label)}" />
+          <label class="beta-stage-name-wrap">
+            <span class="form-label">Step name</span>
+            <input class="form-input beta-step-name" data-step-label="${esc(step.id)}" value="${esc(step.label)}" placeholder="What is this step?" />
+          </label>
           ${stepOutcomeRadios(step)}
           ${step.outcome === 'data' ? `<div class="beta-step-fields">${fieldChecksHtml(step.outputs || [], { stepId: step.id })}</div>` : ''}
           <label class="beta-step-notes">
             <span class="form-label">Notes for the person doing this</span>
             <textarea class="form-input beta-step-notes-input" data-step-notes="${esc(step.id)}" rows="2" placeholder="Context, how to do it, or anything they should know">${esc(step.notes || '')}</textarea>
           </label>
+          ${subsBlockHtml(step, idx)}
         </div>
         <div class="beta-step-actions">
           <button type="button" class="btn-xs" data-step-up="${esc(step.id)}" ${idx === 0 ? 'disabled' : ''} title="Move up">↑</button>
@@ -561,7 +823,7 @@
             <span class="form-label">Stage name</span>
             <input class="form-input beta-stage-name" data-stage-label="${esc(stage.id)}" value="${esc(stage.label)}" placeholder="e.g. Through BG/DS" />
           </label>
-          <p class="beta-bench-sub">${esc(whenSummary(stage.when))}</p>
+          <p class="beta-bench-sub">${esc(whenSummary(stage.when, titleId))}</p>
           ${stageWhenControls(stage, stages, titleId)}
           <div class="beta-stage-actions">
             <button type="button" class="btn-xs" data-stage-gate="${esc(stage.id)}">Gate later stages</button>
@@ -600,15 +862,37 @@
       `<option value="${esc(s.id)}" ${s.id === selectedStageId ? 'selected' : ''}>${esc(s.label)}</option>`
     ).join('');
 
+    const mast = `
+      <div class="beta-mast">
+        <span class="beta-stamp">Beta</span>
+        <div>
+          <h1 class="beta-title">${betaView === 'gates' ? 'Gate map' : 'Role process'}</h1>
+          <p class="beta-lede">${betaView === 'gates'
+            ? 'Every job title is a column. Arrows are waits: this stage does not start until that stage is done. Click a stage to change the gate. The live New Hire Checklist is unchanged.'
+            : 'HR, Admin, Logistics, and Training are departments. A stage can wait on another job title’s stage — IT can wait on Recruiter or HR. The live New Hire Checklist is unchanged.'}</p>
+        </div>
+      </div>
+      ${viewToggleHtml()}
+    `;
+
+    if (betaView === 'gates') {
+      root.innerHTML = `
+        <div class="beta-shell">
+          ${mast}
+          ${gateMapHtml()}
+        </div>
+      `;
+      bind(root);
+      requestAnimationFrame(() => {
+        drawGateArrows(root);
+        requestAnimationFrame(() => drawGateArrows(root));
+      });
+      return;
+    }
+
     root.innerHTML = `
       <div class="beta-shell">
-        <div class="beta-mast">
-          <span class="beta-stamp">Beta</span>
-          <div>
-            <h1 class="beta-title">Role process</h1>
-            <p class="beta-lede">HR, Admin, Logistics, and Training are departments. A stage can wait on another job title’s stage — IT can wait on Recruiter or HR. The live New Hire Checklist is unchanged.</p>
-          </div>
-        </div>
+        ${mast}
         ${catalogHtml()}
         <div class="beta-layout beta-layout-3">
           <aside class="beta-roles" aria-label="Departments">
@@ -705,6 +989,52 @@
     render();
   }
 
+  function moveSub(parentId, subId, dir) {
+    const step = findOwnedStep(parentId);
+    if (!step || !Array.isArray(step.subs)) return;
+    const pos = step.subs.findIndex((s) => s.id === subId);
+    const swap = pos + dir;
+    if (pos < 0 || swap < 0 || swap >= step.subs.length) return;
+    const tmp = step.subs[pos];
+    step.subs[pos] = step.subs[swap];
+    step.subs[swap] = tmp;
+    persist();
+    render();
+  }
+
+  function addSubStep(root, parentId) {
+    const step = findOwnedStep(parentId);
+    if (!step) return;
+    const box = Array.from(root.querySelectorAll('[data-sub-add]')).find((el) => el.getAttribute('data-sub-add') === parentId);
+    const inp = box && box.closest('.beta-sub-add') ? box.closest('.beta-sub-add').querySelector('[data-sub-new]') : null;
+    const label = String(inp && inp.value || '').trim();
+    if (!label) {
+      alert('Enter a sub-step name.');
+      return;
+    }
+    if (!Array.isArray(step.subs)) step.subs = [];
+    step.subs.push(normalizeSub({
+      id: uid('bss'),
+      label,
+      notes: '',
+      outcome: 'confirm',
+      order: step.subs.length
+    }, step.subs.length, data.dataFields));
+    persist();
+    render();
+  }
+
+  function bindNameField(inp, commit) {
+    inp.addEventListener('change', commit);
+    inp.addEventListener('blur', commit);
+    inp.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        inp.blur();
+      }
+    });
+  }
+
   function ensureNamedStage(titleId, label, when) {
     const stages = stagesFor(titleId);
     const found = stages.find((s) => String(s.label).toLowerCase() === String(label).toLowerCase());
@@ -747,6 +1077,38 @@
   }
 
   function bind(root) {
+    root.querySelectorAll('[data-beta-view]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        betaView = btn.getAttribute('data-beta-view') === 'gates' ? 'gates' : 'build';
+        render();
+      });
+    });
+    root.querySelectorAll('[data-gate-title]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        mapTitleId = btn.getAttribute('data-gate-title');
+        mapStageId = btn.getAttribute('data-gate-stage');
+        render();
+      });
+    });
+    root.querySelector('[data-beta-open-process]')?.addEventListener('click', () => {
+      const tid = root.querySelector('[data-beta-open-process]').getAttribute('data-beta-open-process');
+      const meta = titleMeta(tid);
+      if (meta) {
+        selectedDeptId = meta.dept.id;
+        selectedTitleId = tid;
+        selectedStageId = mapStageId;
+      }
+      betaView = 'build';
+      render();
+    });
+    if (root.querySelector('#beta-map-canvas') && !window.__betaMapResizeBound) {
+      window.__betaMapResizeBound = true;
+      window.addEventListener('resize', () => {
+        const live = document.getElementById('beta-root');
+        if (live && live.querySelector('#beta-map-canvas')) drawGateArrows(live);
+      });
+    }
+    root.querySelector('#beta-map-canvas')?.addEventListener('scroll', () => drawGateArrows(root), { passive: true });
     root.querySelectorAll('[data-beta-dept]').forEach((btn) => {
       btn.addEventListener('click', () => {
         selectedDeptId = btn.getAttribute('data-beta-dept');
@@ -844,7 +1206,8 @@
     });
     root.querySelectorAll('[data-stage-wait]').forEach((sel) => {
       sel.addEventListener('change', () => {
-        const stage = stagesFor(selectedTitleId).find((s) => s.id === sel.getAttribute('data-stage-wait'));
+        const ownerId = sel.getAttribute('data-wait-title') || selectedTitleId;
+        const stage = stagesFor(ownerId).find((s) => s.id === sel.getAttribute('data-stage-wait'));
         if (!stage) return;
         const val = sel.value;
         if (!val || val === 'always') {
@@ -854,7 +1217,9 @@
           if (!parsed) {
             stage.when = { type: 'always' };
           } else {
-            const resultSel = root.querySelector(`[data-stage-wait-result="${stage.id}"]`);
+            const resultSel = Array.from(root.querySelectorAll('[data-stage-wait-result]')).find((el) =>
+              el.getAttribute('data-stage-wait-result') === stage.id && el.getAttribute('data-wait-title') === ownerId
+            );
             const keep = resultSel && resultSel.value;
             const result = stageHasDecision(parsed.titleId, parsed.stageId)
               ? (keep && GATE_RESULTS.some((r) => r.id === keep) ? keep : 'complete')
@@ -868,7 +1233,8 @@
     });
     root.querySelectorAll('[data-stage-wait-result]').forEach((sel) => {
       sel.addEventListener('change', () => {
-        const stage = stagesFor(selectedTitleId).find((s) => s.id === sel.getAttribute('data-stage-wait-result'));
+        const ownerId = sel.getAttribute('data-wait-title') || selectedTitleId;
+        const stage = stagesFor(ownerId).find((s) => s.id === sel.getAttribute('data-stage-wait-result'));
         if (!stage || !stage.when || stage.when.type !== 'gate') return;
         stage.when.result = GATE_RESULTS.some((r) => r.id === sel.value) ? sel.value : 'complete';
         persist();
@@ -923,19 +1289,32 @@
       selectedStageId = e.target.value;
     });
     root.querySelectorAll('[data-step-label]').forEach((inp) => {
-      const commit = () => {
-        const step = stepsFor(selectedTitleId).find((s) => s.id === inp.getAttribute('data-step-label'));
+      bindNameField(inp, () => {
+        const step = findOwnedStep(inp.getAttribute('data-step-label'));
         if (!step) return;
         const next = String(inp.value || '').trim();
         if (!next) {
           inp.value = step.label;
           return;
         }
+        if (next === step.label) return;
         step.label = next;
         persist();
-      };
-      inp.addEventListener('change', commit);
-      inp.addEventListener('blur', commit);
+      });
+    });
+    root.querySelectorAll('[data-sub-label]').forEach((inp) => {
+      bindNameField(inp, () => {
+        const sub = findOwnedSub(inp.getAttribute('data-parent'), inp.getAttribute('data-sub-label'));
+        if (!sub) return;
+        const next = String(inp.value || '').trim();
+        if (!next) {
+          inp.value = sub.label;
+          return;
+        }
+        if (next === sub.label) return;
+        sub.label = next;
+        persist();
+      });
     });
     root.querySelectorAll('[data-step-outcome]').forEach((inp) => {
       inp.addEventListener('change', () => {
@@ -944,6 +1323,17 @@
         step.outcome = setOutcome(inp.value);
         if (step.outcome === 'data' && !(step.outputs || []).length) step.outputs = addFieldIds.slice();
         if (step.outcome !== 'data') step.outputs = [];
+        persist();
+        render();
+      });
+    });
+    root.querySelectorAll('[data-sub-outcome]').forEach((inp) => {
+      inp.addEventListener('change', () => {
+        const sub = findOwnedSub(inp.getAttribute('data-parent'), inp.getAttribute('data-sub-outcome'));
+        if (!sub) return;
+        sub.outcome = inp.value === 'data' ? 'data' : 'confirm';
+        if (sub.outcome === 'data' && !(sub.outputs || []).length) sub.outputs = addFieldIds.slice();
+        if (sub.outcome !== 'data') sub.outputs = [];
         persist();
         render();
       });
@@ -957,6 +1347,19 @@
         if (inp.checked) set.add(id);
         else set.delete(id);
         step.outputs = [...set];
+        persist();
+        inp.closest('.beta-field-check')?.classList.toggle('is-on', inp.checked);
+      });
+    });
+    root.querySelectorAll('[data-sub-output]').forEach((inp) => {
+      inp.addEventListener('change', () => {
+        const sub = findOwnedSub(inp.getAttribute('data-sub-output'), inp.getAttribute('data-sub-id'));
+        if (!sub) return;
+        const id = inp.value;
+        const set = new Set(sub.outputs || []);
+        if (inp.checked) set.add(id);
+        else set.delete(id);
+        sub.outputs = [...set];
         persist();
         inp.closest('.beta-field-check')?.classList.toggle('is-on', inp.checked);
       });
@@ -984,6 +1387,33 @@
         render();
       });
     });
+    root.querySelectorAll('[data-sub-add]').forEach((btn) => {
+      btn.addEventListener('click', () => addSubStep(root, btn.getAttribute('data-sub-add')));
+    });
+    root.querySelectorAll('[data-sub-new]').forEach((inp) => {
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          addSubStep(root, inp.getAttribute('data-sub-new'));
+        }
+      });
+    });
+    root.querySelectorAll('[data-sub-up]').forEach((btn) => {
+      btn.addEventListener('click', () => moveSub(btn.getAttribute('data-parent'), btn.getAttribute('data-sub-up'), -1));
+    });
+    root.querySelectorAll('[data-sub-down]').forEach((btn) => {
+      btn.addEventListener('click', () => moveSub(btn.getAttribute('data-parent'), btn.getAttribute('data-sub-down'), 1));
+    });
+    root.querySelectorAll('[data-sub-del]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const step = findOwnedStep(btn.getAttribute('data-parent'));
+        if (!step || !Array.isArray(step.subs)) return;
+        const id = btn.getAttribute('data-sub-del');
+        step.subs = step.subs.filter((s) => s.id !== id);
+        persist();
+        render();
+      });
+    });
     root.querySelector('#beta-new-step')?.addEventListener('input', (e) => {
       addDraftLabel = String(e.target.value || '');
     });
@@ -997,6 +1427,18 @@
         const next = String(inp.value || '');
         step.notes = trim ? next.trim() : next;
         if (trim && inp.value !== step.notes) inp.value = step.notes;
+        persist();
+      };
+      inp.addEventListener('input', () => commit(false));
+      inp.addEventListener('blur', () => commit(true));
+    });
+    root.querySelectorAll('[data-sub-notes]').forEach((inp) => {
+      const commit = (trim) => {
+        const sub = findOwnedSub(inp.getAttribute('data-parent'), inp.getAttribute('data-sub-notes'));
+        if (!sub) return;
+        const next = String(inp.value || '');
+        sub.notes = trim ? next.trim() : next;
+        if (trim && inp.value !== sub.notes) inp.value = sub.notes;
         persist();
       };
       inp.addEventListener('input', () => commit(false));
@@ -1075,6 +1517,9 @@
         Object.keys(data.stepsByTitle || {}).forEach((titleId) => {
           (data.stepsByTitle[titleId] || []).forEach((step) => {
             step.outputs = (step.outputs || []).filter((oid) => oid !== id);
+            (step.subs || []).forEach((sub) => {
+              sub.outputs = (sub.outputs || []).filter((oid) => oid !== id);
+            });
           });
         });
         persist();

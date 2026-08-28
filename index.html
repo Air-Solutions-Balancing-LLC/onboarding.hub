@@ -1028,6 +1028,42 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .beta-stage-name { font-weight: 800; background: #fff; }
 .beta-stage-when { display: grid; gap: 6px; margin: 8px 0; }
 .beta-stage-add { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto; margin: 0 0 18px; }
+.beta-views { display: flex; gap: 0; margin: 0 0 18px; border: 1px dashed var(--beta-ink); width: fit-content; background: #fff; }
+.beta-view {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  border: 0;
+  background: transparent;
+  color: var(--beta-ink);
+  padding: 10px 18px;
+  cursor: pointer;
+}
+.beta-view.is-on { background: var(--beta-ink); color: #fff; }
+.beta-map-shell { display: grid; gap: 16px; }
+.beta-map-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 320px); gap: 16px; align-items: start; }
+.beta-map-canvas { position: relative; overflow: auto; border: 1px dashed var(--beta-ink); background: #fff; min-height: 280px; }
+.beta-map-svg { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 3; overflow: visible; }
+.beta-map-lanes { position: relative; z-index: 2; display: flex; gap: 20px; padding: 18px; min-width: min-content; }
+.beta-map-lane { flex: 0 0 210px; display: grid; gap: 10px; align-content: start; }
+.beta-map-lane-title { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; letter-spacing: .04em; text-transform: uppercase; margin: 0 0 4px; color: var(--beta-ink); }
+.beta-map-node {
+  display: grid; gap: 2px; text-align: left; width: 100%;
+  border: 1px dashed var(--beta-ink); background: #fff; padding: 10px 12px;
+  cursor: pointer; color: var(--beta-ink); font: inherit;
+}
+.beta-map-node strong { font-size: 14px; }
+.beta-map-node span { font-size: 11px; color: #5b6b7c; }
+.beta-map-node.is-on { border-style: solid; box-shadow: 3px 3px 0 var(--beta-mark); }
+.beta-map-node.is-gated { background: #ecfdf5; }
+.beta-map-idx { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; letter-spacing: .12em; font-size: 11px; }
+.beta-map-inspect {
+  border: 1px dashed var(--beta-ink); background: var(--beta-paper);
+  padding: 16px; display: grid; gap: 10px; align-content: start;
+}
+.beta-map-legend { margin: 0; padding: 0 0 0 18px; display: grid; gap: 6px; font-size: 13px; color: #3d4a5c; }
 .beta-stage-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .beta-gate-note { margin-top: 8px; font-size: 12px; color: #3d4a5c; line-height: 1.4; background: #ecfdf5; border-left: 3px solid var(--beta-mark); padding: 8px 10px; }
 .beta-steps { list-style: none; display: flex; flex-direction: column; gap: 8px; margin: 0; }
@@ -1038,8 +1074,15 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .beta-step-index {
   font-family: 'Barlow Condensed', sans-serif; font-size: 22px; color: var(--beta-ink); line-height: 1.1; padding-top: 4px;
 }
-.beta-step-name { width: 100%; font: inherit; font-weight: 650; color: var(--beta-ink); border: none; border-bottom: 1px solid transparent; background: transparent; padding: 2px 0; }
-.beta-step-name:focus { outline: none; border-bottom-color: var(--beta-ink); }
+.beta-step-name { font-weight: 800; background: #fff; }
+.beta-step-name:focus { outline: 2px solid var(--beta-ink); outline-offset: 1px; }
+.beta-subs { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--beta-line); display: grid; gap: 8px; }
+.beta-sub-list { list-style: none; display: grid; gap: 8px; margin: 0; padding: 0; }
+.beta-sub {
+  display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: 10px; align-items: start;
+  background: var(--beta-paper); border: 1px dashed var(--beta-ink); padding: 10px 12px;
+}
+.beta-sub-add { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
 .beta-step-result { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-top: 8px; }
 .beta-toggle { font-size: 12px; color: #3d4a5c; display: flex; align-items: center; gap: 5px; }
 .beta-kind { font: inherit; font-size: 12px; padding: 4px 6px; border: 1px solid var(--beta-line); background: #fff; }
@@ -1093,10 +1136,15 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .beta-step-notes { display: grid; gap: 4px; margin-top: 10px; }
 .beta-step-notes .form-label { margin: 0; }
 .beta-step-notes-input { resize: vertical; min-height: 52px; background: #fff; font-size: 12px; line-height: 1.45; }
+@media (max-width: 900px) {
+  .beta-map-layout { grid-template-columns: 1fr; }
+}
 @media (max-width: 860px) {
   .beta-layout, .beta-layout-3, .beta-outcome-picks, .beta-outcome-picks-3, .beta-catalog-add, .beta-stage-add { grid-template-columns: 1fr; }
   .beta-step { grid-template-columns: 28px minmax(0, 1fr); }
+  .beta-sub { grid-template-columns: 36px minmax(0, 1fr); }
   .beta-step-actions { grid-column: 2; }
+  .beta-sub-add { grid-template-columns: 1fr; }
 }
 .nh-prog { min-width: 0; }
 .nh-prog.big { min-width: 160px; margin-top: 8px; }
@@ -1235,7 +1283,7 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 <script src="hub-admin.js?v=merge1"></script>
 <script src="new-hire-seed.js"></script>
 <script src="hub-checklist.js?v=profile1"></script>
-<script src="hub-beta.js?v=beta10"></script>
+    <script src="hub-beta.js?v=beta13"></script>
 </head>
 <body>
 
