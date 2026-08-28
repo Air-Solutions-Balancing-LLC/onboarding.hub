@@ -46,6 +46,7 @@
     { id: 'file', label: 'File (PDF or image)' }
   ];
   const GATE_RESULTS = [
+    { id: 'complete', label: 'Complete' },
     { id: 'pass', label: 'Pass' },
     { id: 'fail', label: 'Fail' },
     { id: 'review', label: 'Review required' }
@@ -179,9 +180,9 @@
 
   function normalizeWhen(when, stageIds) {
     if (!when || when.type !== 'gate') return { type: 'always' };
-    const result = GATE_RESULTS.some((r) => r.id === when.result) ? when.result : '';
+    const result = GATE_RESULTS.some((r) => r.id === when.result) ? when.result : 'complete';
     const stageId = String(when.stageId || '');
-    if (!result || !stageId || (stageIds && !stageIds.has(stageId))) return { type: 'always' };
+    if (!stageId || (stageIds && !stageIds.has(stageId))) return { type: 'always' };
     return { type: 'gate', stageId, result };
   }
 
@@ -280,9 +281,13 @@
   }
 
   function whenSummary(when, stages) {
-    if (!when || when.type !== 'gate') return 'Always open — work here does not wait on another stage.';
+    if (!when || when.type !== 'gate') return 'No wait — this work can start anytime.';
     const src = (stages || []).find((s) => s.id === when.stageId);
-    return `Opens when ${src ? src.label : 'another stage'} is ${gateResultLabel(when.result)}. Review required holds this closed until that decision changes.`;
+    const name = src ? src.label : 'another stage';
+    if (!when.result || when.result === 'complete') {
+      return `Waits until ${name} is complete. Later work does not start until every step in that stage is done.`;
+    }
+    return `Waits until ${name} is complete and the decision is ${gateResultLabel(when.result)}. Review required keeps this closed until that decision changes.`;
   }
 
   function selectedDept() {
@@ -404,26 +409,29 @@
     `;
   }
 
-  function stageWhenControls(stage, stages) {
+  function stageWhenControls(stage, stages, titleId) {
     const others = stages.filter((s) => s.id !== stage.id);
     const isGate = stage.when && stage.when.type === 'gate';
-    const typeVal = isGate ? stage.when.result : 'always';
+    const srcId = isGate ? stage.when.stageId : '';
+    const result = isGate ? (stage.when.result || 'complete') : 'complete';
+    const srcHasDecision = !!(srcId && stageHasDecision(titleId, srcId));
     return `
       <div class="beta-stage-when">
-        <label class="form-label">Opens</label>
-        <select class="form-input" data-stage-when="${esc(stage.id)}">
-          <option value="always" ${typeVal === 'always' ? 'selected' : ''}>Always — starting work, no wait</option>
-          ${GATE_RESULTS.map((r) =>
-            `<option value="${esc(r.id)}" ${typeVal === r.id ? 'selected' : ''}>When a stage is ${esc(r.label)}</option>`
+        <label class="form-label">Waits until this stage is complete</label>
+        <select class="form-input" data-stage-wait="${esc(stage.id)}">
+          <option value="always" ${!isGate ? 'selected' : ''}>No wait — can start anytime</option>
+          ${others.map((s) =>
+            `<option value="${esc(s.id)}" ${srcId === s.id ? 'selected' : ''}>${esc(s.label)}</option>`
           ).join('')}
         </select>
-        <select class="form-input ${isGate ? '' : 'is-collapsed'}" data-stage-when-src="${esc(stage.id)}" ${isGate ? '' : 'disabled'}>
-          ${others.length
-            ? others.map((s) =>
-                `<option value="${esc(s.id)}" ${isGate && stage.when.stageId === s.id ? 'selected' : ''}>${esc(s.label)}</option>`
-              ).join('')
-            : '<option value="">Add another stage first</option>'}
-        </select>
+        ${srcHasDecision ? `
+          <label class="form-label">And that stage’s decision must be</label>
+          <select class="form-input" data-stage-wait-result="${esc(stage.id)}">
+            ${GATE_RESULTS.map((r) =>
+              `<option value="${esc(r.id)}" ${result === r.id ? 'selected' : ''}>${esc(r.label)}</option>`
+            ).join('')}
+          </select>
+        ` : (isGate ? '<p class="beta-bench-sub">Closed until every step in the selected stage is done.</p>' : '')}
       </div>
     `;
   }
@@ -464,7 +472,7 @@
             <input class="form-input beta-stage-name" data-stage-label="${esc(stage.id)}" value="${esc(stage.label)}" placeholder="e.g. Through BG/DS" />
           </label>
           <p class="beta-bench-sub">${esc(whenSummary(stage.when, stages))}</p>
-          ${stageWhenControls(stage, stages)}
+          ${stageWhenControls(stage, stages, titleId)}
           <div class="beta-stage-actions">
             <button type="button" class="btn-xs" data-stage-gate="${esc(stage.id)}">Gate later stages</button>
             ${stages.length > 1 ? `<button type="button" class="btn-xs danger" data-stage-del="${esc(stage.id)}">Remove stage</button>` : ''}
@@ -508,7 +516,7 @@
           <span class="beta-stamp">Beta</span>
           <div>
             <h1 class="beta-title">Role process</h1>
-            <p class="beta-lede">HR, Admin, Logistics, and Training are departments. Roles are job titles inside a department. Gate by stage, not every step: later work waits on a decision like BG/DS. The live New Hire Checklist is unchanged.</p>
+            <p class="beta-lede">HR, Admin, Logistics, and Training are departments. Roles are job titles inside a department. Gate by stage: later work waits until a named stage is complete. The live New Hire Checklist is unchanged.</p>
           </div>
         </div>
         ${catalogHtml()}
@@ -538,11 +546,17 @@
               <div class="beta-bench-head">
                 <div class="beta-kicker">${esc(dept.label)} · job title</div>
                 <h2 class="beta-bench-title">${esc(title.label)}</h2>
-                <p class="beta-bench-sub">${steps.length} step${steps.length === 1 ? '' : 's'} in ${stages.length} stage${stages.length === 1 ? '' : 's'} · gate later work on Pass / Fail / Review required — not on every step</p>
+                <p class="beta-bench-sub">${steps.length} step${steps.length === 1 ? '' : 's'} in ${stages.length} stage${stages.length === 1 ? '' : 's'} · a gated stage waits until the named stage is complete</p>
               </div>
               ${stageBlocks || `<div class="beta-empty">No stages yet.</div>`}
-              <div class="beta-add-role" style="margin: 0 0 18px">
+              <div class="beta-add-role beta-stage-add">
                 <input class="form-input" id="beta-new-stage" type="text" placeholder="New stage name, e.g. After clearance" />
+                <select class="form-input" id="beta-new-stage-wait" ${stages.length ? '' : 'disabled'}>
+                  <option value="always">No wait — can start anytime</option>
+                  ${stages.map((s, i) =>
+                    `<option value="${esc(s.id)}" ${i === stages.length - 1 ? 'selected' : ''}>After ${esc(s.label)} is complete</option>`
+                  ).join('')}
+                </select>
                 <button type="button" class="btn-secondary" id="beta-add-stage">Add stage</button>
               </div>
               <form class="beta-composer" id="beta-add-form">
@@ -735,33 +749,30 @@
         }
       });
     });
-    root.querySelectorAll('[data-stage-when]').forEach((sel) => {
+    root.querySelectorAll('[data-stage-wait]').forEach((sel) => {
       sel.addEventListener('change', () => {
-        const stage = stagesFor(selectedTitleId).find((s) => s.id === sel.getAttribute('data-stage-when'));
+        const stage = stagesFor(selectedTitleId).find((s) => s.id === sel.getAttribute('data-stage-wait'));
         if (!stage) return;
         const val = sel.value;
-        if (val === 'always') {
+        if (!val || val === 'always') {
           stage.when = { type: 'always' };
         } else {
-          const srcSel = root.querySelector(`[data-stage-when-src="${stage.id}"]`);
-          const src = srcSel && srcSel.value;
-          if (!src) {
-            alert('Add another stage first, then point this one at it.');
-            sel.value = 'always';
-            stage.when = { type: 'always' };
-          } else {
-            stage.when = { type: 'gate', stageId: src, result: val };
-          }
+          const resultSel = root.querySelector(`[data-stage-wait-result="${stage.id}"]`);
+          const keep = resultSel && resultSel.value;
+          const result = stageHasDecision(selectedTitleId, val)
+            ? (keep && GATE_RESULTS.some((r) => r.id === keep) ? keep : 'complete')
+            : 'complete';
+          stage.when = { type: 'gate', stageId: val, result };
         }
         persist();
         render();
       });
     });
-    root.querySelectorAll('[data-stage-when-src]').forEach((sel) => {
+    root.querySelectorAll('[data-stage-wait-result]').forEach((sel) => {
       sel.addEventListener('change', () => {
-        const stage = stagesFor(selectedTitleId).find((s) => s.id === sel.getAttribute('data-stage-when-src'));
+        const stage = stagesFor(selectedTitleId).find((s) => s.id === sel.getAttribute('data-stage-wait-result'));
         if (!stage || !stage.when || stage.when.type !== 'gate') return;
-        stage.when.stageId = sel.value;
+        stage.when.result = GATE_RESULTS.some((r) => r.id === sel.value) ? sel.value : 'complete';
         persist();
         render();
       });
@@ -777,10 +788,10 @@
       }
       const stages = stagesFor(selectedTitleId);
       const id = slugFrom(label, new Set(stages.map((s) => s.id)));
-      const prev = stages[stages.length - 1];
+      const wait = String(root.querySelector('#beta-new-stage-wait')?.value || 'always');
       let when = { type: 'always' };
-      if (prev && stageHasDecision(selectedTitleId, prev.id)) {
-        when = { type: 'gate', stageId: prev.id, result: 'pass' };
+      if (wait && wait !== 'always') {
+        when = { type: 'gate', stageId: wait, result: 'complete' };
       }
       stages.push({ id, label, order: stages.length, when });
       selectedStageId = id;
