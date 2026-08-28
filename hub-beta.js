@@ -58,6 +58,7 @@
   let selectedStageId = null;
   let saveTimer = null;
   let addOutcome = 'confirm';
+  let addRequired = true;
   let addFieldIds = [];
   let addDraftLabel = '';
   let addDraftNotes = '';
@@ -247,6 +248,7 @@
       notes: String(item.notes || '').trim(),
       outcome,
       outputs: outcome === 'data' ? outputs : [],
+      required: item.required !== false,
       order: item.order != null ? item.order : order
     };
   }
@@ -273,6 +275,7 @@
       notes: base.notes,
       outcome: base.outcome,
       outputs: base.outputs,
+      required: base.required,
       stageId: String(step.stageId || ''),
       order: base.order,
       subs
@@ -292,6 +295,25 @@
     if (!step) return null;
     if (!Array.isArray(step.subs)) step.subs = [];
     return step.subs.find((s) => s.id === subId) || null;
+  }
+
+  function incomingNeedsRequiredSeed(raw) {
+    function missing(item) {
+      if (!item || typeof item !== 'object') return false;
+      if (typeof item.required !== 'boolean') return true;
+      return Array.isArray(item.subs) && item.subs.some(missing);
+    }
+    function lists(obj) {
+      if (!obj || typeof obj !== 'object') return [];
+      return Object.keys(obj).map((k) => obj[k]);
+    }
+    return lists(raw && raw.stepsByTitle).concat(lists(raw && raw.stepsByRole)).some((list) =>
+      Array.isArray(list) && list.some(missing)
+    );
+  }
+
+  function isRequired(item) {
+    return !item || item.required !== false;
   }
 
   function persist() {
@@ -581,7 +603,7 @@
     if (!when || when.type !== 'gate') return 'No wait — this work can start anytime.';
     const name = gateTargetLabel(when, ownerTitleId);
     if (!when.result || when.result === 'complete') {
-      return `Waits until ${name} is complete. Later work does not start until every step in that stage is done.`;
+      return `Waits until ${name} is complete. Later work does not start until every required step in that stage is done. Optional steps can be skipped.`;
     }
     return `Waits until ${name} is complete and the decision is ${gateResultLabel(when.result)}. Review required keeps this closed until that decision changes.`;
   }
@@ -715,6 +737,28 @@
     `;
   }
 
+  function requiredNeedRadios(item, opts) {
+    const required = isRequired(item);
+    const parent = opts && opts.parentId;
+    const name = parent ? `need-${parent}-${item.id}` : `need-${item.id}`;
+    const bind = parent
+      ? `data-sub-required="${esc(item.id)}" data-parent="${esc(parent)}"`
+      : `data-step-required="${esc(item.id)}"`;
+    return `
+      <div class="beta-step-need" role="radiogroup" aria-label="Required or optional">
+        <span class="form-label">This work is</span>
+        <label class="beta-toggle">
+          <input type="radio" name="${esc(name)}" ${bind} value="1" ${required ? 'checked' : ''}>
+          Required
+        </label>
+        <label class="beta-toggle">
+          <input type="radio" name="${esc(name)}" ${bind} value="0" ${required ? '' : 'checked'}>
+          Optional
+        </label>
+      </div>
+    `;
+  }
+
   function stageWhenControls(stage, stages, titleId) {
     const isGate = stage.when && stage.when.type === 'gate';
     const srcTitle = isGate ? (stage.when.titleId || titleId) : '';
@@ -736,20 +780,21 @@
               `<option value="${esc(r.id)}" ${result === r.id ? 'selected' : ''}>${esc(r.label)}</option>`
             ).join('')}
           </select>
-        ` : (isGate ? '<p class="beta-bench-sub">Closed until every step in the selected stage is done — including stages owned by another job title.</p>' : '')}
+        ` : (isGate ? '<p class="beta-bench-sub">Closed until every required step in the selected stage is done — including stages owned by another job title. Optional steps can be skipped.</p>' : '')}
       </div>
     `;
   }
 
   function subRowHtml(step, sub, parentIdx, idx, subs) {
     return `
-      <li class="beta-sub" data-sub-id="${esc(sub.id)}">
+      <li class="beta-sub ${isRequired(sub) ? '' : 'is-optional'}" data-sub-id="${esc(sub.id)}">
         <div class="beta-step-index">${parentIdx + 1}.${subLetter(idx)}</div>
         <div class="beta-step-body">
           <label class="beta-stage-name-wrap">
             <span class="form-label">Sub-step name</span>
             <input class="form-input beta-step-name" data-sub-label="${esc(sub.id)}" data-parent="${esc(step.id)}" value="${esc(sub.label)}" placeholder="e.g. Install software" />
           </label>
+          ${requiredNeedRadios(sub, { parentId: step.id })}
           ${stepOutcomeRadios(sub, { parentId: step.id, noDecision: true })}
           ${sub.outcome === 'data' ? `<div class="beta-step-fields">${fieldChecksHtml(sub.outputs || [], { stepId: sub.id, parentId: step.id })}</div>` : ''}
           <label class="beta-step-notes">
@@ -768,13 +813,19 @@
 
   function subsBlockHtml(step, parentIdx) {
     const subs = step.subs || [];
-    const names = subs.map((_, i) => `${parentIdx + 1}.${subLetter(i)}`);
+    const requiredNames = subs.map((s, i) => (isRequired(s) ? `${parentIdx + 1}.${subLetter(i)}` : null)).filter(Boolean);
+    let note;
+    if (!subs.length) {
+      note = `<p class="beta-bench-sub">Add ${parentIdx + 1}.A, ${parentIdx + 1}.B if this work has parts. Required sub-steps must be done before the parent can complete. Optional ones can be skipped.</p>`;
+    } else if (requiredNames.length) {
+      note = `<p class="beta-gate-note">Step ${parentIdx + 1} cannot be complete until required sub-step${requiredNames.length === 1 ? '' : 's'} ${requiredNames.join(', ')} ${requiredNames.length === 1 ? 'is' : 'are'} done. Optional sub-steps can be skipped.</p>`;
+    } else {
+      note = `<p class="beta-bench-sub">All sub-steps are optional. They can be skipped without blocking step ${parentIdx + 1}.</p>`;
+    }
     return `
       <div class="beta-subs">
         <div class="beta-kicker">Sub-steps</div>
-        ${subs.length
-          ? `<p class="beta-gate-note">Step ${parentIdx + 1} cannot be complete until ${names.join(', ')} ${subs.length === 1 ? 'is' : 'are'} done.</p>`
-          : `<p class="beta-bench-sub">Optional. Add ${parentIdx + 1}.A, ${parentIdx + 1}.B if this work has parts. The parent step stays incomplete until every sub-step is done.</p>`}
+        ${note}
         ${subs.length ? `<ol class="beta-sub-list">${subs.map((sub, i) => subRowHtml(step, sub, parentIdx, i, subs)).join('')}</ol>` : ''}
         <div class="beta-sub-add">
           <input class="form-input" data-sub-new="${esc(step.id)}" type="text" placeholder="e.g. Install OS, create local admin" />
@@ -786,13 +837,14 @@
 
   function stepRowHtml(step, idx, stageSteps) {
     return `
-      <li class="beta-step" data-step-id="${esc(step.id)}">
+      <li class="beta-step ${isRequired(step) ? '' : 'is-optional'}" data-step-id="${esc(step.id)}">
         <div class="beta-step-index">${idx + 1}</div>
         <div class="beta-step-body">
           <label class="beta-stage-name-wrap">
             <span class="form-label">Step name</span>
             <input class="form-input beta-step-name" data-step-label="${esc(step.id)}" value="${esc(step.label)}" placeholder="What is this step?" />
           </label>
+          ${requiredNeedRadios(step)}
           ${stepOutcomeRadios(step)}
           ${step.outcome === 'data' ? `<div class="beta-step-fields">${fieldChecksHtml(step.outputs || [], { stepId: step.id })}</div>` : ''}
           <label class="beta-step-notes">
@@ -939,6 +991,18 @@
                 <input class="form-input" id="beta-new-step" type="text" placeholder="What does the ${esc(title.label)} do?" value="${esc(addDraftLabel)}" required />
                 <label class="form-label">Stage</label>
                 <select class="form-input" id="beta-add-stage-select">${stageOptions}</select>
+                <div class="beta-outcome-picks" role="radiogroup" aria-label="Required or optional">
+                  <label class="beta-pick ${addRequired ? 'is-on' : ''}">
+                    <input type="radio" name="beta-new-required" value="1" ${addRequired ? 'checked' : ''}>
+                    <strong>Required</strong>
+                    <span>Must be done before this stage can complete.</span>
+                  </label>
+                  <label class="beta-pick ${addRequired ? '' : 'is-on'}">
+                    <input type="radio" name="beta-new-required" value="0" ${addRequired ? '' : 'checked'}>
+                    <strong>Optional</strong>
+                    <span>Can be skipped. Does not block the stage or parent step.</span>
+                  </label>
+                </div>
                 <div class="beta-outcome-picks beta-outcome-picks-3" role="radiogroup" aria-label="Step result">
                   <label class="beta-pick ${addOutcome === 'confirm' ? 'is-on' : ''}">
                     <input type="radio" name="beta-new-outcome" value="confirm" ${addOutcome === 'confirm' ? 'checked' : ''}>
@@ -1018,6 +1082,7 @@
       label,
       notes: '',
       outcome: 'confirm',
+      required: true,
       order: step.subs.length
     }, step.subs.length, data.dataFields));
     persist();
@@ -1316,6 +1381,24 @@
         persist();
       });
     });
+    root.querySelectorAll('[data-step-required]').forEach((inp) => {
+      inp.addEventListener('change', () => {
+        const step = findOwnedStep(inp.getAttribute('data-step-required'));
+        if (!step) return;
+        step.required = inp.value !== '0';
+        persist();
+        render();
+      });
+    });
+    root.querySelectorAll('[data-sub-required]').forEach((inp) => {
+      inp.addEventListener('change', () => {
+        const sub = findOwnedSub(inp.getAttribute('data-parent'), inp.getAttribute('data-sub-required'));
+        if (!sub) return;
+        sub.required = inp.value !== '0';
+        persist();
+        render();
+      });
+    });
     root.querySelectorAll('[data-step-outcome]').forEach((inp) => {
       inp.addEventListener('change', () => {
         const step = stepsFor(selectedTitleId).find((s) => s.id === inp.getAttribute('data-step-outcome'));
@@ -1452,6 +1535,14 @@
         render();
       });
     });
+    root.querySelectorAll('input[name="beta-new-required"]').forEach((inp) => {
+      inp.addEventListener('change', () => {
+        addDraftLabel = String(root.querySelector('#beta-new-step')?.value || '');
+        addDraftNotes = String(root.querySelector('#beta-new-notes')?.value || '');
+        addRequired = inp.value !== '0';
+        render();
+      });
+    });
     root.querySelector('#beta-add-form')?.addEventListener('submit', (e) => {
       e.preventDefault();
       if (!selectedTitleId) return;
@@ -1473,11 +1564,13 @@
         notes: addDraftNotes,
         outcome: addOutcome,
         outputs: addOutcome === 'data' ? addFieldIds.slice() : [],
+        required: addRequired,
         stageId: selectedStageId,
         order: list.length
       }, list.length, data.dataFields));
       addDraftLabel = '';
       addDraftNotes = '';
+      addRequired = true;
       persist();
       render();
       const next = document.getElementById('beta-new-step');
@@ -1543,10 +1636,12 @@
   }
 
   function applyRemote(raw) {
+    const seedRequired = incomingNeedsRequiredSeed(raw);
     data = normalize(raw);
     if (selectedDeptId && !data.departments.some((d) => d.id === selectedDeptId)) selectedDeptId = null;
     const dept = selectedDept();
     if (selectedTitleId && !(dept && dept.titles.some((t) => t.id === selectedTitleId))) selectedTitleId = null;
+    if (seedRequired) persist();
   }
 
   function mount() {
