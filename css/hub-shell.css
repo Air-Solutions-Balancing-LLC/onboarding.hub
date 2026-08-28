@@ -97,12 +97,18 @@ body.hub-app .user-mgmt-shell .admin-page-title {
   display: none;
 }
 
-body.hub-app .page-admin {
+body.hub-app .page-admin,
+body.hub-app .page-beta {
   background: transparent;
   min-height: 0;
 }
 
-body.hub-app .page-admin .main {
+body.hub-app .page-admin .main,
+body.hub-app .page-beta .main {
+  height: auto;
+  overflow: visible;
+  display: block;
+  flex: none;
   padding: 0;
 }
 
