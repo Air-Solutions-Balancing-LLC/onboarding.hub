@@ -149,7 +149,7 @@
     knownTitles.forEach((id) => {
       const list = Array.isArray(incomingTitles[id]) ? incomingTitles[id] : [];
       stepsByTitle[id] = list.map((step, i) => normalizeStep(step, i, dataFields)).filter(Boolean);
-      stagesByTitle[id] = normalizeStages(incomingStages[id], stepsByTitle[id]);
+      stagesByTitle[id] = normalizeStages(incomingStages[id], stepsByTitle[id], id);
     });
 
     // v1: steps lived on the department-as-role. Park them on the first job title if that title is still empty.
@@ -159,7 +159,7 @@
       const firstId = dept.titles[0].id;
       if (!stepsByTitle[firstId] || !stepsByTitle[firstId].length) {
         stepsByTitle[firstId] = leftover.map((step, i) => normalizeStep(step, i, dataFields)).filter(Boolean);
-        stagesByTitle[firstId] = normalizeStages(incomingStages[firstId], stepsByTitle[firstId]);
+        stagesByTitle[firstId] = normalizeStages(incomingStages[firstId], stepsByTitle[firstId], firstId);
       }
     });
 
@@ -178,15 +178,20 @@
     return fields.length ? fields : DEFAULT_DATA_FIELDS.map((f) => Object.assign({}, f));
   }
 
-  function normalizeWhen(when, stageIds) {
+  function normalizeWhen(when, ownerTitleId, localStageIds) {
     if (!when || when.type !== 'gate') return { type: 'always' };
     const result = GATE_RESULTS.some((r) => r.id === when.result) ? when.result : 'complete';
     const stageId = String(when.stageId || '');
-    if (!stageId || (stageIds && !stageIds.has(stageId))) return { type: 'always' };
-    return { type: 'gate', stageId, result };
+    if (!stageId) return { type: 'always' };
+    const titleId = String(when.titleId || ownerTitleId || '');
+    if (!titleId) return { type: 'always' };
+    if (titleId === ownerTitleId && localStageIds && !localStageIds.has(stageId)) {
+      return { type: 'always' };
+    }
+    return { type: 'gate', titleId, stageId, result };
   }
 
-  function normalizeStages(rawStages, steps) {
+  function normalizeStages(rawStages, steps, ownerTitleId) {
     const used = new Set();
     let stages = Array.isArray(rawStages) && rawStages.length
       ? rawStages.map((s, i) => {
@@ -197,7 +202,12 @@
             id,
             label,
             order: s.order != null ? s.order : i,
-            when: { type: s.when && s.when.type === 'gate' ? 'gate' : 'always', stageId: s.when && s.when.stageId, result: s.when && s.when.result }
+            when: {
+              type: s.when && s.when.type === 'gate' ? 'gate' : 'always',
+              titleId: s.when && s.when.titleId,
+              stageId: s.when && s.when.stageId,
+              result: s.when && s.when.result
+            }
           };
         })
       : [];
@@ -210,7 +220,7 @@
       id: s.id,
       label: s.label,
       order: s.order,
-      when: normalizeWhen(s.when, ids)
+      when: normalizeWhen(s.when, ownerTitleId, ids)
     })).sort((a, b) => a.order - b.order);
     (steps || []).forEach((step) => {
       if (!ids.has(step.stageId)) step.stageId = stages[0].id;
@@ -264,7 +274,7 @@
     if (!titleId) return [];
     if (!data.stagesByTitle) data.stagesByTitle = {};
     const steps = stepsFor(titleId);
-    data.stagesByTitle[titleId] = normalizeStages(data.stagesByTitle[titleId], steps);
+    data.stagesByTitle[titleId] = normalizeStages(data.stagesByTitle[titleId], steps, titleId);
     return data.stagesByTitle[titleId];
   }
 
@@ -276,14 +286,95 @@
     return stepsInStage(titleId, stageId).some((s) => s.outcome === 'decision');
   }
 
+  function waitValue(titleId, stageId) {
+    return `${titleId}::${stageId}`;
+  }
+
+  function parseWaitValue(val) {
+    if (!val || val === 'always') return null;
+    const i = String(val).indexOf('::');
+    if (i < 0) return { titleId: selectedTitleId, stageId: String(val) };
+    return { titleId: val.slice(0, i), stageId: val.slice(i + 2) };
+  }
+
+  function titleMeta(titleId) {
+    for (let d = 0; d < (data.departments || []).length; d += 1) {
+      const dept = data.departments[d];
+      const title = (dept.titles || []).find((t) => t.id === titleId);
+      if (title) return { dept, title };
+    }
+    return null;
+  }
+
+  function waitTargets(exceptTitleId, exceptStageId) {
+    const out = [];
+    (data.departments || []).forEach((dept) => {
+      (dept.titles || []).forEach((title) => {
+        stagesFor(title.id).forEach((stage) => {
+          if (title.id === exceptTitleId && stage.id === exceptStageId) return;
+          out.push({
+            titleId: title.id,
+            stageId: stage.id,
+            deptLabel: dept.label,
+            titleLabel: title.label,
+            stageLabel: stage.label,
+            group: `${dept.label} · ${title.label}`,
+            key: waitValue(title.id, stage.id),
+            hasDecision: stageHasDecision(title.id, stage.id)
+          });
+        });
+      });
+    });
+    return out;
+  }
+
+  function waitOptionsHtml(targets, selectedKey, placeholder) {
+    const always = `<option value="always" ${selectedKey ? '' : 'selected'}>${esc(placeholder || 'No wait — can start anytime')}</option>`;
+    const groups = [];
+    targets.forEach((t) => {
+      let g = groups.find((x) => x.name === t.group);
+      if (!g) {
+        g = { name: t.group, opts: [] };
+        groups.push(g);
+      }
+      g.opts.push(t);
+    });
+    const grouped = groups.map((g) =>
+      `<optgroup label="${esc(g.name)}">${g.opts.map((t) =>
+        `<option value="${esc(t.key)}" ${t.key === selectedKey ? 'selected' : ''}>${esc(t.stageLabel)}</option>`
+      ).join('')}</optgroup>`
+    ).join('');
+    return always + grouped;
+  }
+
+  function gateTargetLabel(when) {
+    if (!when || when.type !== 'gate') return 'another stage';
+    const meta = titleMeta(when.titleId);
+    const stage = ((data.stagesByTitle || {})[when.titleId] || []).find((s) => s.id === when.stageId);
+    const stageName = stage ? stage.label : 'a stage';
+    if (!meta || when.titleId === selectedTitleId) return stageName;
+    return `${meta.title.label} · ${stageName}`;
+  }
+
+  function clearGatesTo(titleId, stageId) {
+    Object.keys(data.stagesByTitle || {}).forEach((tid) => {
+      (data.stagesByTitle[tid] || []).forEach((st) => {
+        if (!st.when || st.when.type !== 'gate') return;
+        const srcTitle = st.when.titleId || tid;
+        const matchTitle = srcTitle === titleId;
+        const matchStage = !stageId || st.when.stageId === stageId;
+        if (matchTitle && matchStage) st.when = { type: 'always' };
+      });
+    });
+  }
+
   function gateResultLabel(id) {
     return (GATE_RESULTS.find((r) => r.id === id) || {}).label || id;
   }
 
-  function whenSummary(when, stages) {
+  function whenSummary(when) {
     if (!when || when.type !== 'gate') return 'No wait — this work can start anytime.';
-    const src = (stages || []).find((s) => s.id === when.stageId);
-    const name = src ? src.label : 'another stage';
+    const name = gateTargetLabel(when);
     if (!when.result || when.result === 'complete') {
       return `Waits until ${name} is complete. Later work does not start until every step in that stage is done.`;
     }
@@ -410,19 +501,18 @@
   }
 
   function stageWhenControls(stage, stages, titleId) {
-    const others = stages.filter((s) => s.id !== stage.id);
     const isGate = stage.when && stage.when.type === 'gate';
+    const srcTitle = isGate ? (stage.when.titleId || titleId) : '';
     const srcId = isGate ? stage.when.stageId : '';
+    const selectedKey = isGate ? waitValue(srcTitle, srcId) : '';
     const result = isGate ? (stage.when.result || 'complete') : 'complete';
-    const srcHasDecision = !!(srcId && stageHasDecision(titleId, srcId));
+    const srcHasDecision = !!(srcTitle && srcId && stageHasDecision(srcTitle, srcId));
+    const targets = waitTargets(titleId, stage.id);
     return `
       <div class="beta-stage-when">
         <label class="form-label">Waits until this stage is complete</label>
         <select class="form-input" data-stage-wait="${esc(stage.id)}">
-          <option value="always" ${!isGate ? 'selected' : ''}>No wait — can start anytime</option>
-          ${others.map((s) =>
-            `<option value="${esc(s.id)}" ${srcId === s.id ? 'selected' : ''}>${esc(s.label)}</option>`
-          ).join('')}
+          ${waitOptionsHtml(targets, selectedKey)}
         </select>
         ${srcHasDecision ? `
           <label class="form-label">And that stage’s decision must be</label>
@@ -431,7 +521,7 @@
               `<option value="${esc(r.id)}" ${result === r.id ? 'selected' : ''}>${esc(r.label)}</option>`
             ).join('')}
           </select>
-        ` : (isGate ? '<p class="beta-bench-sub">Closed until every step in the selected stage is done.</p>' : '')}
+        ` : (isGate ? '<p class="beta-bench-sub">Closed until every step in the selected stage is done — including stages owned by another job title.</p>' : '')}
       </div>
     `;
   }
@@ -471,7 +561,7 @@
             <span class="form-label">Stage name</span>
             <input class="form-input beta-stage-name" data-stage-label="${esc(stage.id)}" value="${esc(stage.label)}" placeholder="e.g. Through BG/DS" />
           </label>
-          <p class="beta-bench-sub">${esc(whenSummary(stage.when, stages))}</p>
+          <p class="beta-bench-sub">${esc(whenSummary(stage.when))}</p>
           ${stageWhenControls(stage, stages, titleId)}
           <div class="beta-stage-actions">
             <button type="button" class="btn-xs" data-stage-gate="${esc(stage.id)}">Gate later stages</button>
@@ -516,7 +606,7 @@
           <span class="beta-stamp">Beta</span>
           <div>
             <h1 class="beta-title">Role process</h1>
-            <p class="beta-lede">HR, Admin, Logistics, and Training are departments. Roles are job titles inside a department. Gate by stage: later work waits until a named stage is complete. The live New Hire Checklist is unchanged.</p>
+            <p class="beta-lede">HR, Admin, Logistics, and Training are departments. A stage can wait on another job title’s stage — IT can wait on Recruiter or HR. The live New Hire Checklist is unchanged.</p>
           </div>
         </div>
         ${catalogHtml()}
@@ -546,16 +636,17 @@
               <div class="beta-bench-head">
                 <div class="beta-kicker">${esc(dept.label)} · job title</div>
                 <h2 class="beta-bench-title">${esc(title.label)}</h2>
-                <p class="beta-bench-sub">${steps.length} step${steps.length === 1 ? '' : 's'} in ${stages.length} stage${stages.length === 1 ? '' : 's'} · a gated stage waits until the named stage is complete</p>
+                <p class="beta-bench-sub">${steps.length} step${steps.length === 1 ? '' : 's'} in ${stages.length} stage${stages.length === 1 ? '' : 's'} · wait on this title or another (Recruiter, HR, IT)</p>
               </div>
               ${stageBlocks || `<div class="beta-empty">No stages yet.</div>`}
               <div class="beta-add-role beta-stage-add">
                 <input class="form-input" id="beta-new-stage" type="text" placeholder="New stage name, e.g. After clearance" />
-                <select class="form-input" id="beta-new-stage-wait" ${stages.length ? '' : 'disabled'}>
-                  <option value="always">No wait — can start anytime</option>
-                  ${stages.map((s, i) =>
-                    `<option value="${esc(s.id)}" ${i === stages.length - 1 ? 'selected' : ''}>After ${esc(s.label)} is complete</option>`
-                  ).join('')}
+                <select class="form-input" id="beta-new-stage-wait">
+                  ${waitOptionsHtml(
+                    waitTargets(null, null),
+                    stages.length ? waitValue(title.id, stages[stages.length - 1].id) : '',
+                    'No wait — can start anytime'
+                  )}
                 </select>
                 <button type="button" class="btn-secondary" id="beta-add-stage">Add stage</button>
               </div>
@@ -638,8 +729,8 @@
     const gate = inStage.filter((s) => s.outcome === 'decision').pop() || inStage[inStage.length - 1];
     gate.outcome = 'decision';
     gate.outputs = [];
-    ensureNamedStage(selectedTitleId, 'After clearance', { type: 'gate', stageId, result: 'pass' });
-    const failStage = ensureNamedStage(selectedTitleId, 'Rescind offer', { type: 'gate', stageId, result: 'fail' });
+    ensureNamedStage(selectedTitleId, 'After clearance', { type: 'gate', titleId: selectedTitleId, stageId, result: 'pass' });
+    const failStage = ensureNamedStage(selectedTitleId, 'Rescind offer', { type: 'gate', titleId: selectedTitleId, stageId, result: 'fail' });
     if (!stepsInStage(selectedTitleId, failStage.id).length) {
       const list = stepsFor(selectedTitleId);
       list.push(normalizeStep({
@@ -688,6 +779,7 @@
       const n = titleCount(dept);
       if (!confirm(`Remove ${dept.label}, its job titles, and ${n} step(s)?`)) return;
       (dept.titles || []).forEach((t) => {
+        clearGatesTo(t.id, null);
         delete data.stepsByTitle[t.id];
         if (data.stagesByTitle) delete data.stagesByTitle[t.id];
       });
@@ -723,6 +815,7 @@
       dept.titles = dept.titles.filter((t) => t.id !== title.id);
       delete data.stepsByTitle[title.id];
       if (data.stagesByTitle) delete data.stagesByTitle[title.id];
+      clearGatesTo(title.id, null);
       selectedTitleId = dept.titles[0] ? dept.titles[0].id : null;
       persist();
       render();
@@ -757,12 +850,17 @@
         if (!val || val === 'always') {
           stage.when = { type: 'always' };
         } else {
-          const resultSel = root.querySelector(`[data-stage-wait-result="${stage.id}"]`);
-          const keep = resultSel && resultSel.value;
-          const result = stageHasDecision(selectedTitleId, val)
-            ? (keep && GATE_RESULTS.some((r) => r.id === keep) ? keep : 'complete')
-            : 'complete';
-          stage.when = { type: 'gate', stageId: val, result };
+          const parsed = parseWaitValue(val);
+          if (!parsed) {
+            stage.when = { type: 'always' };
+          } else {
+            const resultSel = root.querySelector(`[data-stage-wait-result="${stage.id}"]`);
+            const keep = resultSel && resultSel.value;
+            const result = stageHasDecision(parsed.titleId, parsed.stageId)
+              ? (keep && GATE_RESULTS.some((r) => r.id === keep) ? keep : 'complete')
+              : 'complete';
+            stage.when = { type: 'gate', titleId: parsed.titleId, stageId: parsed.stageId, result };
+          }
         }
         persist();
         render();
@@ -790,8 +888,9 @@
       const id = slugFrom(label, new Set(stages.map((s) => s.id)));
       const wait = String(root.querySelector('#beta-new-stage-wait')?.value || 'always');
       let when = { type: 'always' };
-      if (wait && wait !== 'always') {
-        when = { type: 'gate', stageId: wait, result: 'complete' };
+      const parsed = parseWaitValue(wait);
+      if (parsed) {
+        when = { type: 'gate', titleId: parsed.titleId, stageId: parsed.stageId, result: 'complete' };
       }
       stages.push({ id, label, order: stages.length, when });
       selectedStageId = id;
@@ -811,10 +910,10 @@
         stepsFor(selectedTitleId).forEach((step) => {
           if (step.stageId === id) step.stageId = keep.id;
         });
-        data.stagesByTitle[selectedTitleId] = stages.filter((s) => s.id !== id).map((s, i) => {
-          const when = s.when && s.when.type === 'gate' && s.when.stageId === id ? { type: 'always' } : s.when;
-          return Object.assign({}, s, { order: i, when });
-        });
+        data.stagesByTitle[selectedTitleId] = stages.filter((s) => s.id !== id).map((s, i) =>
+          Object.assign({}, s, { order: i })
+        );
+        clearGatesTo(selectedTitleId, id);
         selectedStageId = keep.id;
         persist();
         render();
