@@ -1027,7 +1027,7 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .beta-stage-name-wrap .form-label { margin: 0; }
 .beta-stage-name { font-weight: 800; background: #fff; }
 .beta-stage-when { display: grid; gap: 6px; margin: 8px 0; }
-.beta-stage-when .is-collapsed { display: none !important; }
+.beta-stage-add { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto; margin: 0 0 18px; }
 .beta-stage-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .beta-gate-note { margin-top: 8px; font-size: 12px; color: #3d4a5c; line-height: 1.4; background: #ecfdf5; border-left: 3px solid var(--beta-mark); padding: 8px 10px; }
 .beta-steps { list-style: none; display: flex; flex-direction: column; gap: 8px; margin: 0; }
@@ -1094,7 +1094,7 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .beta-step-notes .form-label { margin: 0; }
 .beta-step-notes-input { resize: vertical; min-height: 52px; background: #fff; font-size: 12px; line-height: 1.45; }
 @media (max-width: 860px) {
-  .beta-layout, .beta-layout-3, .beta-outcome-picks, .beta-outcome-picks-3, .beta-catalog-add { grid-template-columns: 1fr; }
+  .beta-layout, .beta-layout-3, .beta-outcome-picks, .beta-outcome-picks-3, .beta-catalog-add, .beta-stage-add { grid-template-columns: 1fr; }
   .beta-step { grid-template-columns: 28px minmax(0, 1fr); }
   .beta-step-actions { grid-column: 2; }
 }
@@ -1235,7 +1235,7 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 <script src="hub-admin.js?v=merge1"></script>
 <script src="new-hire-seed.js"></script>
 <script src="hub-checklist.js?v=profile1"></script>
-<script src="hub-beta.js?v=beta8"></script>
+<script src="hub-beta.js?v=beta9"></script>
 </head>
 <body>
 
