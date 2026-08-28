@@ -98,7 +98,8 @@ body.hub-app .user-mgmt-shell .admin-page-title {
 }
 
 body.hub-app .page-admin,
-body.hub-app .page-beta {
+body.hub-app .page-beta,
+body.hub-app .page-apps {
   background: transparent;
   min-height: 0;
 }
@@ -110,6 +111,55 @@ body.hub-app .page-beta .main {
   display: block;
   flex: none;
   padding: 0;
+}
+
+.apps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+  max-width: 960px;
+}
+
+.app-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 18px 16px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.app-tile:hover {
+  border-color: #BFDBFE;
+  box-shadow: 0 0 0 3px rgba(30, 91, 204, 0.1);
+}
+
+.app-tile:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.app-tile-name {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.app-tile-summary {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  flex: 1;
+}
+
+.app-tile-open {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--blue);
 }
 
 .view-as-banner {
