@@ -1023,8 +1023,9 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .beta-bench-sub { font-size: 13px; color: #5b6b7c; margin-bottom: 14px; }
 .beta-stage { border: 1px solid var(--beta-ink); background: #fff; padding: 12px; margin: 0 0 14px; }
 .beta-stage-head { margin-bottom: 10px; }
-.beta-stage-name { width: 100%; font: inherit; font-size: 16px; font-weight: 800; color: var(--beta-ink); border: none; border-bottom: 1px solid transparent; background: transparent; padding: 2px 0; }
-.beta-stage-name:focus { outline: none; border-bottom-color: var(--beta-ink); }
+.beta-stage-name-wrap { display: grid; gap: 4px; margin: 4px 0 8px; }
+.beta-stage-name-wrap .form-label { margin: 0; }
+.beta-stage-name { font-weight: 800; background: #fff; }
 .beta-stage-when { display: grid; gap: 6px; margin: 8px 0; }
 .beta-stage-when .is-collapsed { display: none !important; }
 .beta-stage-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
@@ -1079,8 +1080,9 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
   padding: 16px;
   margin-bottom: 18px;
 }
-.beta-catalog-add { grid-template-columns: minmax(0, 1fr) 140px auto; display: grid; gap: 8px; margin-top: 12px; align-items: center; }
+.beta-catalog-add { grid-template-columns: minmax(0, 1fr) 200px auto; display: grid; gap: 8px; margin-top: 12px; align-items: center; }
 .beta-field-picks { display: flex; flex-wrap: wrap; gap: 6px; }
+.beta-field-kind { font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #5b6b7c; }
 .beta-field-check {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 12px; font-weight: 650; color: var(--beta-ink);
@@ -1233,7 +1235,7 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 <script src="hub-admin.js?v=merge1"></script>
 <script src="new-hire-seed.js"></script>
 <script src="hub-checklist.js?v=profile1"></script>
-<script src="hub-beta.js?v=beta6"></script>
+<script src="hub-beta.js?v=beta8"></script>
 </head>
 <body>
 
