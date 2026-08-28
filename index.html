@@ -1083,6 +1083,9 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
   background: var(--beta-paper); border: 1px dashed var(--beta-ink); padding: 10px 12px;
 }
 .beta-sub-add { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.beta-step-need { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-top: 8px; }
+.beta-step-need .form-label { margin: 0; }
+.beta-step.is-optional, .beta-sub.is-optional { background: #f8fafc; }
 .beta-step-result { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-top: 8px; }
 .beta-toggle { font-size: 12px; color: #3d4a5c; display: flex; align-items: center; gap: 5px; }
 .beta-kind { font: inherit; font-size: 12px; padding: 4px 6px; border: 1px solid var(--beta-line); background: #fff; }
@@ -1283,7 +1286,7 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 <script src="hub-admin.js?v=merge1"></script>
 <script src="new-hire-seed.js"></script>
 <script src="hub-checklist.js?v=profile1"></script>
-    <script src="hub-beta.js?v=beta13"></script>
+    <script src="hub-beta.js?v=beta14"></script>
 </head>
 <body>
 
