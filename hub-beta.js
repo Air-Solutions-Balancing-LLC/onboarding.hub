@@ -396,8 +396,7 @@
     return out;
   }
 
-  function waitOptionsHtml(targets, selectedKey, placeholder) {
-    const always = `<option value="always" ${selectedKey ? '' : 'selected'}>${esc(placeholder || 'No wait — can start anytime')}</option>`;
+  function groupedStageOptionsHtml(targets, selectedKey) {
     const groups = [];
     targets.forEach((t) => {
       let g = groups.find((x) => x.name === t.group);
@@ -407,12 +406,16 @@
       }
       g.opts.push(t);
     });
-    const grouped = groups.map((g) =>
+    return groups.map((g) =>
       `<optgroup label="${esc(g.name)}">${g.opts.map((t) =>
         `<option value="${esc(t.key)}" ${t.key === selectedKey ? 'selected' : ''}>${esc(t.stageLabel)}</option>`
       ).join('')}</optgroup>`
     ).join('');
-    return always + grouped;
+  }
+
+  function waitOptionsHtml(targets, selectedKey, placeholder) {
+    const always = `<option value="always" ${selectedKey ? '' : 'selected'}>${esc(placeholder || 'No wait — can start anytime')}</option>`;
+    return always + groupedStageOptionsHtml(targets, selectedKey);
   }
 
   function gateTargetLabel(when, ownerTitleId) {
@@ -847,7 +850,8 @@
     `;
   }
 
-  function stepRowHtml(step, idx, stageSteps) {
+  function stepRowHtml(step, idx, stageSteps, titleId) {
+    const owner = titleId || selectedTitleId;
     return `
       <li class="beta-step ${isRequired(step) ? '' : 'is-optional'}" data-step-id="${esc(step.id)}">
         <div class="beta-step-index">${idx + 1}</div>
@@ -855,6 +859,12 @@
           <label class="beta-stage-name-wrap">
             <span class="form-label">Step name</span>
             <input class="form-input beta-step-name" data-step-label="${esc(step.id)}" value="${esc(step.label)}" placeholder="What is this step?" />
+          </label>
+          <label class="beta-stage-name-wrap">
+            <span class="form-label">Belongs to</span>
+            <select class="form-input" data-step-move="${esc(step.id)}" aria-label="Move this step to another job title or stage">
+              ${groupedStageOptionsHtml(waitTargets(null, null), waitValue(owner, step.stageId))}
+            </select>
           </label>
           ${requiredNeedRadios(step)}
           ${stepOutcomeRadios(step)}
@@ -877,7 +887,7 @@
   function stageBlockHtml(stage, stages, titleId) {
     const stageSteps = stepsInStage(titleId, stage.id);
     const rows = stageSteps.length
-      ? stageSteps.map((step, idx) => stepRowHtml(step, idx, stageSteps)).join('')
+      ? stageSteps.map((step, idx) => stepRowHtml(step, idx, stageSteps, titleId)).join('')
       : `<li class="beta-empty">No steps in this stage yet.</li>`;
     return `
       <section class="beta-stage" data-stage-id="${esc(stage.id)}">
@@ -1061,6 +1071,26 @@
     const tmp = list[peers[pos].i];
     list[peers[pos].i] = list[swap.i];
     list[swap.i] = tmp;
+    persist();
+    render();
+  }
+
+  function moveStepAcross(stepId, destTitleId, destStageId) {
+    const fromTitle = selectedTitleId;
+    if (!fromTitle || !destTitleId || !destStageId) return;
+    const src = stepsFor(fromTitle);
+    const idx = src.findIndex((s) => s.id === stepId);
+    if (idx < 0) return;
+    const destStages = stagesFor(destTitleId);
+    const destStage = destStages.find((s) => s.id === destStageId);
+    if (!destStage) return;
+    if (fromTitle === destTitleId && src[idx].stageId === destStageId) return;
+    const step = src[idx];
+    src.splice(idx, 1);
+    step.stageId = destStage.id;
+    const dest = stepsFor(destTitleId);
+    step.order = dest.length;
+    dest.push(step);
     persist();
     render();
   }
@@ -1474,6 +1504,13 @@
     });
     root.querySelectorAll('[data-step-down]').forEach((btn) => {
       btn.addEventListener('click', () => moveStep(btn.getAttribute('data-step-down'), 1));
+    });
+    root.querySelectorAll('[data-step-move]').forEach((sel) => {
+      sel.addEventListener('change', () => {
+        const parsed = parseWaitValue(sel.value);
+        if (!parsed) return;
+        moveStepAcross(sel.getAttribute('data-step-move'), parsed.titleId, parsed.stageId);
+      });
     });
     root.querySelectorAll('[data-step-del]').forEach((btn) => {
       btn.addEventListener('click', () => {
