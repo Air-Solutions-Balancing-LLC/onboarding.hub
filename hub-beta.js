@@ -65,6 +65,7 @@
   let betaView = 'build';
   let mapTitleId = null;
   let mapStageId = null;
+  let catalogOpen = false;
 
   function cloneDepts() {
     return JSON.parse(JSON.stringify(DEFAULT_DEPARTMENTS));
@@ -653,28 +654,39 @@
   }
 
   function catalogHtml() {
-    const rows = (data.dataFields || []).map((f) => `
+    const fields = data.dataFields || [];
+    const n = fields.length;
+    const rows = fields.map((f) => `
       <tr>
         <td><input class="form-input" data-df-label="${esc(f.id)}" value="${esc(f.label)}" /></td>
         <td><select class="form-input" data-df-input="${esc(f.id)}">${inputTypeOptions(f.input)}</select></td>
         <td><button type="button" class="btn-xs danger" data-df-del="${esc(f.id)}">Remove</button></td>
       </tr>
     `).join('');
+    const toggleLabel = catalogOpen
+      ? 'Hide field list'
+      : (n ? `Show ${n} field${n === 1 ? '' : 's'}` : 'Show field list');
     return `
       <section class="beta-catalog" aria-label="What data">
-        <div class="beta-kicker">What data</div>
-        <p class="beta-bench-sub">This is the shared list of data a step can produce. Use File (PDF or image) for things like a diploma or OSHA card. A step can check more than one.</p>
-        <div class="nh-table-wrap">
-          <table class="data-table">
-            <thead><tr><th>Field name</th><th>Input</th><th></th></tr></thead>
-            <tbody>${rows || '<tr><td colspan="3" class="nh-empty">No data fields yet.</td></tr>'}</tbody>
-          </table>
+        <div class="beta-catalog-head">
+          <div>
+            <div class="beta-kicker">What data</div>
+            <p class="beta-bench-sub">This is the shared list of data a step can produce. Use File (PDF or image) for things like a diploma or OSHA card. A step can check more than one.</p>
+          </div>
+          <button type="button" class="btn-secondary" id="beta-catalog-toggle" aria-expanded="${catalogOpen ? 'true' : 'false'}">${esc(toggleLabel)}</button>
         </div>
         <div class="beta-add-role beta-catalog-add">
           <input class="form-input" id="beta-new-field" type="text" placeholder="e.g. HS diploma" />
           <select class="form-input" id="beta-new-field-input">${inputTypeOptions('text')}</select>
           <button type="button" class="btn-secondary" id="beta-add-field">Add data field</button>
         </div>
+        ${catalogOpen ? `
+        <div class="nh-table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Field name</th><th>Input</th><th></th></tr></thead>
+            <tbody>${rows || '<tr><td colspan="3" class="nh-empty">No data fields yet.</td></tr>'}</tbody>
+          </table>
+        </div>` : ''}
       </section>`;
   }
 
@@ -1576,6 +1588,10 @@
       const next = document.getElementById('beta-new-step');
       if (next) next.focus();
     });
+    root.querySelector('#beta-catalog-toggle')?.addEventListener('click', () => {
+      catalogOpen = !catalogOpen;
+      render();
+    });
     root.querySelectorAll('[data-df-label]').forEach((inp) => {
       const commit = () => {
         const f = (data.dataFields || []).find((x) => x.id === inp.getAttribute('data-df-label'));
@@ -1630,6 +1646,7 @@
       data.dataFields = data.dataFields || [];
       data.dataFields.push({ id, label, input });
       addFieldIds = [...new Set([...addFieldIds, id])];
+      catalogOpen = true;
       persist();
       render();
     });
