@@ -396,7 +396,8 @@
     return out;
   }
 
-  function groupedStageOptionsHtml(targets, selectedKey) {
+  function groupedStageOptionsHtml(targets, selectedKey, opts) {
+    const withTitle = !!(opts && opts.withTitle);
     const groups = [];
     targets.forEach((t) => {
       let g = groups.find((x) => x.name === t.group);
@@ -407,9 +408,10 @@
       g.opts.push(t);
     });
     return groups.map((g) =>
-      `<optgroup label="${esc(g.name)}">${g.opts.map((t) =>
-        `<option value="${esc(t.key)}" ${t.key === selectedKey ? 'selected' : ''}>${esc(t.stageLabel)}</option>`
-      ).join('')}</optgroup>`
+      `<optgroup label="${esc(g.name)}">${g.opts.map((t) => {
+        const label = withTitle ? `${t.titleLabel} · ${t.stageLabel}` : t.stageLabel;
+        return `<option value="${esc(t.key)}" ${t.key === selectedKey ? 'selected' : ''}>${esc(label)}</option>`;
+      }).join('')}</optgroup>`
     ).join('');
   }
 
@@ -861,11 +863,12 @@
             <input class="form-input beta-step-name" data-step-label="${esc(step.id)}" value="${esc(step.label)}" placeholder="What is this step?" />
           </label>
           <label class="beta-stage-name-wrap">
-            <span class="form-label">Belongs to</span>
+            <span class="form-label">Job title and stage</span>
             <select class="form-input" data-step-move="${esc(step.id)}" aria-label="Move this step to another job title or stage">
-              ${groupedStageOptionsHtml(waitTargets(null, null), waitValue(owner, step.stageId))}
+              ${groupedStageOptionsHtml(waitTargets(null, null), waitValue(owner, step.stageId), { withTitle: true })}
             </select>
           </label>
+          <p class="beta-bench-sub">Open this list and pick another job title to move the step. Notes and sub-steps come with it.</p>
           ${requiredNeedRadios(step)}
           ${stepOutcomeRadios(step)}
           ${step.outcome === 'data' ? `<div class="beta-step-fields">${fieldChecksHtml(step.outputs || [], { stepId: step.id })}</div>` : ''}
