@@ -65,6 +65,9 @@
   let betaView = 'build';
   let mapTitleId = null;
   let mapStageId = null;
+  let mapShowAllSteps = false;
+  const mapOpenSteps = new Set();
+  let mapScrollTop = 0;
   let catalogOpen = false;
 
   function cloneDepts() {
@@ -473,67 +476,165 @@
     return `
       <div class="beta-views" role="tablist" aria-label="Beta views">
         <button type="button" class="beta-view ${betaView === 'build' ? 'is-on' : ''}" data-beta-view="build">Process</button>
-        <button type="button" class="beta-view ${betaView === 'gates' ? 'is-on' : ''}" data-beta-view="gates">Gate map</button>
+        <button type="button" class="beta-view ${betaView === 'gates' ? 'is-on' : ''}" data-beta-view="gates">Flow</button>
+      </div>
+    `;
+  }
+
+  function flowNodeKey(titleId, stageId) {
+    return waitValue(titleId, stageId);
+  }
+
+  function flowStepsOpen(key) {
+    return mapShowAllSteps || mapOpenSteps.has(key);
+  }
+
+  function outcomeShort(item) {
+    if (item && item.outcome === 'data') return 'Produces data';
+    if (item && item.outcome === 'decision') return 'Decision';
+    return 'Confirmation';
+  }
+
+  function flowNodes() {
+    const nodes = [];
+    titlesWithStages().forEach(({ dept, title, stages }) => {
+      stages.forEach((stage, i) => {
+        nodes.push({
+          key: flowNodeKey(title.id, stage.id),
+          titleId: title.id,
+          stageId: stage.id,
+          dept,
+          title,
+          stage,
+          orderInTitle: i
+        });
+      });
+    });
+    return nodes;
+  }
+
+  function orderedFlowNodes() {
+    const nodes = flowNodes();
+    const byKey = new Map(nodes.map((n) => [n.key, n]));
+    const incoming = new Map(nodes.map((n) => [n.key, 0]));
+    const outgoing = new Map(nodes.map((n) => [n.key, []]));
+    collectGateEdges().forEach((e) => {
+      const from = flowNodeKey(e.fromTitle, e.fromStage);
+      const to = flowNodeKey(e.toTitle, e.toStage);
+      if (!byKey.has(from) || !byKey.has(to) || from === to) return;
+      outgoing.get(from).push(to);
+      incoming.set(to, incoming.get(to) + 1);
+    });
+    const queue = nodes.filter((n) => incoming.get(n.key) === 0).map((n) => n.key);
+    const seen = new Set();
+    const out = [];
+    while (queue.length) {
+      const k = queue.shift();
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(byKey.get(k));
+      (outgoing.get(k) || []).forEach((next) => {
+        incoming.set(next, incoming.get(next) - 1);
+        if (incoming.get(next) === 0) queue.push(next);
+      });
+    }
+    nodes.forEach((n) => {
+      if (!seen.has(n.key)) out.push(n);
+    });
+    return out;
+  }
+
+  function flowStepPreviewHtml(step, idx) {
+    const subs = step.subs || [];
+    return `
+      <li class="beta-flow-step ${isRequired(step) ? '' : 'is-optional'}">
+        <span class="beta-flow-step-n">${idx + 1}</span>
+        <div>
+          <strong>${esc(step.label)}</strong>
+          <span>${isRequired(step) ? 'Required' : 'Optional'} · ${esc(outcomeShort(step))}${subs.length ? ` · ${subs.length} sub-step${subs.length === 1 ? '' : 's'}` : ''}</span>
+          ${subs.length ? `<ol class="beta-flow-subs">${subs.map((sub, j) =>
+            `<li>${esc(subLetter(j))}. ${esc(sub.label)}${isRequired(sub) ? '' : ' · optional'}</li>`
+          ).join('')}</ol>` : ''}
+        </div>
+      </li>
+    `;
+  }
+
+  function flowConnectorHtml(node) {
+    const when = node.stage.when;
+    if (!when || when.type !== 'gate') {
+      return `<div class="beta-flow-join" aria-hidden="true"><span class="beta-flow-join-line"></span></div>`;
+    }
+    const kind = when.result === 'fail' ? 'is-fail' : (when.result === 'pass' ? 'is-pass' : '');
+    return `
+      <div class="beta-flow-join ${kind}">
+        <span class="beta-flow-join-line"></span>
+        <span class="beta-flow-join-label">Waits on ${esc(gateTargetLabel(when, node.titleId))} · ${esc(gateResultLabel(when.result || 'complete'))}</span>
+        <span class="beta-flow-join-line"></span>
       </div>
     `;
   }
 
   function gateMapHtml() {
-    const lanes = titlesWithStages();
-    if (!lanes.length) {
-      return `<div class="beta-empty">Add stages in Process. They will show up here as columns, with arrows for gates.</div>`;
+    const nodes = orderedFlowNodes();
+    if (!nodes.length) {
+      return `<div class="beta-empty">Add stages in Process. They will show up here as a top-to-bottom flow.</div>`;
     }
-    const edges = collectGateEdges();
-    const stillThere = lanes.some((l) => l.title.id === mapTitleId && l.stages.some((s) => s.id === mapStageId));
+    const stillThere = nodes.some((n) => n.titleId === mapTitleId && n.stageId === mapStageId);
     if (!stillThere) {
-      if (edges[0]) {
-        mapTitleId = edges[0].toTitle;
-        mapStageId = edges[0].toStage;
-      } else {
-        mapTitleId = lanes[0].title.id;
-        mapStageId = lanes[0].stages[0].id;
-      }
+      const firstGate = nodes.find((n) => n.stage.when && n.stage.when.type === 'gate');
+      mapTitleId = (firstGate || nodes[0]).titleId;
+      mapStageId = (firstGate || nodes[0]).stageId;
     }
     const selStage = mapTitleId ? stagesFor(mapTitleId).find((s) => s.id === mapStageId) : null;
     const selMeta = mapTitleId ? titleMeta(mapTitleId) : null;
-    const laneHtml = lanes.map(({ dept, title, stages }) => `
-      <div class="beta-map-lane">
-        <div class="beta-kicker">${esc(dept.label)}</div>
-        <h3 class="beta-map-lane-title">${esc(title.label)}</h3>
-        ${stages.map((stage, i) => {
-          const stageSteps = stepsInStage(title.id, stage.id);
-          const n = stageSteps.length;
-          const subN = stageSteps.reduce((sum, s) => sum + ((s.subs || []).length), 0);
-          const gated = stage.when && stage.when.type === 'gate';
-          const on = title.id === mapTitleId && stage.id === mapStageId;
-          return `
-            <button type="button" class="beta-map-node ${on ? 'is-on' : ''} ${gated ? 'is-gated' : ''}"
-              data-gate-title="${esc(title.id)}" data-gate-stage="${esc(stage.id)}">
-              <span class="beta-map-idx">${i + 1}</span>
-              <strong>${esc(stage.label)}</strong>
-              <span>${n} step${n === 1 ? '' : 's'}${subN ? ` · ${subN} sub` : ''}${gated ? ' · waits' : ''}</span>
-            </button>`;
-        }).join('')}
-      </div>
-    `).join('');
-    const legend = edges.length
-      ? `<ul class="beta-map-legend">${edges.map((e) => {
-          const fromMeta = titleMeta(e.fromTitle);
-          const toMeta = titleMeta(e.toTitle);
-          const fromSt = ((data.stagesByTitle || {})[e.fromTitle] || []).find((s) => s.id === e.fromStage);
-          const toSt = ((data.stagesByTitle || {})[e.toTitle] || []).find((s) => s.id === e.toStage);
-          return `<li><strong>${esc(toMeta ? toMeta.title.label : '')} · ${esc(toSt ? toSt.label : '')}</strong>
-            waits on <strong>${esc(fromMeta ? fromMeta.title.label : '')} · ${esc(fromSt ? fromSt.label : '')}</strong>
-            · ${esc(gateResultLabel(e.result))}</li>`;
-        }).join('')}</ul>`
-      : `<p class="beta-bench-sub">No gates yet. Select a stage and set what it waits on.</p>`;
+    const anyOpen = nodes.some((n) => flowStepsOpen(n.key));
+    const cards = nodes.map((node, i) => {
+      const stageSteps = stepsInStage(node.titleId, node.stageId);
+      const n = stageSteps.length;
+      const subN = stageSteps.reduce((sum, s) => sum + ((s.subs || []).length), 0);
+      const gated = node.stage.when && node.stage.when.type === 'gate';
+      const on = node.titleId === mapTitleId && node.stageId === mapStageId;
+      const open = flowStepsOpen(node.key);
+      const stepWord = n === 1 ? 'step' : 'steps';
+      return `
+        ${i ? flowConnectorHtml(node) : ''}
+        <article class="beta-flow-card ${on ? 'is-on' : ''} ${gated ? 'is-gated' : ''}" data-flow-card="${esc(node.key)}">
+          <button type="button" class="beta-flow-head" data-gate-title="${esc(node.titleId)}" data-gate-stage="${esc(node.stageId)}">
+            <span class="beta-flow-idx">${String(i + 1).padStart(2, '0')}</span>
+            <span class="beta-flow-head-copy">
+              <span class="beta-kicker">${esc(node.dept.label)} · ${esc(node.title.label)}</span>
+              <strong>${esc(node.stage.label)}</strong>
+              <span class="beta-flow-meta">${n} ${stepWord}${subN ? ` · ${subN} sub` : ''}${gated ? '' : ' · can start anytime'}</span>
+            </span>
+          </button>
+          <button type="button" class="beta-flow-toggle" data-flow-steps="${esc(node.key)}" aria-expanded="${open ? 'true' : 'false'}" ${n ? '' : 'disabled'}>
+            ${open ? 'Hide steps' : (n ? `Show ${n} ${stepWord}` : 'No steps yet')}
+          </button>
+          ${open ? `
+            <div class="beta-flow-body">
+              ${n
+                ? `<ol class="beta-flow-steps">${stageSteps.map((step, si) => flowStepPreviewHtml(step, si)).join('')}</ol>`
+                : '<p class="beta-bench-sub">No steps in this stage yet.</p>'}
+            </div>
+          ` : ''}
+        </article>
+      `;
+    }).join('');
     return `
       <div class="beta-map-shell">
-        <p class="beta-bench-sub">Each column is a job title. Arrows are gates. Click a stage to change what it waits on — including another person’s work.</p>
+        <div class="beta-flow-toolbar">
+          <p class="beta-bench-sub">Read top to bottom — later work sits under the stage it waits on. Click a stage to change the gate. Use Show steps to peek at the work inside.</p>
+          <div class="beta-flow-toolbar-actions">
+            <button type="button" class="btn-secondary" data-flow-all="on" ${mapShowAllSteps ? 'disabled' : ''}>Show all steps</button>
+            <button type="button" class="btn-secondary" data-flow-all="off" ${anyOpen ? '' : 'disabled'}>Hide all steps</button>
+            <button type="button" class="btn-secondary" data-flow-export="pdf">Export PDF</button>
+            <button type="button" class="btn-secondary" data-flow-export="xlsx">Export Excel</button>
+          </div>
+        </div>
         <div class="beta-map-layout">
-          <div class="beta-map-canvas" id="beta-map-canvas">
-            <svg class="beta-map-svg" aria-hidden="true"></svg>
-            <div class="beta-map-lanes">${laneHtml}</div>
+          <div class="beta-flow-canvas" id="beta-flow-canvas">
+            <div class="beta-flow-list">${cards}</div>
           </div>
           <aside class="beta-map-inspect" aria-label="Edit selected stage gate">
             ${selStage && selMeta ? `
@@ -545,60 +646,244 @@
             ` : '<p class="beta-empty">Select a stage.</p>'}
           </aside>
         </div>
-        ${legend}
       </div>
     `;
   }
 
-  function drawGateArrows(root) {
-    const canvas = root.querySelector('#beta-map-canvas');
-    const svg = root.querySelector('.beta-map-svg');
-    const lanes = root.querySelector('.beta-map-lanes');
-    if (!canvas || !svg || !lanes) return;
-    const w = Math.max(canvas.clientWidth, lanes.scrollWidth, 1);
-    const h = Math.max(canvas.clientHeight, lanes.scrollHeight, 1);
-    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
-    svg.setAttribute('width', String(w));
-    svg.setAttribute('height', String(h));
-    const cRect = canvas.getBoundingClientRect();
-    function pt(el, side) {
-      const r = el.getBoundingClientRect();
-      const x = r.left - cRect.left + canvas.scrollLeft;
-      const y = r.top - cRect.top + canvas.scrollTop;
-      if (side === 'bottom') return { x: x + r.width / 2, y: y + r.height };
-      if (side === 'top') return { x: x + r.width / 2, y: y };
-      if (side === 'right') return { x: x + r.width, y: y + r.height / 2 };
-      return { x: x, y: y + r.height / 2 };
-    }
-    function findNode(titleId, stageId) {
-      return Array.from(canvas.querySelectorAll('[data-gate-title]')).find((el) =>
-        el.getAttribute('data-gate-title') === titleId && el.getAttribute('data-gate-stage') === stageId
-      );
-    }
-    const parts = [
-      '<defs>',
-      '<marker id="beta-arrow-ink" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><polygon points="0 0, 10 4, 0 8" fill="#0c1a33"/></marker>',
-      '<marker id="beta-arrow-pass" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><polygon points="0 0, 10 4, 0 8" fill="#0f766e"/></marker>',
-      '<marker id="beta-arrow-fail" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><polygon points="0 0, 10 4, 0 8" fill="#9f1239"/></marker>',
-      '</defs>'
-    ];
-    collectGateEdges().forEach((e) => {
-      const a = findNode(e.fromTitle, e.fromStage);
-      const b = findNode(e.toTitle, e.toStage);
-      if (!a || !b) return;
-      const sameCol = e.fromTitle === e.toTitle;
-      const p1 = pt(a, sameCol ? 'bottom' : 'right');
-      const p2 = pt(b, sameCol ? 'top' : 'left');
-      const dx = Math.max(40, Math.abs(p2.x - p1.x) * 0.35);
-      const dy = Math.max(24, Math.abs(p2.y - p1.y) * 0.35);
-      const d = sameCol
-        ? `M ${p1.x} ${p1.y} C ${p1.x} ${p1.y + dy}, ${p2.x} ${p2.y - dy}, ${p2.x} ${p2.y}`
-        : `M ${p1.x} ${p1.y} C ${p1.x + dx} ${p1.y}, ${p2.x - dx} ${p2.y}, ${p2.x} ${p2.y}`;
-      const color = e.result === 'fail' ? '#9f1239' : (e.result === 'pass' ? '#0f766e' : '#0c1a33');
-      const marker = e.result === 'fail' ? 'beta-arrow-fail' : (e.result === 'pass' ? 'beta-arrow-pass' : 'beta-arrow-ink');
-      parts.push(`<path d="${d}" fill="none" stroke="${color}" stroke-width="2.25" marker-end="url(#${marker})"/>`);
+  function flowWaitLabel(node) {
+    const when = node.stage && node.stage.when;
+    if (!when || when.type !== 'gate') return 'Can start anytime';
+    return `Waits on ${gateTargetLabel(when, node.titleId)} · ${gateResultLabel(when.result || 'complete')}`;
+  }
+
+  function outputFieldLabels(ids) {
+    const catalog = data.dataFields || [];
+    return (ids || []).map((id) => {
+      const f = catalog.find((x) => x.id === id);
+      return f ? f.label : id;
+    }).filter(Boolean).join('; ');
+  }
+
+  function exportStamp() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  function sheetCols(rows) {
+    const keys = Object.keys(rows[0] || {});
+    return keys.map((k) => {
+      let w = k.length;
+      rows.forEach((r) => {
+        const n = String(r[k] == null ? '' : r[k]).length;
+        if (n > w) w = n;
+      });
+      return { wch: Math.min(48, Math.max(10, w + 1)) };
     });
-    svg.innerHTML = parts.join('');
+  }
+
+  function flowExportRows() {
+    const nodes = orderedFlowNodes();
+    const stages = [];
+    const steps = [];
+    nodes.forEach((node, i) => {
+      const wait = flowWaitLabel(node);
+      const stageSteps = stepsInStage(node.titleId, node.stageId);
+      const subN = stageSteps.reduce((sum, s) => sum + ((s.subs || []).length), 0);
+      stages.push({
+        '#': i + 1,
+        Department: node.dept.label,
+        'Job title': node.title.label,
+        Stage: node.stage.label,
+        Wait: wait,
+        Steps: stageSteps.length,
+        'Sub-steps': subN
+      });
+      if (!stageSteps.length) {
+        steps.push({
+          'Flow #': i + 1,
+          Department: node.dept.label,
+          'Job title': node.title.label,
+          Stage: node.stage.label,
+          Wait: wait,
+          'Step #': '',
+          'Sub-step': '',
+          Work: '(no steps yet)',
+          Need: '',
+          Type: '',
+          Notes: '',
+          'Data produced': ''
+        });
+        return;
+      }
+      stageSteps.forEach((step, si) => {
+        steps.push({
+          'Flow #': i + 1,
+          Department: node.dept.label,
+          'Job title': node.title.label,
+          Stage: node.stage.label,
+          Wait: wait,
+          'Step #': si + 1,
+          'Sub-step': '',
+          Work: step.label,
+          Need: isRequired(step) ? 'Required' : 'Optional',
+          Type: outcomeShort(step),
+          Notes: step.notes || '',
+          'Data produced': outputFieldLabels(step.outputs)
+        });
+        (step.subs || []).forEach((sub, j) => {
+          steps.push({
+            'Flow #': i + 1,
+            Department: node.dept.label,
+            'Job title': node.title.label,
+            Stage: node.stage.label,
+            Wait: wait,
+            'Step #': si + 1,
+            'Sub-step': subLetter(j),
+            Work: sub.label,
+            Need: isRequired(sub) ? 'Required' : 'Optional',
+            Type: outcomeShort(sub),
+            Notes: sub.notes || '',
+            'Data produced': outputFieldLabels(sub.outputs)
+          });
+        });
+      });
+    });
+    return { nodes, stages, steps };
+  }
+
+  function exportFlowExcel() {
+    if (!window.XLSX || !XLSX.utils) {
+      alert('Excel export is not available. Refresh the page and try again.');
+      return;
+    }
+    const { stages, steps } = flowExportRows();
+    if (!stages.length) {
+      alert('Add stages in Process first.');
+      return;
+    }
+    const wb = XLSX.utils.book_new();
+    const stageSheet = XLSX.utils.json_to_sheet(stages);
+    const stepSheet = XLSX.utils.json_to_sheet(steps);
+    stageSheet['!cols'] = sheetCols(stages);
+    stepSheet['!cols'] = sheetCols(steps);
+    XLSX.utils.book_append_sheet(wb, stageSheet, 'Flow');
+    XLSX.utils.book_append_sheet(wb, stepSheet, 'Steps');
+    XLSX.writeFile(wb, `onboarding-flow-${exportStamp()}.xlsx`);
+  }
+
+  function flowPdfStepHtml(step, idx) {
+    const subs = step.subs || [];
+    const dataLine = outputFieldLabels(step.outputs);
+    return `
+      <li class="pf-step">
+        <span class="pf-step-n">${idx + 1}</span>
+        <div>
+          <strong>${esc(step.label)}</strong>
+          <p>${isRequired(step) ? 'Required' : 'Optional'} · ${esc(outcomeShort(step))}${dataLine ? ` · ${esc(dataLine)}` : ''}</p>
+          ${step.notes ? `<p class="pf-notes">${esc(step.notes)}</p>` : ''}
+          ${subs.length ? `<ol class="pf-subs">${subs.map((sub, j) =>
+            `<li><strong>${esc(subLetter(j))}. ${esc(sub.label)}</strong>
+              <span> · ${isRequired(sub) ? 'Required' : 'Optional'} · ${esc(outcomeShort(sub))}</span>
+              ${sub.notes ? `<p class="pf-notes">${esc(sub.notes)}</p>` : ''}</li>`
+          ).join('')}</ol>` : ''}
+        </div>
+      </li>
+    `;
+  }
+
+  function flowPdfHtml() {
+    const { nodes } = flowExportRows();
+    const sections = nodes.map((node, i) => {
+      const stageSteps = stepsInStage(node.titleId, node.stageId);
+      return `
+        <section class="pf-stage">
+          <header>
+            <span class="pf-idx">${String(i + 1).padStart(2, '0')}</span>
+            <div>
+              <p class="pf-kicker">${esc(node.dept.label)} · ${esc(node.title.label)}</p>
+              <h2>${esc(node.stage.label)}</h2>
+              <p class="pf-wait">${esc(flowWaitLabel(node))}</p>
+            </div>
+          </header>
+          ${stageSteps.length
+            ? `<ol class="pf-steps">${stageSteps.map((step, si) => flowPdfStepHtml(step, si)).join('')}</ol>`
+            : '<p class="pf-empty">No steps in this stage yet.</p>'}
+        </section>
+      `;
+    }).join('');
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Onboarding flow ${esc(exportStamp())}</title>
+  <style>
+    @page { size: letter; margin: .6in; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; color: #0c1a33;
+      font: 12px/1.45 Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    h1 { font-size: 22px; margin: 0 0 4px; }
+    .pf-lede { color: #3d4a5c; margin: 0 0 18px; }
+    .pf-stage { border: 1px solid #0c1a33; padding: 12px 14px; margin: 0 0 14px; break-inside: avoid; }
+    .pf-stage header { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 10px; margin-bottom: 10px; }
+    .pf-idx { font-weight: 800; font-size: 20px; letter-spacing: .04em; }
+    .pf-kicker { margin: 0; font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #5b6b7c; }
+    h2 { margin: 2px 0 4px; font-size: 16px; }
+    .pf-wait { margin: 0; color: #3d4a5c; }
+    .pf-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+    .pf-step { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; break-inside: avoid; }
+    .pf-step-n { font-weight: 800; color: #5b6b7c; }
+    .pf-step p { margin: 2px 0 0; color: #3d4a5c; }
+    .pf-notes { white-space: pre-wrap; }
+    .pf-subs { margin: 6px 0 0; padding: 0 0 0 16px; }
+    .pf-empty { margin: 0; color: #5b6b7c; }
+  </style>
+</head>
+<body>
+  <h1>Onboarding flow</h1>
+  <p class="pf-lede">Beta process as of ${esc(exportStamp())}. Later work sits under the stage it waits on. The live New Hire Checklist is unchanged.</p>
+  ${sections || '<p>No stages yet.</p>'}
+</body>
+</html>`;
+  }
+
+  function exportFlowPdf() {
+    const nodes = orderedFlowNodes();
+    if (!nodes.length) {
+      alert('Add stages in Process first.');
+      return;
+    }
+    const html = flowPdfHtml();
+    const w = window.open('', '_blank');
+    if (w) {
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+      w.focus();
+      setTimeout(() => {
+        w.print();
+      }, 250);
+      return;
+    }
+    const iframe = document.createElement('iframe');
+    iframe.className = 'beta-print-frame';
+    iframe.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(iframe);
+    const doc = iframe.contentDocument;
+    doc.open();
+    doc.write(html);
+    doc.close();
+    const cleanup = () => iframe.remove();
+    iframe.contentWindow.onafterprint = cleanup;
+    setTimeout(() => {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+      setTimeout(cleanup, 4000);
+    }, 250);
   }
 
   function gateResultLabel(id) {
@@ -943,9 +1228,9 @@
       <div class="beta-mast">
         <span class="beta-stamp">Beta</span>
         <div>
-          <h1 class="beta-title">${betaView === 'gates' ? 'Gate map' : 'Role process'}</h1>
+          <h1 class="beta-title">${betaView === 'gates' ? 'Flow preview' : 'Role process'}</h1>
           <p class="beta-lede">${betaView === 'gates'
-            ? 'Every job title is a column. Arrows are waits: this stage does not start until that stage is done. Click a stage to change the gate. The live New Hire Checklist is unchanged.'
+            ? 'The process reads top to bottom. A stage sits under the work it waits on — including another job title. Click a stage to change the gate. The live New Hire Checklist is unchanged.'
             : 'HR, Admin, Logistics, and Training are departments. A stage can wait on another job title’s stage — IT can wait on Recruiter or HR. The live New Hire Checklist is unchanged.'}</p>
         </div>
       </div>
@@ -960,10 +1245,8 @@
         </div>
       `;
       bind(root);
-      requestAnimationFrame(() => {
-        drawGateArrows(root);
-        requestAnimationFrame(() => drawGateArrows(root));
-      });
+      const canvas = root.querySelector('#beta-flow-canvas');
+      if (canvas) canvas.scrollTop = mapScrollTop;
       return;
     }
 
@@ -1200,6 +1483,46 @@
         render();
       });
     });
+    root.querySelectorAll('[data-flow-steps]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const key = btn.getAttribute('data-flow-steps');
+        const parsed = parseWaitValue(key);
+        if (parsed) {
+          mapTitleId = parsed.titleId;
+          mapStageId = parsed.stageId;
+        }
+        if (mapShowAllSteps) {
+          mapShowAllSteps = false;
+          orderedFlowNodes().forEach((n) => {
+            if (n.key !== key) mapOpenSteps.add(n.key);
+          });
+          mapOpenSteps.delete(key);
+        } else if (mapOpenSteps.has(key)) {
+          mapOpenSteps.delete(key);
+        } else {
+          mapOpenSteps.add(key);
+        }
+        render();
+      });
+    });
+    root.querySelectorAll('[data-flow-all]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (btn.getAttribute('data-flow-all') === 'on') {
+          mapShowAllSteps = true;
+          mapOpenSteps.clear();
+        } else {
+          mapShowAllSteps = false;
+          mapOpenSteps.clear();
+        }
+        render();
+      });
+    });
+    root.querySelector('#beta-flow-canvas')?.addEventListener('scroll', (e) => {
+      mapScrollTop = e.currentTarget.scrollTop;
+    }, { passive: true });
+    root.querySelector('[data-flow-export="pdf"]')?.addEventListener('click', exportFlowPdf);
+    root.querySelector('[data-flow-export="xlsx"]')?.addEventListener('click', exportFlowExcel);
     root.querySelector('[data-beta-open-process]')?.addEventListener('click', () => {
       const tid = root.querySelector('[data-beta-open-process]').getAttribute('data-beta-open-process');
       const meta = titleMeta(tid);
@@ -1211,14 +1534,6 @@
       betaView = 'build';
       render();
     });
-    if (root.querySelector('#beta-map-canvas') && !window.__betaMapResizeBound) {
-      window.__betaMapResizeBound = true;
-      window.addEventListener('resize', () => {
-        const live = document.getElementById('beta-root');
-        if (live && live.querySelector('#beta-map-canvas')) drawGateArrows(live);
-      });
-    }
-    root.querySelector('#beta-map-canvas')?.addEventListener('scroll', () => drawGateArrows(root), { passive: true });
     root.querySelectorAll('[data-beta-dept]').forEach((btn) => {
       btn.addEventListener('click', () => {
         selectedDeptId = btn.getAttribute('data-beta-dept');
