@@ -334,82 +334,58 @@
   }
 
   function seed() {
+    const compiled = window.HubBeta && HubBeta.compileTemplate ? HubBeta.compileTemplate() : null;
+    if (compiled && compiled.sections && compiled.sections.length) {
+      return {
+        version: 3,
+        roles: compiled.roles || [],
+        sections: compiled.sections,
+        items: compiled.items || [],
+        progress: {}
+      };
+    }
     const s = window.NEW_HIRE_SEED;
-    if (!s) return { version: 2, roles: [], sections: [], items: [], progress: {} };
+    if (!s) return { version: 3, roles: [], sections: [], items: [], progress: {} };
     const copy = JSON.parse(JSON.stringify(s));
     if (!copy.progress || typeof copy.progress !== 'object') copy.progress = {};
+    copy.version = 3;
     return copy;
+  }
+
+  function applyProcessTemplate(target) {
+    const compiled = window.HubBeta && HubBeta.compileTemplate ? HubBeta.compileTemplate() : null;
+    if (!compiled || !compiled.sections || !compiled.sections.length) return false;
+    target.version = 3;
+    target.roles = compiled.roles || target.roles || [];
+    target.sections = compiled.sections;
+    target.items = compiled.items || [];
+    return true;
   }
 
   function migrate(raw) {
     const base = seed();
-    if (!raw || typeof raw !== 'object') return base;
-    const forceMeta = !raw.version || raw.version < 2;
-    const byId = {};
-    (raw.items || []).forEach((i) => { byId[i.id] = i; });
-    const items = (base.items || []).map((bi) => {
-      const old = byId[bi.id];
-      if (!old) return bi;
-      if (forceMeta) return Object.assign({}, bi);
-      return Object.assign({}, bi, {
-        label: old.label || bi.label,
-        owner: old.owner || bi.owner,
-        role: old.role || bi.role,
-        assignee: old.assignee || bi.assignee,
-        inputType: old.inputType || bi.inputType,
-        options: old.options && old.options.length ? old.options : bi.options,
-        dueOffsetDays: old.dueOffsetDays != null ? old.dueOffsetDays : bi.dueOffsetDays,
-        dueAnchor: old.dueAnchor || bi.dueAnchor,
-        dueDaysBefore: old.dueDaysBefore != null ? old.dueDaysBefore : bi.dueDaysBefore,
-        sensitive: old.sensitive != null ? old.sensitive : bi.sensitive,
-        dependsOnPrior: !!(old.dependsOnPrior || old.dependsOnTaskId || bi.dependsOnPrior || bi.dependsOnTaskId),
-        dependsOnTaskId: old.dependsOnTaskId || bi.dependsOnTaskId || null,
-        checklistSteps: Array.isArray(old.checklistSteps) ? old.checklistSteps : (bi.checklistSteps || []),
-        link: (old.link != null && String(old.link).trim()) ? String(old.link).trim() : (bi.link || ''),
-        order: old.order != null ? old.order : bi.order,
-        sectionId: old.sectionId || bi.sectionId
+    const fresh = !raw || typeof raw !== 'object' || !raw.version || raw.version < 3;
+    const progress = fresh ? {} : Object.assign({}, raw.progress || {});
+    if (!fresh) {
+      const keepIds = new Set((base.items || []).map((i) => i.id));
+      Object.keys(progress).forEach((hireId) => {
+        const p = progress[hireId];
+        if (!p || typeof p !== 'object') return;
+        ['values', 'assignees', 'checklists'].forEach((mapKey) => {
+          if (!p[mapKey] || typeof p[mapKey] !== 'object') return;
+          Object.keys(p[mapKey]).forEach((itemId) => {
+            if (!keepIds.has(itemId)) delete p[mapKey][itemId];
+          });
+        });
       });
-    });
-    (raw.items || []).forEach((oi) => {
-      if (oi.id && String(oi.id).startsWith('t') && oi.label && oi.role && !items.find((i) => i.id === oi.id)) {
-        items.push(Object.assign({
-          role: 'HR', assignee: 'Lisa', inputType: 'text', options: [],
-          dueOffsetDays: 0, dueAnchor: 'orientation', dueDaysBefore: 0, sensitive: false,
-          dependsOnPrior: false, dependsOnTaskId: null, checklistSteps: [], link: '',
-          order: items.length + 1
-        }, oi));
-      }
-    });
-    // Normalize dependency flags + due-date fields
-    items.forEach((it) => {
-      if (it.dependsOnTaskId && !items.find((x) => x.id === it.dependsOnTaskId)) {
-        it.dependsOnTaskId = null;
-      }
-      it.dependsOnPrior = !!it.dependsOnTaskId || !!it.dependsOnPrior;
-      if (!it.dependsOnPrior) it.dependsOnTaskId = null;
-      it.link = (it.link && String(it.link).trim()) || '';
-      normalizeItemDue(it);
-    });
-
-    // progress: prefer progress map; migrate legacy hires[].values if present
-    const progress = Object.assign({}, raw.progress || {});
-    (raw.hires || []).forEach((h) => {
-      if (!h || !h.id) return;
-      if (!progress[h.id]) {
-        progress[h.id] = {
-          values: h.values || {},
-          assignees: h.assignees || {}
-        };
-      }
-    });
-
+    }
     return {
-      version: 2,
+      version: 3,
       roles: base.roles,
       sections: base.sections,
-      items,
+      items: base.items,
       progress,
-      profileFields: Array.isArray(raw.profileFields) ? raw.profileFields : undefined
+      profileFields: fresh ? [] : (Array.isArray(raw.profileFields) ? raw.profileFields : [])
     };
   }
 
@@ -428,7 +404,7 @@
     saveTimer = setTimeout(() => {
       if (window.HubAuth && HubAuth.save) {
         HubAuth.save(STORAGE_KEY, {
-          version: data.version || 2,
+          version: 3,
           roles: data.roles,
           sections: data.sections,
           items: data.items,
@@ -512,22 +488,28 @@
     });
   }
 
+  function processDriven() {
+    return !!(data && data.sections && data.sections.some((s) => s.titleId || String(s.id || '').includes('::')));
+  }
+
   function ensureProfileFields() {
     if (!data || !Array.isArray(data.items)) return false;
     let changed = false;
-    const pay = ensureProcessItem(/^Pay rate$/i, {
-      label: 'Pay Rate',
-      sectionId: 'E',
-      inputType: 'text',
-      sensitive: true
-    });
-    const pos = ensureProcessItem(/^Position$/i, {
-      label: 'Position',
-      sectionId: 'A',
-      inputType: 'select',
-      options: POSITION_OPTIONS.slice()
-    });
-    if (pay.created || pos.created) changed = true;
+    if (!processDriven()) {
+      const pay = ensureProcessItem(/^Pay rate$/i, {
+        label: 'Pay Rate',
+        sectionId: 'E',
+        inputType: 'text',
+        sensitive: true
+      });
+      const pos = ensureProcessItem(/^Position$/i, {
+        label: 'Position',
+        sectionId: 'A',
+        inputType: 'select',
+        options: POSITION_OPTIONS.slice()
+      });
+      if (pay.created || pos.created) changed = true;
+    }
     if (!Array.isArray(data.profileFields)) {
       data.profileFields = defaultProfileFieldSpecs().map((spec) => {
         const it = findItemByLabelRaw(spec.re);
@@ -615,7 +597,8 @@
       }
       return {
         id: s.id || ('s' + i),
-        label: String(s.label || '').trim()
+        label: String(s.label || '').trim(),
+        required: s.required !== false
       };
     }).filter((s) => s.label);
   }
@@ -855,13 +838,78 @@
     const steps = normalizeSteps(item);
     if (steps.length && hire) {
       const cl = (hire.checklists && hire.checklists[item.id]) || {};
-      return steps.every((s) => !!cl[s.id]);
+      const need = steps.filter((s) => s.required !== false);
+      if (need.length) return need.every((s) => !!cl[s.id]);
+      return true;
     }
     if (item.inputType === 'checkbox') return val === true || val === 'true' || val === 'Yes' || val === 1;
     const v = String(val ?? '').trim();
     if (!v) return false;
     if (/^(n\/a|na|—|-|pending|not yet|tbd)$/i.test(v)) return false;
     return true;
+  }
+
+  function itemIsRequired(item) {
+    return !item || item.required !== false;
+  }
+
+  function sectionById(sectionId) {
+    return (data.sections || []).find((s) => s.id === sectionId) || null;
+  }
+
+  function sectionHeading(sec) {
+    if (!sec) return '';
+    if (sec.flowIndex) return `${String(sec.flowIndex).padStart(2, '0')}. ${sec.title}`;
+    if (String(sec.id || '').includes('::')) return sec.title;
+    return `${sec.id}. ${sec.title}`;
+  }
+
+  function sectionColLabel(sec) {
+    if (!sec) return '';
+    return sec.flowIndex ? String(sec.flowIndex).padStart(2, '0') : sec.id;
+  }
+
+  function decisionMatches(val, result) {
+    const v = String(val || '').trim().toLowerCase();
+    if (!result || result === 'complete') return true;
+    if (result === 'pass') return v === 'pass' || v === 'complete';
+    if (result === 'fail') return v === 'fail';
+    if (result === 'review') return v === 'review required' || v === 'review';
+    return v === String(result).toLowerCase();
+  }
+
+  function stageCompleteForHire(hire, titleId, stageId, result) {
+    const sec = (data.sections || []).find((s) => s.titleId === titleId && s.stageId === stageId)
+      || (data.sections || []).find((s) => s.id === `${titleId}::${stageId}`);
+    if (!sec) return false;
+    const items = itemsForSection(sec.id);
+    const required = items.filter(itemIsRequired);
+    const need = required.length ? required : items;
+    if (need.length && !need.every((it) => isFilled(it, hire.values?.[it.id], hire))) return false;
+    if (!result || result === 'complete') return true;
+    const decision = items.find((it) => it.outcome === 'decision' || (it.inputType === 'select' && (it.options || []).some((o) => /pass|fail/i.test(optionValue(o)))));
+    if (!decision) return true;
+    return decisionMatches(hire.values?.[decision.id], result);
+  }
+
+  function sectionWaitLabel(sec) {
+    const when = sec && sec.when;
+    if (!when || when.type !== 'gate') return '';
+    const src = (data.sections || []).find((s) => s.titleId === when.titleId && s.stageId === when.stageId)
+      || (data.sections || []).find((s) => s.id === `${when.titleId}::${when.stageId}`);
+    const name = src ? src.title : 'another stage';
+    const result = when.result && when.result !== 'complete' ? ` · ${when.result}` : '';
+    return `Waits on ${name}${result}`;
+  }
+
+  function sectionLocked(sec, hire) {
+    const when = sec && sec.when;
+    if (!when || when.type !== 'gate' || !hire) return false;
+    return !stageCompleteForHire(hire, when.titleId, when.stageId, when.result);
+  }
+
+  function itemLocked(hire, item) {
+    return sectionLocked(sectionById(item.sectionId), hire);
   }
 
   function assigneeOf(hire, item) {
@@ -1145,9 +1193,10 @@
       .filter(isActiveHire)
       .filter((h) => filters.hireWindow === 'all' || inOnboardingWindow(h, today))
       .forEach((hire) => {
-        data.items.forEach((item) => {
+          data.items.forEach((item) => {
           // My To-Do default view excludes PM tasks
           if (item.role === 'PM') return;
+          if (itemLocked(hire, item)) return;
           if (filters.role !== 'all' && item.role !== filters.role) return;
           const who = assigneeOf(hire, item);
           if (filters.person !== 'all' && who !== filters.person) return;
@@ -2134,7 +2183,7 @@
               <th data-col="onboarding">Onboarding</th>
               <th data-col="status">Employment</th>
               <th data-col="overall">Overall</th>
-              ${sections.map((sec) => `<th title="${esc(sec.title)}" class="nh-sec-col" data-col="sec-${esc(sec.id)}">${esc(sec.id)}</th>`).join('')}
+              ${sections.map((sec) => `<th title="${esc(sec.title)}" class="nh-sec-col" data-col="sec-${esc(sec.id)}">${esc(sectionColLabel(sec))}</th>`).join('')}
               <th data-col="resume">Resume</th>
               <th data-col="_actions"></th>
             </tr>
@@ -2190,7 +2239,7 @@
       </div>
       <p class="nh-footnote">${onboardFilter
         ? `${rows.length} ${esc(formatOnboardingLabel(onboardFilter).toLowerCase())} in the onboarding window`
-        : `${rows.length} hires in onboarding window`} · A–J counts are for ${esc(filterScopeLabel())} · choose All roles to see full totals · Roster shows every active hire</p>`;
+        : `${rows.length} hires in onboarding window`} · Stage counts are for ${esc(filterScopeLabel())} · choose All roles to see full totals · Roster shows every active hire</p>`;
 
     bindRosterChrome(root);
   }
@@ -2441,6 +2490,8 @@
     const sectionsHtml = data.sections.map((sec) => {
       const items = itemsForHireFilter(hire, itemsForSection(sec.id));
       const dateCtrl = sectionBarDateControl(sec, hire);
+      const locked = sectionLocked(sec, hire);
+      const wait = sectionWaitLabel(sec);
       // Keep Orientation / Bootcamp bars visible so dates can be set even when role filter hides tasks
       if (!items.length && !dateCtrl && (filters.role !== 'all' || filters.person !== 'all')) return '';
       const expanded = openSections[sec.id] === true;
@@ -2448,11 +2499,11 @@
       const spOpen = items.length - spDone;
       const barCls = sectionBarClass(spDone, items.length || (dateCtrl ? 1 : 0));
       return `
-        <div class="nh-section ${expanded ? 'open' : ''} ${barCls}">
+        <div class="nh-section ${expanded ? 'open' : ''} ${barCls}${locked ? ' is-locked' : ''}">
           <div class="nh-section-head ${barCls}">
             <button type="button" class="nh-section-toggle" data-toggle-sec="${esc(sec.id)}">
               <span class="nh-chevron">${expanded ? '▾' : '▸'}</span>
-              <div class="nh-section-title">${esc(sec.id)}. ${esc(sec.title)}</div>
+              <div class="nh-section-title">${esc(sectionHeading(sec))}</div>
             </button>
             <div class="nh-section-right">
               ${dateCtrl}
@@ -2460,6 +2511,7 @@
             </div>
           </div>
           <div class="nh-section-body" ${expanded ? '' : 'hidden'}>
+            ${wait ? `<p class="nh-section-wait">${esc(wait)}${locked ? ' — this stage stays closed until that work is done.' : ''}</p>` : ''}
             <div class="nh-task-table">
               <div class="nh-task-head">
                 <span>Assigned</span>
@@ -2468,7 +2520,7 @@
                 <span>Value</span>
                 <span>Status</span>
               </div>
-              ${items.map((it) => fieldRow(hire, it)).join('') || '<div class="nh-empty-block">No tasks in this section for this filter.</div>'}
+              ${items.map((it) => fieldRow(hire, it, { locked })).join('') || '<div class="nh-empty-block">No tasks in this section for this filter.</div>'}
             </div>
           </div>
         </div>`;
@@ -2478,7 +2530,7 @@
       <div class="nh-detail-top">
         <button class="btn-secondary" type="button" id="nh-back">← Back</button>
         <div class="nh-detail-actions">
-          <button class="btn-primary" type="button" id="nh-add-my-task" title="Add a process task assigned to you">+ Add my task</button>
+          ${processDriven() ? '' : `<button class="btn-primary" type="button" id="nh-add-my-task" title="Add a process task assigned to you">+ Add my task</button>`}
           <label class="nh-check-label"><input type="checkbox" id="nh-reveal" ${revealSensitive ? 'checked' : ''}> Show sensitive</label>
           <button class="btn-secondary" type="button" id="nh-edit-hire">Edit profile</button>
           ${archived ? `<button class="btn-xs danger" type="button" id="nh-del-hire">Delete</button>` : ''}
@@ -2609,25 +2661,26 @@
     });
   }
 
-  function fieldRow(hire, it) {
+  function fieldRow(hire, it, opts) {
+    const locked = !!(opts && opts.locked);
     const mine = filters.role !== 'all' && it.role === filters.role;
     const raw = hire.values?.[it.id];
     const filled = isFilled(it, raw, hire);
     const due = dueDateFor(hire, it);
     const overdue = isPastDue(due, filled);
     const who = assigneeOf(hire, it);
-    const canEditMine = ownsHireTask(hire, it);
+    const canEditMine = !locked && ownsHireTask(hire, it);
     const people = [...new Set([...peopleForRole(it.role), who, viewerChecklistName() !== 'all' ? viewerChecklistName() : null].filter(Boolean))];
     const stepProg = checklistProgress(hire, it);
     const linkHtml = taskLinkHtml(it);
     const isRegionField = /^Region$/i.test(it.label);
     let control = '';
     if (stepProg) {
-      control = `<button type="button" class="btn-secondary nh-checklist-btn" data-open-checklist="${esc(it.id)}">
+      control = `<button type="button" class="btn-secondary nh-checklist-btn" data-open-checklist="${esc(it.id)}" ${locked ? 'disabled' : ''}>
         Open check-off list (${stepProg.done}/${stepProg.total})
       </button>`;
     } else if (it.inputType === 'checkbox') {
-      control = `<label class="nh-check-label"><input type="checkbox" data-field="${esc(it.id)}" ${filled ? 'checked' : ''}> Done</label>`;
+      control = `<label class="nh-check-label"><input type="checkbox" data-field="${esc(it.id)}" ${filled ? 'checked' : ''} ${locked ? 'disabled' : ''}> Done</label>`;
     } else if (isRegionField || it.inputType === 'select') {
       const optsList = isRegionField ? REGION_OPTIONS : (it.options || []);
       const cur = isRegionField ? (normalizeRegion(raw) || raw || '') : String(raw || '');
@@ -2635,10 +2688,10 @@
         const v = optionValue(o);
         return `<option value="${esc(v)}" ${String(cur) === v ? 'selected' : ''}>${esc(optionText(o))}</option>`;
       }).join('');
-      control = `<select class="form-input nh-field-input" data-field="${esc(it.id)}"><option value="">—</option>${opts}</select>`;
+      control = `<select class="form-input nh-field-input" data-field="${esc(it.id)}" ${locked ? 'disabled' : ''}><option value="">—</option>${opts}</select>`;
     } else if (it.inputType === 'date') {
       const v = typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}/.test(raw) ? raw.slice(0, 10) : '';
-      control = `<input class="form-input nh-field-input" type="date" data-field="${esc(it.id)}" value="${esc(v)}">`;
+      control = `<input class="form-input nh-field-input" type="date" data-field="${esc(it.id)}" value="${esc(v)}" ${locked ? 'disabled' : ''}>`;
     } else if (/resume/i.test(it.label || '')) {
       let display = raw == null ? '' : String(raw);
       const openBtn = isHttpUrl(display)
@@ -2654,7 +2707,7 @@
       if (it.sensitive && !revealSensitive && display) display = '••••••••';
       control = `<input class="form-input nh-field-input" type="text" data-field="${esc(it.id)}" value="${esc(display)}" ${it.sensitive && !revealSensitive && raw ? 'readonly' : ''} placeholder="Enter value…">`;
     }
-    const ownerActions = canEditMine
+    const ownerActions = canEditMine && !processDriven()
       ? `<div class="nh-task-owner-actions">
           <button type="button" class="btn-xs" data-edit-hire-item="${esc(it.id)}" title="Edit this process task">Edit</button>
           <button type="button" class="btn-xs danger" data-del-hire-item="${esc(it.id)}" title="Delete this process task">Delete</button>
@@ -2679,7 +2732,7 @@
         </div>
         <div class="nh-task-due ${overdue ? 'is-overdue' : ''}">${esc(fmtDate(due))}</div>
         <div class="nh-task-value">${control}</div>
-        <div class="nh-field-status">${filled ? 'Done' : (overdue ? 'Past due' : 'Open')}</div>
+        <div class="nh-field-status">${locked ? 'Waiting' : (filled ? 'Done' : (overdue ? 'Past due' : 'Open'))}</div>
       </div>`;
   }
 
@@ -3590,11 +3643,20 @@
 
   function mountProcessAdmin() {
     ensureData();
+    applyProcessTemplate(data);
     if (!data || !data.items?.length) data = seed();
     if (ensureProfileFields()) persist();
     processAdminOpen = {};
     renderProfileFieldsAdmin();
-    renderProcessAdmin(document.getElementById('nh-process-admin-root'));
+    const root = document.getElementById('nh-process-admin-root');
+    if (root) {
+      root.innerHTML = `
+        <p class="user-mgmt-subtitle" style="margin:0 0 12px">The live checklist is driven by Process. Add and edit stages, steps, and gates there. Flow preview stays on that page.</p>
+        <button type="button" class="btn-primary" id="nh-open-process">Open Process</button>`;
+      root.querySelector('#nh-open-process')?.addEventListener('click', () => {
+        if (typeof window.showPage === 'function') window.showPage('beta');
+      });
+    }
   }
 
   // Jul + Aug 2026 cohort to keep Active (Angel Leon Pagan struck from Aug list — archive)
@@ -4710,6 +4772,12 @@
       return;
     }
 
+    if (view === 'template') {
+      if (typeof window.showPage === 'function') {
+        window.showPage('beta');
+        return;
+      }
+    }
     if (view === 'detail' && selectedHireId) renderDetail(root);
     else if (view === 'template') renderTemplate(root);
     else if (view === 'roster') renderRoster(root);
@@ -4721,8 +4789,17 @@
     syncHeaderActions();
   }
 
+  function refreshFromProcess() {
+    ensureData();
+    if (!applyProcessTemplate(data)) return;
+    data.profileFields = normalizeProfileFields(data.profileFields || []);
+    persist();
+    if (mounted) render();
+  }
+
   function applyRemote(value) {
     data = migrate(value);
+    applyProcessTemplate(data);
     ensureData();
     if (ensureProfileFields()) persist();
     const role = localStorage.getItem(ROLE_PREF_KEY);
@@ -4738,6 +4815,7 @@
   async function mount(opts) {
     const forceReload = !!(opts && opts.forceReload);
     ensureData();
+    applyProcessTemplate(data);
     if (!data || !data.items?.length) data = seed();
     if (ensureProfileFields()) persist();
     const role = localStorage.getItem(ROLE_PREF_KEY);
@@ -4768,6 +4846,7 @@
     mount,
     loadEmployees,
     applyRemote,
+    refreshFromProcess,
     render,
     mountProcessAdmin,
     openItemModal,

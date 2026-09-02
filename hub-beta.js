@@ -332,6 +332,9 @@
           dataFields: data.dataFields
         });
       }
+      if (window.HubChecklist && HubChecklist.refreshFromProcess) {
+        HubChecklist.refreshFromProcess();
+      }
     }, 250);
   }
 
@@ -1226,12 +1229,12 @@
 
     const mast = `
       <div class="beta-mast">
-        <span class="beta-stamp">Beta</span>
+        <span class="beta-stamp">Process</span>
         <div>
-          <h1 class="beta-title">${betaView === 'gates' ? 'Flow preview' : 'Role process'}</h1>
+          <h1 class="beta-title">${betaView === 'gates' ? 'Flow preview' : 'Process'}</h1>
           <p class="beta-lede">${betaView === 'gates'
-            ? 'The process reads top to bottom. A stage sits under the work it waits on — including another job title. Click a stage to change the gate. The live New Hire Checklist is unchanged.'
-            : 'HR, Admin, Logistics, and Training are departments. A stage can wait on another job title’s stage — IT can wait on Recruiter or HR. The live New Hire Checklist is unchanged.'}</p>
+            ? 'The process reads top to bottom. A stage sits under the work it waits on — including another job title. Click a stage to change the gate. This is what the live checklist uses.'
+            : 'Departments, job titles, stages, and steps. Edits here drive the live New Hire Checklist for every hire.'}</p>
         </div>
       </div>
       ${viewToggleHtml()}
@@ -2016,6 +2019,106 @@
     if (seedRequired) persist();
   }
 
+  const TITLE_OWNERS = {
+    recruiter: { role: 'HR', assignee: 'Jessa' },
+    vp_people_ops: { role: 'HR', assignee: 'Lisa' },
+    payroll_ap_hr: { role: 'HR', assignee: 'Lisa' },
+    it_manager: { role: 'Admin', assignee: 'Ana' },
+    logistics_manager: { role: 'Logistics', assignee: 'Joe' },
+    logistics_support: { role: 'Logistics', assignee: 'Joe' },
+    training_coordinator: { role: 'Training', assignee: 'Paula' },
+    assistant_training_coordinator: { role: 'Training', assignee: 'Brenda' }
+  };
+
+  function seedRoles() {
+    const raw = window.NEW_HIRE_SEED && NEW_HIRE_SEED.roles;
+    return Array.isArray(raw) ? JSON.parse(JSON.stringify(raw)) : [];
+  }
+
+  function ownerForTitle(dept, title) {
+    const mapped = TITLE_OWNERS[title.id];
+    if (mapped) return mapped;
+    const roles = seedRoles();
+    const role = roles.find((r) => String(r.label).toLowerCase() === String(dept.label).toLowerCase())
+      || roles.find((r) => r.id === dept.id);
+    const people = (role && role.people) || [];
+    return {
+      role: (role && role.id) || dept.label || 'HR',
+      assignee: people[0] || ''
+    };
+  }
+
+  function compileStepInput(step) {
+    if (step.outcome === 'decision') {
+      return { inputType: 'select', options: ['Pass', 'Fail', 'Review required', 'Complete'] };
+    }
+    if (step.outcome === 'data') {
+      const catalog = data.dataFields || [];
+      const first = (step.outputs || []).map((id) => catalog.find((f) => f.id === id)).find(Boolean);
+      let inputType = first && first.input ? first.input : 'text';
+      if (inputType === 'file' || inputType === 'email' || inputType === 'phone') inputType = 'text';
+      return { inputType, options: [] };
+    }
+    return { inputType: 'checkbox', options: [] };
+  }
+
+  function compileChecklistTemplate() {
+    const nodes = orderedFlowNodes();
+    const roles = seedRoles();
+    (data.departments || []).forEach((dept) => {
+      if (!roles.some((r) => r.id === dept.id || r.label === dept.label)) {
+        roles.push({ id: dept.id, label: dept.label, people: [] });
+      }
+    });
+    const sections = [];
+    const items = [];
+    let order = 1;
+    nodes.forEach((node, i) => {
+      const owner = ownerForTitle(node.dept, node.title);
+      const sectionId = flowNodeKey(node.titleId, node.stageId);
+      sections.push({
+        id: sectionId,
+        title: `${node.title.label} · ${node.stage.label}`,
+        defaultRole: owner.role,
+        defaultOwner: owner.assignee,
+        when: node.stage.when || { type: 'always' },
+        titleId: node.titleId,
+        stageId: node.stageId,
+        flowIndex: i + 1
+      });
+      stepsInStage(node.titleId, node.stageId).forEach((step) => {
+        const input = compileStepInput(step);
+        items.push({
+          id: step.id,
+          sectionId,
+          label: step.label,
+          notes: step.notes || '',
+          owner: owner.assignee,
+          role: owner.role,
+          assignee: owner.assignee,
+          inputType: input.inputType,
+          options: input.options,
+          outcome: step.outcome || 'confirm',
+          required: step.required !== false,
+          dueOffsetDays: 0,
+          dueDaysBefore: 0,
+          dueAnchor: 'start',
+          sensitive: false,
+          dependsOnPrior: false,
+          dependsOnTaskId: null,
+          checklistSteps: (step.subs || []).map((sub) => ({
+            id: sub.id,
+            label: sub.label,
+            required: sub.required !== false
+          })),
+          link: '',
+          order: order++
+        });
+      });
+    });
+    return { version: 3, roles, sections, items };
+  }
+
   function mount() {
     if (!data.departments.length) data = emptyData();
     if (!Array.isArray(data.dataFields) || !data.dataFields.length) {
@@ -2026,6 +2129,7 @@
 
   window.HubBeta = {
     applyRemote,
-    mount
+    mount,
+    compileTemplate: compileChecklistTemplate
   };
 })();
