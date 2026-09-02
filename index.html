@@ -1218,6 +1218,8 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .nh-section-head.nh-bar-green { background: #bbf7d0; color: #14532d; border-left: 4px solid #16a34a; }
 .nh-section-head.nh-bar-white .nh-chevron,
 .nh-section-head.nh-bar-white .nh-section-counts { color: #64748b; }
+.nh-section.is-locked .nh-task-value { opacity: .45; }
+.nh-section-wait { margin: 0 14px 10px; font-size: 12px; color: #3d4a5c; line-height: 1.4; }
 .nh-section-head.nh-bar-blue .nh-chevron,
 .nh-section-head.nh-bar-blue .nh-section-counts { color: #1d4ed8; }
 .nh-section-head.nh-bar-green .nh-chevron,
@@ -1329,8 +1331,8 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 <script src="hub-auth.js?v=session1"></script>
 <script src="hub-admin.js?v=merge1"></script>
 <script src="new-hire-seed.js"></script>
-<script src="hub-checklist.js?v=profile1"></script>
-    <script src="hub-beta.js?v=beta19"></script>
+<script src="hub-checklist.js?v=process1"></script>
+    <script src="hub-beta.js?v=beta20"></script>
 </head>
 <body>
 
@@ -1377,16 +1379,9 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
         <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/></svg></span>
         <span class="nav-label">Archive</span>
       </button>
-      <button type="button" class="nav-item" data-nh-view="template" title="Edit process" onclick="showChecklistView('template', this)">
+      <button type="button" class="nav-item" title="Process — add and edit stages, steps, and the flow" onclick="showPage('beta', this)">
         <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
-        <span class="nav-label">Edit process</span>
-      </button>
-    </div>
-    <div class="nav-section">
-      <div class="nav-section-label">Experiments</div>
-      <button type="button" class="nav-item" title="Beta Testing — role-based process (does not change the live checklist)" onclick="showPage('beta', this)">
-        <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6"/><path d="M10 3v6L5 18a2 2 0 0 0 1.7 3h10.6A2 2 0 0 0 19 18L14 9V3"/><path d="M8.5 14h7"/></svg></span>
-        <span class="nav-label">Beta Testing</span>
+        <span class="nav-label">Process</span>
       </button>
     </div>
     <button type="button" class="nav-item nav-admin" id="nav-admin" style="display:none" onclick="showPage('admin', this)">
@@ -1778,7 +1773,7 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
             <div class="user-mgmt-kicker">Checklist</div>
             <h2 class="user-mgmt-title">New Hire Checklist Process</h2>
             <p class="user-mgmt-subtitle">
-              All tasks by category (A–J), color-coded by role. Admins can add, edit, or delete anyone’s tasks; everyone else’s Edit process stays scoped to their own.
+              The live checklist is driven by Process. Use that page to add and edit stages, steps, and gates.
             </p>
           </div>
         </div>
@@ -1790,10 +1785,10 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
   </div>
 </div>
 
-<!-- PAGE: BETA TESTING -->
+<!-- PAGE: PROCESS -->
 <div id="page-beta" class="page page-beta">
   <div id="beta-root">
-    <p class="login-status">Loading beta process…</p>
+    <p class="login-status">Loading process…</p>
   </div>
 </div>
 
@@ -1922,8 +1917,8 @@ const HUB_PAGE_META = {
     sub: 'Hub people come from Atlas. Grant or revoke access in Atlas Admin. Atlas Admins always have Hub Admin.'
   },
   beta: {
-    title: 'Beta Testing',
-    sub: 'Department → job title → steps. Sandbox only — does not change the live New Hire Checklist.'
+    title: 'Process',
+    sub: 'Department → job title → stages and steps. This is what the live New Hire Checklist uses.'
   },
   apps: {
     title: 'Other Apps',
@@ -3507,11 +3502,11 @@ window.applyHubData = function(data) {
   if (data.bootcamp_checks) bcChecks = data.bootcamp_checks;
   if (data.airadigm_tasks_v2) tasks = data.airadigm_tasks_v2;
   if (data.task_notes) taskNotes = data.task_notes;
-  if (window.HubChecklist && HubChecklist.applyRemote) {
-    HubChecklist.applyRemote(data.new_hire_checklist || null);
-  }
   if (window.HubBeta && HubBeta.applyRemote) {
     HubBeta.applyRemote(data.beta_role_process || null);
+  }
+  if (window.HubChecklist && HubChecklist.applyRemote) {
+    HubChecklist.applyRemote(data.new_hire_checklist || null);
   }
 };
 
