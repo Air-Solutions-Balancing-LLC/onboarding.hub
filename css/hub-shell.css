@@ -99,6 +99,8 @@ body.hub-app .user-mgmt-shell .admin-page-title {
 
 body.hub-app .page-admin,
 body.hub-app .page-beta,
+body.hub-app .page-hiring,
+body.hub-app .page-applicants,
 body.hub-app .page-apps {
   background: transparent;
   min-height: 0;

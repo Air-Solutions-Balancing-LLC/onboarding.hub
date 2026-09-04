@@ -57,9 +57,11 @@
   let reportCohort = ''; // YYYY-MM-DD orientation date or '' = auto
   let reportMissingHireId = '__all__'; // '__all__' | hire id
   let userDefaultsApplied = false;
-  const STATUS_OPTIONS = ['active', 'archived', 'terminated', 'quit', 'rescinded', 'resigned'];
+  const STATUS_OPTIONS = ['pre_employment', 'active', 'archived', 'terminated', 'quit', 'rescinded', 'resigned'];
+  const CURRENT_STATUSES = ['pre_employment', 'active'];
   const ARCHIVE_STATUSES = ['archived', 'terminated', 'quit', 'rescinded', 'resigned'];
   const STATUS_LABELS = {
+    pre_employment: 'Pre-employment',
     active: 'Active',
     archived: 'Archive',
     terminated: 'Terminated',
@@ -68,6 +70,7 @@
     resigned: 'Resigned'
   };
   const ONBOARDING_STATUSES = ['not_started', 'in_progress', 'complete'];
+  const ONBOARDING_CHOICES = ['in_progress', 'complete'];
   const ONBOARDING_LABELS = {
     not_started: 'Not Started',
     in_progress: 'In Progress',
@@ -101,8 +104,11 @@
   let filters = {
     q: '',
     status: 'active',
-    role: 'HR',
+    role: 'all',
     person: 'all',
+    assignedToMe: true,
+    department: '',
+    jobTitle: '',
     todoScope: 'week',
     hireWindow: 'onboarding',
     archiveStatus: 'all',
@@ -726,7 +732,7 @@
     const keepByKey = new Map();
     const dropIds = new Set();
     employees.forEach((e) => {
-      if ((e.status || 'active').toLowerCase() !== 'active') return;
+      if (!isCurrentStatus(e.status || 'active')) return;
       const key = employeeNameKey(e);
       if (!key) return;
       const prev = keepByKey.get(key);
@@ -912,8 +918,26 @@
     return sectionLocked(sectionById(item.sectionId), hire);
   }
 
+  function processTitleLabel(item) {
+    return String((item && (item.titleLabel || (item.titleId && item.assignee))) || '').trim();
+  }
+
+  function processOwnerPerson(item) {
+    return String((item && item.ownerPerson) || '').trim();
+  }
+
   function assigneeOf(hire, item) {
+    const title = String((item && item.titleLabel) || '').trim();
+    if (title) return title;
     return (hire.assignees && hire.assignees[item.id]) || item.assignee || item.owner || '';
+  }
+
+  function taskMatchesPerson(hire, item, person) {
+    if (!person || person === 'all') return true;
+    if (namesRoughMatch(assigneeOf(hire, item), person)) return true;
+    if (namesRoughMatch(processOwnerPerson(item), person)) return true;
+    const title = String((item && item.titleLabel) || '').trim();
+    return !!(title && normalizeNameKey(title) === normalizeNameKey(person));
   }
 
   function mapAppUserToChecklistRole(appUser) {
@@ -978,26 +1002,43 @@
   }
 
   function ownsHireTask(hire, item) {
+    const me = viewerChecklistName();
+    if (me && me !== 'all' && taskMatchesPerson(hire, item, me)) return true;
     return ownsAssigneeName(assigneeOf(hire, item));
   }
 
-  function applyMyTasksFilter() {
+  function applyAssignedToMe(on) {
     ensureData();
     const user = window.hubCurrentUser;
+    filters.assignedToMe = on !== false;
+    if (!filters.assignedToMe) {
+      filters.person = 'all';
+      filters.role = 'all';
+      return;
+    }
     if (!user) {
-      alert('Sign in to filter to your tasks.');
+      filters.person = 'all';
+      filters.role = 'all';
       return;
     }
     const matched = matchChecklistPerson(user, 'all');
     if (matched !== 'all') {
       filters.person = matched;
-      filters.role = primaryRoleForPerson(matched) || mapAppUserToChecklistRole(user);
+      filters.role = 'all';
     } else {
       filters.role = mapAppUserToChecklistRole(user);
       filters.person = 'all';
     }
-    localStorage.setItem(ROLE_PREF_KEY, filters.role);
-    localStorage.setItem(PERSON_PREF_KEY, filters.person);
+  }
+
+  function applyMyTasksFilter() {
+    if (!window.hubCurrentUser) {
+      alert('Sign in to filter to your tasks.');
+      return;
+    }
+    filters.department = '';
+    filters.jobTitle = '';
+    applyAssignedToMe(true);
     render();
   }
 
@@ -1035,29 +1076,16 @@
 
   function applySignedInUserDefaults(force) {
     ensureData();
-    const user = window.hubCurrentUser;
-    if (!user) return;
     if (userDefaultsApplied && !force) return;
-    // Named owners (Ana, Lisa, …) open on their own role + name.
-    // Hub admins who are not a named checklist person (Brian) get the full overview.
-    const matched = matchChecklistPerson(user, 'all');
-    if (matched !== 'all') {
-      filters.role = primaryRoleForPerson(matched) || mapAppUserToChecklistRole(user);
-      filters.person = matched;
-    } else if (isHubAdminUser(user)) {
-      filters.role = 'all';
-      filters.person = 'all';
-    } else {
-      filters.role = mapAppUserToChecklistRole(user);
-      filters.person = 'all';
-    }
-    localStorage.setItem(ROLE_PREF_KEY, filters.role);
-    localStorage.setItem(PERSON_PREF_KEY, filters.person);
+    applyAssignedToMe(true);
     userDefaultsApplied = true;
   }
 
   function openHireDetail(hireId) {
     if (view !== 'detail') detailReturnView = view || 'dashboard';
+    filters.department = '';
+    filters.jobTitle = '';
+    applyAssignedToMe(true);
     selectedHireId = hireId;
     openSections = {};
     (data.sections || []).forEach((s) => { openSections[s.id] = false; });
@@ -1149,7 +1177,18 @@
     const role = roleFilter != null ? roleFilter : filters.role;
     const person = personFilter != null ? personFilter : filters.person;
     if (role && role !== 'all' && item.role !== role) return false;
-    if (person && person !== 'all' && assigneeOf(hire, item) !== person) return false;
+    if (person && person !== 'all' && !taskMatchesPerson(hire, item, person)) return false;
+    if (filters.department) {
+      const dept = String(item.deptLabel || item.role || '').trim();
+      if (dept !== filters.department) return false;
+    }
+    if (filters.jobTitle) {
+      const sec = sectionById(item.sectionId);
+      const titleId = String(item.titleId || (sec && sec.titleId) || '').trim();
+      const title = String(item.titleLabel || (sec && sec.ownerTitle) || '').trim();
+      const secName = String((sec && sec.title) || '').split(' · ')[0].trim();
+      if (titleId !== filters.jobTitle && title !== filters.jobTitle && secName !== filters.jobTitle) return false;
+    }
     return true;
   }
 
@@ -1167,8 +1206,12 @@
     return { done, total, pct: total ? Math.round((done / total) * 100) : 0 };
   }
 
+  function isCurrentStatus(status) {
+    return CURRENT_STATUSES.includes(String(status || '').toLowerCase());
+  }
+
   function isActiveHire(h) {
-    return (h.status || '').toLowerCase() === 'active';
+    return isCurrentStatus(h && h.status);
   }
 
   function isArchivedStatus(status) {
@@ -1199,7 +1242,7 @@
           if (itemLocked(hire, item)) return;
           if (filters.role !== 'all' && item.role !== filters.role) return;
           const who = assigneeOf(hire, item);
-          if (filters.person !== 'all' && who !== filters.person) return;
+          if (filters.person !== 'all' && !taskMatchesPerson(hire, item, filters.person)) return;
           const done = isFilled(item, hire.values?.[item.id], hire);
           if (filters.todoScope === 'open' && done) return;
           if (filters.todoScope === 'done' && !done) return;
@@ -1269,6 +1312,7 @@
 
   function statusBadgeClass(status) {
     const map = {
+      pre_employment: 'nh-badge nh-badge-warn',
       active: 'nh-badge nh-badge-active',
       archived: 'nh-badge nh-badge-muted',
       terminated: 'nh-badge nh-badge-danger',
@@ -1383,8 +1427,8 @@
         displayHireName(e).toLowerCase().includes(q) ||
         (e.company_email || '').toLowerCase().includes(q) ||
         String(e.employee_number ?? '').includes(q);
-      // Dashboard / Roster: active only (archived hires live in Archive)
-      if (!(matchSearch && (e.status || 'active') === 'active')) return false;
+      // Dashboard / Roster: current hires only (archived statuses live in Archive)
+      if (!(matchSearch && isCurrentStatus(e.status || 'active'))) return false;
 
       if (onboardingWindowOnly && !inOnboardingWindow(empToHire(e), today)) return false;
 
@@ -1429,7 +1473,7 @@
   }
 
   function stats() {
-    const active = employees.filter((e) => e.status === 'active');
+    const active = employees.filter((e) => isCurrentStatus(e.status));
     const onboardingOf = (key) => active.filter((e) => normalizeOnboardingStatus(e.onboarding_status) === key).length;
     return {
       total: employees.length,
@@ -1570,10 +1614,15 @@
     </select>`;
   }
 
+  function onboardingChoices(current) {
+    const cur = normalizeOnboardingStatus(current);
+    return cur === 'not_started' ? ['not_started', ...ONBOARDING_CHOICES] : ONBOARDING_CHOICES.slice();
+  }
+
   function onboardingSelect(empId, status, extraClass) {
     const cur = normalizeOnboardingStatus(status);
     return `<select class="nh-status-select nh-onboarding-select is-${cur} ${extraClass || ''}" data-onboarding-emp="${esc(empId)}" title="Change onboarding status">
-      ${ONBOARDING_STATUSES.map((s) => `<option value="${esc(s)}" ${s === cur ? 'selected' : ''}>${esc(formatOnboardingLabel(s))}</option>`).join('')}
+      ${onboardingChoices(cur).map((s) => `<option value="${esc(s)}" ${s === cur ? 'selected' : ''}>${esc(formatOnboardingLabel(s))}</option>`).join('')}
     </select>`;
   }
 
@@ -1595,7 +1644,7 @@
           alert('Could not update employment status: ' + (e.message || e));
         }
         sel.classList.remove('nh-saving');
-        // Non-active statuses move to Archive; Active leaves Archive
+        // Archived statuses move to Archive; pre-employment and Active stay current
         if (view === 'detail' && selectedHireId === id && isArchivedStatus(status)) {
           view = 'archive';
           selectedHireId = null;
@@ -1678,11 +1727,19 @@
   }
 
   function filterScopeLabel() {
-    if (filters.person && filters.person !== 'all') {
-      return `${filters.person}${filters.role !== 'all' ? ` (${filters.role})` : ''}`;
+    const parts = [];
+    if (filters.assignedToMe) {
+      const me = viewerChecklistName();
+      parts.push(me && me !== 'all' ? `assigned to ${me}` : 'assigned to me');
+    } else {
+      parts.push('all assignees');
     }
-    if (filters.role && filters.role !== 'all') return `${filters.role} role`;
-    return 'all roles';
+    if (filters.department) parts.push(filters.department);
+    if (filters.jobTitle) {
+      const hit = processTitleOptions().find((t) => t.value === filters.jobTitle || t.label === filters.jobTitle);
+      parts.push(hit ? hit.label : filters.jobTitle);
+    }
+    return parts.join(' · ');
   }
 
   function pctClass(pct) {
@@ -1692,50 +1749,85 @@
     return 'nh-pct-zero';
   }
 
-  function rolePeopleChips() {
-    const people = peopleForRole('all');
-    if (!people.length) {
-      return '<span class="nh-person-chips nh-muted">No assignees yet</span>';
-    }
-    const chips = [
-      `<button type="button" class="nh-person-chip ${filters.person === 'all' ? 'active' : ''}" data-person="all">Everyone</button>`,
-      ...people.map((p) =>
-        `<button type="button" class="nh-person-chip ${filters.person === p ? 'active' : ''}" data-person="${esc(p)}">${esc(p)}</button>`
-      ),
-    ];
-    return `<div class="nh-person-chips">${chips.join('')}</div>`;
+  function processDeptOptions() {
+    const fromBeta = window.HubBeta && HubBeta.listOwnerDepartments ? HubBeta.listOwnerDepartments() : [];
+    if (fromBeta.length) return fromBeta.slice().sort((a, b) => a.localeCompare(b));
+    const seen = new Set();
+    const out = [];
+    (data.items || []).forEach((it) => {
+      const label = String(it.deptLabel || it.role || '').trim();
+      if (!label || seen.has(label)) return;
+      seen.add(label);
+      out.push(label);
+    });
+    (data.sections || []).forEach((sec) => {
+      const label = String(sec.deptLabel || '').trim();
+      if (!label || seen.has(label)) return;
+      seen.add(label);
+      out.push(label);
+    });
+    return out.sort((a, b) => a.localeCompare(b));
   }
 
-  function roleFilterControls(selectId) {
-    if (filters.role === 'PM') {
-      filters.role = 'all';
-      try { localStorage.setItem(ROLE_PREF_KEY, 'all'); } catch (e) { /* ignore */ }
+  function processTitleOptions() {
+    const fromBeta = window.HubBeta && HubBeta.listOwnerTitles ? HubBeta.listOwnerTitles() : [];
+    if (fromBeta.length) return fromBeta.slice().sort((a, b) => a.label.localeCompare(b.label));
+    const seen = new Set();
+    const out = [];
+    function add(id, label) {
+      const value = String(id || '').trim();
+      const text = String(label || '').trim();
+      const key = value || text;
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      out.push({ value: value || text, label: text || value });
     }
-    const roles = (data.roles || []).filter((r) => r.id !== 'PM');
+    (data.items || []).forEach((it) => add(it.titleId, it.titleLabel));
+    (data.sections || []).forEach((sec) => {
+      const label = sec.ownerTitle || String(sec.title || '').split(' · ')[0];
+      add(sec.titleId, label);
+    });
+    return out.sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  function hireOrgFilters() {
+    const depts = processDeptOptions();
+    const titles = processTitleOptions();
+    const deptOpts = `<option value=""${filters.department ? '' : ' selected'}>All departments</option>`
+      + depts.map((d) =>
+        `<option value="${esc(d)}"${filters.department === d ? ' selected' : ''}>${esc(d)}</option>`
+      ).join('');
+    const jobOpts = `<option value=""${filters.jobTitle ? '' : ' selected'}>All responsible titles</option>`
+      + titles.map((p) =>
+        `<option value="${esc(p.value)}"${filters.jobTitle === p.value ? ' selected' : ''}>${esc(p.label)}</option>`
+      ).join('');
+    return `
+      <div class="nh-filter-divider" aria-hidden="true"></div>
+      <div class="nh-filter-group">
+        <span class="nh-filter-label">Filter tasks by: Department</span>
+        <select class="form-input nh-role-select" data-dept-filter aria-label="Filter tasks by department">${deptOpts}</select>
+      </div>
+      <div class="nh-filter-group">
+        <span class="nh-filter-label">Filter tasks by: Responsible title</span>
+        <select class="form-input nh-role-select" data-job-filter aria-label="Filter tasks by responsible job title">${jobOpts}</select>
+      </div>`;
+  }
+
+  function roleFilterControls(opts) {
+    if (filters.role === 'PM') filters.role = 'all';
+    const showHireFilters = !opts || opts.showHireFilters !== false;
     const me = viewerChecklistName();
     const myLabel = me !== 'all' ? me : (window.hubCurrentUser?.full_name || 'me');
-    const mineActive = me !== 'all' && filters.person === me;
+    const mineActive = !!filters.assignedToMe;
     return `
       <div class="nh-filter-panel">
         <div class="nh-filter-group">
           <span class="nh-filter-label">Quick</span>
-          <button type="button" class="nh-my-tasks-btn ${mineActive ? 'active' : ''}" id="nh-my-tasks" title="Filter this list to tasks assigned to you">
+          <button type="button" class="nh-my-tasks-btn ${mineActive ? 'active' : ''}" id="nh-my-tasks" title="Jump back to tasks assigned to you">
             Assigned to me${me !== 'all' ? ` · ${esc(myLabel)}` : ''}
           </button>
         </div>
-        <div class="nh-filter-divider" aria-hidden="true"></div>
-        <div class="nh-filter-group">
-          <span class="nh-filter-label">Role</span>
-          <select id="${esc(selectId)}" class="form-input nh-role-select" title="Filter tasks by role">
-            <option value="all" ${filters.role === 'all' ? 'selected' : ''}>All roles</option>
-            ${roles.map((r) => `<option value="${esc(r.id)}" ${filters.role === r.id ? 'selected' : ''}>${esc(r.label)}</option>`).join('')}
-          </select>
-        </div>
-        <div class="nh-filter-divider" aria-hidden="true"></div>
-        <div class="nh-filter-group nh-filter-people">
-          <span class="nh-filter-label">Person</span>
-          ${rolePeopleChips()}
-        </div>
+        ${showHireFilters ? hireOrgFilters() : ''}
         <div class="nh-filter-scope">Viewing <strong>${esc(filterScopeLabel())}</strong></div>
       </div>`;
   }
@@ -1745,53 +1837,27 @@
     if (!showRoleFilter) return '';
     return `
       <div class="nh-rolebar">
-        ${roleFilterControls('nh-role')}
+        ${roleFilterControls({ showHireFilters: true })}
       </div>`;
   }
 
-  function syncPersonAfterRoleChange(roleId) {
-    const people = peopleForRole(roleId === 'all' ? 'all' : roleId);
-    if (filters.person !== 'all' && people.includes(filters.person)) {
-      localStorage.setItem(PERSON_PREF_KEY, filters.person);
-      return;
-    }
-    const me = window.hubCurrentUser ? matchChecklistPerson(window.hubCurrentUser, roleId === 'all' ? 'all' : roleId) : 'all';
-    // Keep a named owner's own chip when their role is selected; otherwise Everyone
-    filters.person = (me !== 'all' && people.includes(me)) ? me : 'all';
-    localStorage.setItem(PERSON_PREF_KEY, filters.person);
-  }
-
-  function bindPersonChips(root) {
-    root.querySelector('#nh-my-tasks')?.addEventListener('click', () => applyMyTasksFilter());
-    root.querySelectorAll('[data-person]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const person = btn.getAttribute('data-person') || 'all';
-        filters.person = person;
-        // Jump to that person's role so their tasks actually show
-        if (person !== 'all') {
-          const roleOf = primaryRoleForPerson(person);
-          if (roleOf) filters.role = roleOf;
-        }
-        localStorage.setItem(PERSON_PREF_KEY, filters.person);
-        localStorage.setItem(ROLE_PREF_KEY, filters.role);
-        render();
-      });
-    });
-  }
-
   function bindRoleBar(root) {
-    root.querySelector('#nh-role')?.addEventListener('change', (e) => {
-      filters.role = e.target.value;
-      localStorage.setItem(ROLE_PREF_KEY, filters.role);
-      syncPersonAfterRoleChange(filters.role);
+    root.querySelector('#nh-my-tasks')?.addEventListener('click', () => applyMyTasksFilter());
+    root.querySelector('[data-dept-filter]')?.addEventListener('change', (e) => {
+      filters.department = e.target.value || '';
+      applyAssignedToMe(false);
       render();
     });
-    bindPersonChips(root);
+    root.querySelector('[data-job-filter]')?.addEventListener('change', (e) => {
+      filters.jobTitle = e.target.value || '';
+      applyAssignedToMe(false);
+      render();
+    });
   }
 
   function renderTodo(root) {
     setPageTitle('My work');
-    setPageSub('Your open tasks by hire — check off, enter dates, or Edit. Use Role / Person filters on People.');
+    setPageSub('Your open tasks by hire — check off, enter dates, or Edit. Onboarding defaults to Assigned to me.');
     const entries = todoEntries();
     const groups = todoGroups(entries);
     const overdue = entries.filter((e) => e.bucket === 'overdue').length;
@@ -1831,7 +1897,7 @@
       <div class="nh-todo-list nh-todo-grouped">
         ${shownGroups.length
           ? shownGroups.map(todoHireGroup).join('')
-          : '<div class="nh-empty-block">No tasks for this filter. Try Open, or set Role / Person on People.</div>'}
+          : '<div class="nh-empty-block">No tasks for this filter. Try Open, or use Assigned to me on Onboarding.</div>'}
       </div>
       ${groups.length > todoLimit
         ? `<div style="margin-top:12px;text-align:center"><button class="btn-secondary" type="button" id="nh-todo-more">Show more hires (${groups.length - todoLimit} left)</button></div>`
@@ -2128,19 +2194,18 @@
   }
 
   function renderDashboard(root) {
-    setPageTitle('People');
-    setPageSub('Recent / onboarding-window hires (orientation within last ~120 days or next ~60). Use Roster for the full active list. Progress counts follow Role / Person.');
+    setPageTitle('Onboarding');
+    setPageSub('Recent / onboarding-window hires (orientation within last ~120 days or next ~60). Open a hire to filter tasks by Assigned to me, department, or job title.');
     ensureData();
     const onboardFilter = (filters.cols && filters.cols.onboarding) || '';
     const rows = filteredEmployees({ onboardingWindowOnly: true });
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const windowActive = employees.filter((e) => (e.status || 'active') === 'active' && inOnboardingWindow(empToHire(e), today));
+    const windowActive = employees.filter((e) => isCurrentStatus(e.status || 'active') && inOnboardingWindow(empToHire(e), today));
     const windowOf = (key) => windowActive.filter((e) => normalizeOnboardingStatus(e.onboarding_status) === key).length;
     const sections = data.sections || [];
 
     root.innerHTML = `
-      ${roleBar({ showRoleFilter: true })}
       <div class="nh-stats" role="toolbar" aria-label="Filter by onboarding status">
         <button type="button" class="nh-stat nh-stat-filter${!onboardFilter ? ' is-active' : ''}" data-onboarding-filter="" aria-pressed="${!onboardFilter ? 'true' : 'false'}">
           <div class="nh-stat-label">In window</div>
@@ -2208,7 +2273,7 @@
           <tbody>
             ${rows.length ? rows.map((emp) => {
               const hire = empToHire(emp);
-              const overall = hireProgress(hire);
+              const overall = hireProgress(hire, 'all', 'all');
               const resumeHtml = resumeCellHtml(hire);
               return `<tr>
                 <td class="nh-sticky nh-muted" data-col="_num">${esc(emp.employee_number ?? '—')}</td>
@@ -2223,11 +2288,11 @@
                 <td data-col="bootcamp">${esc(emp.bootcamp_start_date || '—')}</td>
                 <td data-col="onboarding">${onboardingSelect(emp.id, emp.onboarding_status)}</td>
                 <td data-col="status">${statusSelect(emp.id, emp.status)}</td>
-                <td data-col="overall"><span class="nh-pct ${pctClass(overall.pct)}" title="${overall.done}/${overall.total} for ${esc(filterScopeLabel())}">${overall.done}/${overall.total}</span></td>
+                <td data-col="overall"><span class="nh-pct ${pctClass(overall.pct)}" title="${overall.done}/${overall.total}">${overall.done}/${overall.total}</span></td>
                 ${sections.map((sec) => {
-                  const sp = sectionProgress(hire, sec.id);
+                  const sp = sectionProgress(hire, sec.id, 'all', 'all');
                   return `<td class="nh-sec-cell" data-col="sec-${esc(sec.id)}">
-                    <button type="button" class="nh-pct ${pctClass(sp.pct)}" data-open-hire="${esc(emp.id)}" title="${esc(sec.title)} · ${esc(filterScopeLabel())}: ${sp.done}/${sp.total}">${sp.done}/${sp.total}</button>
+                    <button type="button" class="nh-pct ${pctClass(sp.pct)}" data-open-hire="${esc(emp.id)}" title="${esc(sec.title)}: ${sp.done}/${sp.total}">${sp.done}/${sp.total}</button>
                   </td>`;
                 }).join('')}
                 <td class="nh-resume-cell" data-col="resume">${resumeHtml}</td>
@@ -2239,7 +2304,7 @@
       </div>
       <p class="nh-footnote">${onboardFilter
         ? `${rows.length} ${esc(formatOnboardingLabel(onboardFilter).toLowerCase())} in the onboarding window`
-        : `${rows.length} hires in onboarding window`} · Stage counts are for ${esc(filterScopeLabel())} · choose All roles to see full totals · Roster shows every active hire</p>`;
+        : `${rows.length} hires in onboarding window`} · Stage counts are overall · open a hire to filter tasks · Roster shows every active hire</p>`;
 
     bindRosterChrome(root);
   }
@@ -2261,7 +2326,7 @@
       <div class="nh-toolbar">
         <input type="search" class="nh-search" id="nh-search" placeholder="Search by name, email, or #..." value="${esc(filters.q)}" />
         <div class="nh-filters">
-          <span class="nh-muted">All active hires · People is onboarding-window only · archived under Archive</span>
+          <span class="nh-muted">All active hires · Onboarding is current-window only · archived under Archive</span>
         </div>
       </div>
       <div class="nh-table-wrap">
@@ -2297,7 +2362,7 @@
 
   function renderArchive(root) {
     setPageTitle('Archive');
-    setPageSub('Archived hires (Archive, Terminated, Quit, Rescinded, Resigned). Active hires stay on People / Roster. Set Employment back to Active to restore, or Delete permanently.');
+    setPageSub('Archived hires (Archive, Terminated, Quit, Rescinded, Resigned). Active hires stay on Onboarding / Roster. Set Employment back to Active to restore, or Delete permanently.');
     ensureData();
     const s = stats();
     const rows = filteredArchivedEmployees();
@@ -2485,7 +2550,7 @@
     setPageTitle(displayHireName(hire));
     setPageSub(archived
       ? 'Archived hire — set Employment back to Active on Archive to restore, or Delete from Archive.'
-      : `Showing tasks for ${scoped} (${p.done}/${p.total}). Use Role and your name below to see only your tasks.`);
+      : `Showing tasks for ${scoped} (${p.done}/${p.total}). Use Assigned to me to see only your tasks.`);
 
     const sectionsHtml = data.sections.map((sec) => {
       const items = itemsForHireFilter(hire, itemsForSection(sec.id));
@@ -2537,7 +2602,7 @@
         </div>
       </div>
       <div class="nh-detail-filters">
-        ${roleFilterControls('nh-role-d')}
+        ${roleFilterControls({ showHireFilters: true })}
       </div>
       <div class="nh-profile">
         <div>
@@ -2583,13 +2648,7 @@
       }
     });
     bindStatusSelects(root);
-    root.querySelector('#nh-role-d').addEventListener('change', (e) => {
-      filters.role = e.target.value;
-      localStorage.setItem(ROLE_PREF_KEY, filters.role);
-      syncPersonAfterRoleChange(filters.role);
-      render();
-    });
-    bindPersonChips(root);
+    bindRoleBar(root);
     root.querySelector('#nh-reveal').addEventListener('change', (e) => {
       revealSensitive = e.target.checked;
       render();
@@ -2669,6 +2728,7 @@
     const due = dueDateFor(hire, it);
     const overdue = isPastDue(due, filled);
     const who = assigneeOf(hire, it);
+    const titleAssignee = processTitleLabel(it);
     const canEditMine = !locked && ownsHireTask(hire, it);
     const people = [...new Set([...peopleForRole(it.role), who, viewerChecklistName() !== 'all' ? viewerChecklistName() : null].filter(Boolean))];
     const stepProg = checklistProgress(hire, it);
@@ -2716,9 +2776,11 @@
     return `
       <div class="nh-task-row ${mine ? 'mine' : ''} ${filled ? 'filled' : 'open'} ${overdue ? 'overdue' : ''}${stepProg ? ' has-checklist' : ''}${canEditMine ? ' nh-mine-owned' : ''}">
         <div class="nh-task-assignee" title="${esc(who || 'Unassigned')} · ${esc(it.role)}">
-          <select class="form-input nh-assignee" data-assignee="${esc(it.id)}" title="${canEditMine ? 'Reassign this task' : 'Only the assignee can reassign'}" ${canEditMine ? '' : 'disabled'}>
+          ${titleAssignee
+            ? `<span class="nh-owner-chip">${esc(titleAssignee)}</span>`
+            : `<select class="form-input nh-assignee" data-assignee="${esc(it.id)}" title="${canEditMine ? 'Reassign this task' : 'Only the assignee can reassign'}" ${canEditMine ? '' : 'disabled'}>
             ${people.map((p) => `<option value="${esc(p)}" ${who === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}
-          </select>
+          </select>`}
           <span class="nh-role-chip ${roleChipClass(it.role)}">${esc(it.role)}</span>
         </div>
         <div class="nh-task-label">
@@ -3038,7 +3100,7 @@
 
   function defaultOrientationIso() {
     const upcoming = (employees || [])
-      .filter((e) => (e.status || 'active') === 'active' && e.start_date)
+      .filter((e) => isCurrentStatus(e.status || 'active') && e.start_date)
       .map((e) => String(e.start_date).slice(0, 10))
       .filter((s) => s >= todayIso())
       .sort();
@@ -3949,7 +4011,7 @@
     bindProcessEditor(root, { adminMode: canManageAllTasks(), onRefresh: () => renderTemplate(root) });
   }
 
-  function openHireModal(id) {
+  function openHireModal(id, prefill) {
     ensureData();
     document.getElementById('nh-hire-modal')?.remove();
     const modal = document.createElement('div');
@@ -4005,13 +4067,13 @@
             <div class="form-row-2">
               <div><label class="form-label">Onboarding status</label>
                 <select id="nh-hire-onboarding" class="form-input">
-                  <option value="not_started">Not Started</option>
                   <option value="in_progress">In Progress</option>
                   <option value="complete">Complete</option>
                 </select>
               </div>
               <div><label class="form-label">Employment status</label>
                 <select id="nh-hire-status" class="form-input">
+                  <option value="pre_employment">Pre-employment</option>
                   <option value="active">Active</option>
                   <option value="archived">Archive</option>
                   <option value="terminated">Terminated</option>
@@ -4036,32 +4098,40 @@
     document.getElementById('nh-hire-cancel').addEventListener('click', closeHireModal);
     document.getElementById('nh-hire-save').addEventListener('click', saveHireModal);
     const emp = id ? employees.find((e) => e.id === id) : null;
+    const seed = emp || hirePrefill(prefill);
     const cityOpts = [...new Set([...CITY_CENTER_OPTIONS, ...employees.map((e) => e.city_center).filter(Boolean)])].sort((a, b) => a.localeCompare(b));
     document.getElementById('nh-city-dl').innerHTML = cityOpts.map((c) => `<option value="${esc(c)}">`).join('');
     document.getElementById('nh-hire-title').textContent = emp ? 'Edit hire' : 'Add new hire';
     document.getElementById('nh-hire-id').value = emp?.id || '';
-    const parsedName = parseGoesByFromFullName(emp?.full_name || '');
+    const parsedName = parseGoesByFromFullName(seed?.full_name || '');
     const fullForForm = emp?.preferred_name
       ? (/\(\s*Goes\s+by\s+/i.test(emp.full_name || '') ? parsedName.full_name : (emp.full_name || ''))
-      : (parsedName.preferred_name ? parsedName.full_name : (emp?.full_name || ''));
+      : (parsedName.preferred_name ? parsedName.full_name : (seed?.full_name || ''));
     const goesForForm = emp?.preferred_name || parsedName.preferred_name || '';
     document.getElementById('nh-hire-name').value = fullForForm;
     document.getElementById('nh-hire-goes-by').value = goesForForm;
-    document.getElementById('nh-hire-division').value = normalizeRegion(emp?.region) || emp?.region || '';
-    document.getElementById('nh-hire-role').value = emp ? normalizePosition(emp.employee_type) : '';
-    document.getElementById('nh-hire-city').value = emp?.city_center || '';
-    document.getElementById('nh-hire-start').value = (emp?.start_date || '').slice(0, 10);
-    const orient = (emp?.start_date || '').slice(0, 10);
-    const work = (emp?.work_start_date || '').slice(0, 10);
+    document.getElementById('nh-hire-division').value = normalizeRegion(seed?.region) || seed?.region || '';
+    document.getElementById('nh-hire-role').value = seed ? normalizePosition(seed.employee_type) : '';
+    document.getElementById('nh-hire-city').value = seed?.city_center || '';
+    document.getElementById('nh-hire-start').value = (seed?.start_date || '').slice(0, 10);
+    const orient = (seed?.start_date || '').slice(0, 10);
+    const work = (seed?.work_start_date || '').slice(0, 10);
     const differentStart = !!(work && orient && work !== orient);
     document.getElementById('nh-hire-work-start').value = differentStart ? work : '';
     document.getElementById('nh-hire-diff-start').checked = differentStart;
     document.getElementById('nh-hire-work-start-wrap').hidden = !differentStart;
     document.getElementById('nh-hire-diff-start').addEventListener('change', syncHireWorkStartUi);
-    document.getElementById('nh-hire-boot').value = (emp?.bootcamp_start_date || '').slice(0, 10);
-    document.getElementById('nh-hire-onboarding').value = normalizeOnboardingStatus(emp?.onboarding_status);
-    document.getElementById('nh-hire-status').value = emp?.status || 'active';
-    document.getElementById('nh-hire-note').value = emp?.status_note || '';
+    document.getElementById('nh-hire-boot').value = (seed?.bootcamp_start_date || '').slice(0, 10);
+    const onboardSel = document.getElementById('nh-hire-onboarding');
+    const onboardVal = emp
+      ? normalizeOnboardingStatus(seed?.onboarding_status)
+      : 'in_progress';
+    onboardSel.innerHTML = onboardingChoices(onboardVal).map((s) =>
+      `<option value="${esc(s)}">${esc(formatOnboardingLabel(s))}</option>`
+    ).join('');
+    onboardSel.value = onboardVal;
+    document.getElementById('nh-hire-status').value = seed?.status || 'pre_employment';
+    document.getElementById('nh-hire-note').value = seed?.status_note || '';
     modal.classList.add('open');
   }
 
@@ -4073,6 +4143,19 @@
     if (!wrap || !work) return;
     wrap.hidden = !on;
     if (on && !work.value && orient) work.value = orient;
+  }
+
+  function hirePrefill(prefill) {
+    if (!prefill || typeof prefill !== 'object') return null;
+    return {
+      full_name: String(prefill.full_name || prefill.name || '').trim(),
+      employee_type: prefill.position || prefill.employee_type || '',
+      region: prefill.division || prefill.region || '',
+      city_center: prefill.area || prefill.city_center || '',
+      status_note: String(prefill.status_note || '').trim(),
+      onboarding_status: 'in_progress',
+      status: 'pre_employment'
+    };
   }
 
   function closeHireModal() {
@@ -4802,10 +4885,6 @@
     applyProcessTemplate(data);
     ensureData();
     if (ensureProfileFields()) persist();
-    const role = localStorage.getItem(ROLE_PREF_KEY);
-    const person = localStorage.getItem(PERSON_PREF_KEY);
-    if (role) filters.role = role;
-    if (person) filters.person = person;
     // Start with every category collapsed
     data.sections.forEach((s) => {
       if (openSections[s.id] === undefined) openSections[s.id] = false;
@@ -4818,11 +4897,6 @@
     applyProcessTemplate(data);
     if (!data || !data.items?.length) data = seed();
     if (ensureProfileFields()) persist();
-    const role = localStorage.getItem(ROLE_PREF_KEY);
-    const person = localStorage.getItem(PERSON_PREF_KEY);
-    if (role) filters.role = role;
-    if (person) filters.person = person;
-    // Prefer signed-in user's role + name on first open (e.g. Ana → Admin / Ana)
     applySignedInUserDefaults(!mounted);
     bindBrowserNav();
     bindHeaderAdd();
@@ -4852,6 +4926,7 @@
     openItemModal,
     applyViewerDefaults,
     setView,
-    getView
+    getView,
+    openHireModal
   };
 })();
