@@ -142,6 +142,7 @@
     { id: 'onboarding', label: 'Onboarding' },
     { id: 'status', label: 'Employment' },
     { id: 'overall', label: 'Overall' },
+    { id: 'track', label: 'Track' },
     { id: 'resume', label: 'Resume' }
   ];
   const LOCKED_COLUMNS = ['_num', 'name', '_actions'];
@@ -815,7 +816,120 @@
     return `${days} day${days === 1 ? '' : 's'} before ${base}`;
   }
 
+  function durationOf(item) {
+    const n = parseInt(item && item.durationDays, 10);
+    return Number.isFinite(n) && n >= 0 ? n : 1;
+  }
+
+  function itemPredecessors(item) {
+    const ids = [];
+    if (item && item.dependsOnTaskId) ids.push(item.dependsOnTaskId);
+    const sec = item ? sectionById(item.sectionId) : null;
+    const when = sec && sec.when;
+    if (when && when.type === 'gate') {
+      const src = (data.sections || []).find((s) => s.titleId === when.titleId && s.stageId === when.stageId)
+        || (data.sections || []).find((s) => s.id === `${when.titleId}::${when.stageId}`);
+      if (src) {
+        itemsForSection(src.id).forEach((it) => {
+          if (itemIsRequired(it)) ids.push(it.id);
+        });
+      }
+    }
+    return [...new Set(ids.filter((id) => id && (!item || id !== item.id)))];
+  }
+
+  function scheduleForHire(hire) {
+    const items = (data.items || []).filter((i) => i.role !== 'PM');
+    const byId = new Map(items.map((i) => [i.id, i]));
+    const preds = {};
+    const succs = {};
+    items.forEach((it) => {
+      preds[it.id] = itemPredecessors(it).filter((id) => byId.has(id));
+      succs[it.id] = succs[it.id] || [];
+      preds[it.id].forEach((pid) => {
+        if (!succs[pid]) succs[pid] = [];
+        succs[pid].push(it.id);
+      });
+    });
+
+    const orient = hire ? parseDate(hire.startDate) : null;
+    const taskDue = {};
+    if (orient) {
+      items.forEach((it) => { taskDue[it.id] = new Date(orient); });
+      for (let pass = 0; pass < items.length + 2; pass += 1) {
+        let changed = false;
+        items.forEach((it) => {
+          const finish = taskDue[it.id];
+          if (!finish) return;
+          const predFinish = addDays(finish, -durationOf(it));
+          preds[it.id].forEach((pid) => {
+            if (!taskDue[pid] || predFinish < taskDue[pid]) {
+              taskDue[pid] = predFinish;
+              changed = true;
+            }
+          });
+        });
+        if (!changed) break;
+      }
+    }
+
+    const remMemo = {};
+    const visiting = new Set();
+    function remPath(id) {
+      if (remMemo[id] != null) return remMemo[id];
+      if (visiting.has(id)) return 0;
+      visiting.add(id);
+      const it = byId.get(id);
+      const own = it && itemIsRequired(it) && hire && !isFilled(it, hire.values?.[id], hire)
+        ? durationOf(it)
+        : 0;
+      let after = 0;
+      (succs[id] || []).forEach((sid) => {
+        after = Math.max(after, remPath(sid));
+      });
+      visiting.delete(id);
+      remMemo[id] = own + after;
+      return remMemo[id];
+    }
+    let crit = 0;
+    items.forEach((it) => { crit = Math.max(crit, remPath(it.id)); });
+
+    let status = 'unknown';
+    let daysLeft = null;
+    if (orient) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      daysLeft = Math.round((orient - today) / 86400000);
+      if (crit === 0) status = 'on_track';
+      else if (daysLeft < 0) status = 'behind';
+      else if (crit <= daysLeft) status = 'on_track';
+      else if (crit <= daysLeft + 5) status = 'at_risk';
+      else status = 'behind';
+    }
+
+    return { taskDue, crit, daysLeft, status };
+  }
+
+  function trackLabel(status) {
+    if (status === 'on_track') return 'On track';
+    if (status === 'at_risk') return 'At risk';
+    if (status === 'behind') return 'Behind';
+    return 'Set orientation';
+  }
+
+  function trackBadgeHtml(hire) {
+    const plan = scheduleForHire(hire);
+    const extra = plan.status === 'unknown'
+      ? 'Set an orientation date to see if this hire is on track.'
+      : `${plan.crit} day${plan.crit === 1 ? '' : 's'} of required work left · ${plan.daysLeft} day${plan.daysLeft === 1 ? '' : 's'} until orientation`;
+    return `<span class="nh-track is-${esc(plan.status)}" title="${esc(extra)}">${esc(trackLabel(plan.status))}</span>`;
+  }
+
   function dueDateFor(hire, item) {
+    if (processDriven()) {
+      const plan = scheduleForHire(hire);
+      if (plan && plan.taskDue && plan.taskDue[item.id]) return plan.taskDue[item.id];
+    }
     const anchor = normalizeDueAnchor(item && item.dueAnchor);
     let base = null;
     if (anchor === 'bootcamp') {
@@ -908,14 +1022,34 @@
     return `Waits on ${name}${result}`;
   }
 
+  function itemWaitLabel(item) {
+    if (!item || !item.dependsOnTaskId) return '';
+    const dep = (data.items || []).find((i) => i.id === item.dependsOnTaskId);
+    const name = dep ? dep.label : 'another step';
+    const result = item.gateResult && item.gateResult !== 'complete' ? ` · ${item.gateResult}` : '';
+    return `Waits on ${name}${result}`;
+  }
+
   function sectionLocked(sec, hire) {
     const when = sec && sec.when;
     if (!when || when.type !== 'gate' || !hire) return false;
     return !stageCompleteForHire(hire, when.titleId, when.stageId, when.result);
   }
 
+  function stepGateSatisfied(hire, item) {
+    const depId = item && item.dependsOnTaskId;
+    if (!depId || !hire) return true;
+    const dep = (data.items || []).find((i) => i.id === depId);
+    if (!dep) return true;
+    if (!isFilled(dep, hire.values?.[dep.id], hire)) return false;
+    const result = item.gateResult || (item.when && item.when.result);
+    if (!result || result === 'complete') return true;
+    return decisionMatches(hire.values?.[dep.id], result);
+  }
+
   function itemLocked(hire, item) {
-    return sectionLocked(sectionById(item.sectionId), hire);
+    if (sectionLocked(sectionById(item.sectionId), hire)) return true;
+    return !stepGateSatisfied(hire, item);
   }
 
   function processTitleLabel(item) {
@@ -2105,6 +2239,7 @@
       <th data-col="onboarding">${colFilterSelect('onboarding', ONBOARDING_STATUSES.map((s) => ({ value: s, label: formatOnboardingLabel(s) })), 'All onboarding')}</th>
       <th data-col="status">${colFilterSelect('status', STATUS_OPTIONS.map((s) => ({ value: s, label: formatStatusLabel(s) })), 'All employment')}</th>
       <th data-col="overall"></th>
+      <th data-col="track"></th>
       ${sections.map((sec) => `<th data-col="sec-${esc(sec.id)}"></th>`).join('')}
       <th data-col="resume"></th>
       <th data-col="_actions">${Object.values(c).some(Boolean) ? '<button type="button" class="btn-xs" id="nh-clear-col-filters" title="Clear column filters">Clear</button>' : ''}</th>
@@ -2248,6 +2383,7 @@
               <th data-col="onboarding">Onboarding</th>
               <th data-col="status">Employment</th>
               <th data-col="overall">Overall</th>
+              <th data-col="track">Track</th>
               ${sections.map((sec) => `<th title="${esc(sec.title)}" class="nh-sec-col" data-col="sec-${esc(sec.id)}">${esc(sectionColLabel(sec))}</th>`).join('')}
               <th data-col="resume">Resume</th>
               <th data-col="_actions"></th>
@@ -2265,6 +2401,7 @@
               <th data-col="onboarding"></th>
               <th data-col="status"></th>
               <th data-col="overall"></th>
+              <th data-col="track"></th>
               ${sections.map((sec) => `<th class="nh-sec-sub" data-col="sec-${esc(sec.id)}">${esc(sec.title)}</th>`).join('')}
               <th data-col="resume"></th>
               <th data-col="_actions"></th>
@@ -2289,6 +2426,7 @@
                 <td data-col="onboarding">${onboardingSelect(emp.id, emp.onboarding_status)}</td>
                 <td data-col="status">${statusSelect(emp.id, emp.status)}</td>
                 <td data-col="overall"><span class="nh-pct ${pctClass(overall.pct)}" title="${overall.done}/${overall.total}">${overall.done}/${overall.total}</span></td>
+                <td data-col="track">${trackBadgeHtml(hire)}</td>
                 ${sections.map((sec) => {
                   const sp = sectionProgress(hire, sec.id, 'all', 'all');
                   return `<td class="nh-sec-cell" data-col="sec-${esc(sec.id)}">
@@ -2332,7 +2470,7 @@
       <div class="nh-table-wrap">
         <table class="nh-table" data-sort-key="nh-roster">
           <thead>
-            <tr><th>#</th><th>Name</th><th>Position</th><th>Region</th><th>City center</th><th>Orientation</th><th>Start</th><th>Bootcamp</th><th>Onboarding</th><th>Employment</th><th>Progress</th></tr>
+            <tr><th>#</th><th>Name</th><th>Position</th><th>Region</th><th>City center</th><th>Orientation</th><th>Start</th><th>Bootcamp</th><th>Onboarding</th><th>Employment</th><th>Track</th><th>Progress</th></tr>
           </thead>
           <tbody>
             ${rows.length ? rows.map((emp) => {
@@ -2349,9 +2487,10 @@
                 <td>${esc(emp.bootcamp_start_date || '—')}</td>
                 <td>${onboardingSelect(emp.id, emp.onboarding_status)}</td>
                 <td>${statusSelect(emp.id, emp.status)}</td>
+                <td>${trackBadgeHtml(hire)}</td>
                 <td><button class="btn-xs primary" type="button" data-open-hire="${esc(emp.id)}">${pr.done}/${pr.total}</button></td>
               </tr>`;
-            }).join('') : `<tr><td colspan="11" class="nh-empty">No employees found</td></tr>`}
+            }).join('') : `<tr><td colspan="12" class="nh-empty">No employees found</td></tr>`}
           </tbody>
         </table>
       </div>
@@ -2585,7 +2724,7 @@
                 <span>Value</span>
                 <span>Status</span>
               </div>
-              ${items.map((it) => fieldRow(hire, it, { locked })).join('') || '<div class="nh-empty-block">No tasks in this section for this filter.</div>'}
+              ${items.map((it) => fieldRow(hire, it, { locked: locked || itemLocked(hire, it) })).join('') || '<div class="nh-empty-block">No tasks in this section for this filter.</div>'}
             </div>
           </div>
         </div>`;
@@ -2623,6 +2762,7 @@
         <div class="nh-profile-right">
           <span class="${onboardingBadgeClass(hire.onboardingStatus)}">${esc(formatOnboardingLabel(hire.onboardingStatus))}</span>
           <span class="${statusBadgeClass(hire.status)}">${esc(formatStatusLabel(hire.status))}</span>
+          ${trackBadgeHtml(hire)}
           <div class="nh-prog big">
             <div class="nh-prog-bar"><span style="width:${p.pct}%"></span></div>
             <div class="nh-prog-label">${p.done}/${p.total} for ${esc(scoped)} · ${p.pct}%</div>
@@ -2721,7 +2861,7 @@
   }
 
   function fieldRow(hire, it, opts) {
-    const locked = !!(opts && opts.locked);
+    const locked = !!(opts && opts.locked) || itemLocked(hire, it);
     const mine = filters.role !== 'all' && it.role === filters.role;
     const raw = hire.values?.[it.id];
     const filled = isFilled(it, raw, hire);
@@ -2773,8 +2913,10 @@
           <button type="button" class="btn-xs danger" data-del-hire-item="${esc(it.id)}" title="Delete this process task">Delete</button>
         </div>`
       : '';
+    const wait = itemWaitLabel(it);
+    const days = durationOf(it);
     return `
-      <div class="nh-task-row ${mine ? 'mine' : ''} ${filled ? 'filled' : 'open'} ${overdue ? 'overdue' : ''}${stepProg ? ' has-checklist' : ''}${canEditMine ? ' nh-mine-owned' : ''}">
+      <div class="nh-task-row ${mine ? 'mine' : ''} ${filled ? 'filled' : 'open'} ${overdue ? 'overdue' : ''}${stepProg ? ' has-checklist' : ''}${canEditMine ? ' nh-mine-owned' : ''}${locked ? ' is-locked' : ''}">
         <div class="nh-task-assignee" title="${esc(who || 'Unassigned')} · ${esc(it.role)}">
           ${titleAssignee
             ? `<span class="nh-owner-chip">${esc(titleAssignee)}</span>`
@@ -2790,6 +2932,7 @@
           ${it.sensitive ? ' <span class="nh-lock">sensitive</span>' : ''}
           ${stepProg ? ` <span class="nh-steps-chip">${stepProg.total} steps</span>` : ''}
           ${linkHtml ? ` <span class="nh-task-link-wrap">${linkHtml}</span>` : ''}
+          ${processDriven() ? `<span class="nh-task-wait">${days} day${days === 1 ? '' : 's'}${wait ? ` · ${esc(wait)}` : ''}</span>` : (wait ? `<span class="nh-task-wait">${esc(wait)}</span>` : '')}
           ${ownerActions}
         </div>
         <div class="nh-task-due ${overdue ? 'is-overdue' : ''}">${esc(fmtDate(due))}</div>
@@ -2891,6 +3034,8 @@
   function saveValue(hireId, itemId, value) {
     const item = data.items.find((i) => i.id === itemId);
     if (!item) return;
+    const hire = hires().find((h) => h.id === hireId);
+    if (hire && itemLocked(hire, item)) return;
     const p = progressOf(hireId);
     if (item.inputType === 'checkbox') {
       if (value) p.values[itemId] = true;
