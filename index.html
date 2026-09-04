@@ -1294,7 +1294,25 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
   border-radius: 6px;
   border: 1px solid #e2e8f0;
   white-space: nowrap;
+  cursor: help;
 }
+.nh-track-tip-float {
+  position: fixed;
+  z-index: 80;
+  max-width: 280px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+  letter-spacing: 0;
+  text-transform: none;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .24);
+  pointer-events: none;
+}
+.nh-track-tip-float[hidden] { display: none !important; }
 .nh-track.is-on_track { background: #bbf7d0; color: #14532d; border-color: #86efac; }
 .nh-track.is-at_risk { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
 .nh-track.is-behind { background: #fecaca; color: #991b1b; border-color: #fca5a5; }
@@ -1410,7 +1428,7 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 <script src="hub-auth.js?v=session1"></script>
 <script src="hub-admin.js?v=merge1"></script>
 <script src="new-hire-seed.js"></script>
-<script src="hub-checklist.js?v=process13"></script>
+<script src="hub-checklist.js?v=process14"></script>
     <script src="hub-beta.js?v=beta25"></script>
 <script src="hub-hiring.js?v=hs5"></script>
 <script src="hub-applicants.js?v=ap6"></script>

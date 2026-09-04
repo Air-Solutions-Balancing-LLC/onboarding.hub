@@ -917,12 +917,94 @@
     return 'Set orientation';
   }
 
+  function dayCount(n) {
+    const abs = Math.abs(n);
+    return `${abs} day${abs === 1 ? '' : 's'}`;
+  }
+
+  function trackHelpText(plan) {
+    if (!plan || plan.status === 'unknown') {
+      return 'Set an orientation date. Track compares remaining required work (step durations and waits) to the days left until orientation.';
+    }
+    const work = plan.crit === 0
+      ? 'all required steps are done'
+      : `${dayCount(plan.crit)} of required work still open`;
+    let until;
+    if (plan.daysLeft === 0) until = 'orientation is today';
+    else if (plan.daysLeft > 0) until = `${dayCount(plan.daysLeft)} until orientation`;
+    else until = `orientation was ${dayCount(plan.daysLeft)} ago`;
+
+    if (plan.crit === 0) {
+      return `On track — ${work}. ${until.charAt(0).toUpperCase()}${until.slice(1)}.`;
+    }
+    if (plan.status === 'on_track') {
+      return `On track — ${work}, and ${until}. Remaining work still fits before orientation.`;
+    }
+    if (plan.status === 'at_risk') {
+      const short = Math.max(0, plan.crit - plan.daysLeft);
+      return `At risk — ${work}, and ${until}. That is ${dayCount(short)} short of fitting. A small slip puts this hire behind.`;
+    }
+    if (plan.daysLeft < 0) {
+      return `Behind — ${work}, and ${until}. Required work is still open after orientation.`;
+    }
+    const short = Math.max(0, plan.crit - plan.daysLeft);
+    return `Behind — ${work}, and ${until}. Need ${dayCount(short)} more than are left. Finish open gated steps or the hire misses orientation.`;
+  }
+
+  let trackTipEl = null;
+
+  function hideTrackTip() {
+    if (!trackTipEl) return;
+    trackTipEl.hidden = true;
+    trackTipEl.textContent = '';
+  }
+
+  function showTrackTip(el) {
+    const text = el && el.getAttribute('data-track-tip');
+    if (!text) return;
+    if (!trackTipEl || !trackTipEl.isConnected) {
+      trackTipEl = document.getElementById('nh-track-tip-float');
+      if (!trackTipEl) {
+        trackTipEl = document.createElement('div');
+        trackTipEl.id = 'nh-track-tip-float';
+        trackTipEl.className = 'nh-track-tip-float';
+        trackTipEl.setAttribute('role', 'tooltip');
+        document.body.appendChild(trackTipEl);
+      }
+    }
+    trackTipEl.textContent = text;
+    trackTipEl.hidden = false;
+    const r = el.getBoundingClientRect();
+    const pad = 8;
+    const tw = trackTipEl.offsetWidth || 280;
+    const th = trackTipEl.offsetHeight || 80;
+    let left = r.left;
+    if (left + tw > window.innerWidth - pad) left = window.innerWidth - tw - pad;
+    if (left < pad) left = pad;
+    let top = r.bottom + 6;
+    if (top + th > window.innerHeight - pad) top = r.top - th - 6;
+    if (top < pad) top = pad;
+    trackTipEl.style.left = `${left}px`;
+    trackTipEl.style.top = `${top}px`;
+  }
+
+  function bindTrackTips(root) {
+    if (!root) return;
+    hideTrackTip();
+    root.querySelectorAll('[data-track-tip]').forEach((el) => {
+      el.addEventListener('mouseenter', () => showTrackTip(el));
+      el.addEventListener('focus', () => showTrackTip(el));
+      el.addEventListener('mouseleave', hideTrackTip);
+      el.addEventListener('blur', hideTrackTip);
+    });
+    root.querySelector('.nh-sheet-wrap')?.addEventListener('scroll', hideTrackTip);
+  }
+
   function trackBadgeHtml(hire) {
     const plan = scheduleForHire(hire);
-    const extra = plan.status === 'unknown'
-      ? 'Set an orientation date to see if this hire is on track.'
-      : `${plan.crit} day${plan.crit === 1 ? '' : 's'} of required work left · ${plan.daysLeft} day${plan.daysLeft === 1 ? '' : 's'} until orientation`;
-    return `<span class="nh-track is-${esc(plan.status)}" title="${esc(extra)}">${esc(trackLabel(plan.status))}</span>`;
+    const help = trackHelpText(plan);
+    const label = trackLabel(plan.status);
+    return `<span class="nh-track is-${esc(plan.status)}" tabindex="0" data-track-tip="${esc(help)}" aria-label="${esc(`${label}. ${help}`)}">${esc(label)}</span>`;
   }
 
   function dueDateFor(hire, item) {
@@ -2326,6 +2408,7 @@
     });
     if (window.HubShell && HubShell.enhanceTables) HubShell.enhanceTables(root);
     bindColumnVisibility(root);
+    bindTrackTips(root);
   }
 
   function renderDashboard(root) {
@@ -2383,7 +2466,7 @@
               <th data-col="onboarding">Onboarding</th>
               <th data-col="status">Employment</th>
               <th data-col="overall">Overall</th>
-              <th data-col="track">Track</th>
+              <th data-col="track" title="Whether remaining required work still fits before orientation. Hover a badge for this hire’s numbers.">Track</th>
               ${sections.map((sec) => `<th title="${esc(sec.title)}" class="nh-sec-col" data-col="sec-${esc(sec.id)}">${esc(sectionColLabel(sec))}</th>`).join('')}
               <th data-col="resume">Resume</th>
               <th data-col="_actions"></th>
@@ -2470,7 +2553,7 @@
       <div class="nh-table-wrap">
         <table class="nh-table" data-sort-key="nh-roster">
           <thead>
-            <tr><th>#</th><th>Name</th><th>Position</th><th>Region</th><th>City center</th><th>Orientation</th><th>Start</th><th>Bootcamp</th><th>Onboarding</th><th>Employment</th><th>Track</th><th>Progress</th></tr>
+            <tr><th>#</th><th>Name</th><th>Position</th><th>Region</th><th>City center</th><th>Orientation</th><th>Start</th><th>Bootcamp</th><th>Onboarding</th><th>Employment</th><th title="Whether remaining required work still fits before orientation. Hover a badge for this hire’s numbers.">Track</th><th>Progress</th></tr>
           </thead>
           <tbody>
             ${rows.length ? rows.map((emp) => {
@@ -2858,6 +2941,7 @@
         openTaskChecklistModal(hire.id, btn.getAttribute('data-open-checklist'));
       });
     });
+    bindTrackTips(root);
   }
 
   function fieldRow(hire, it, opts) {
