@@ -62,6 +62,8 @@
   let addFieldIds = [];
   let addDraftLabel = '';
   let addDraftNotes = '';
+  let addDraftDuration = 1;
+  let addDraftWait = '';
   let betaView = 'build';
   let mapTitleId = null;
   let mapStageId = null;
@@ -199,6 +201,24 @@
     return { type: 'gate', titleId, stageId, result };
   }
 
+  function normalizeDurationDays(raw) {
+    if (raw == null || raw === '') return 1;
+    const n = parseInt(raw, 10);
+    if (!Number.isFinite(n) || n < 0) return 1;
+    return Math.min(99, n);
+  }
+
+  function normalizeStepWhen(when, ownerStepId) {
+    if (!when || when.type !== 'gate') return { type: 'always' };
+    const stepId = String(when.stepId || '').trim();
+    if (!stepId || stepId === ownerStepId) return { type: 'always' };
+    const titleId = String(when.titleId || '').trim();
+    const stageId = String(when.stageId || '').trim();
+    if (!titleId || !stageId) return { type: 'always' };
+    const result = GATE_RESULTS.some((r) => r.id === when.result) ? when.result : 'complete';
+    return { type: 'gate', titleId, stageId, stepId, result };
+  }
+
   function normalizeStages(rawStages, steps, ownerTitleId) {
     const used = new Set();
     let stages = Array.isArray(rawStages) && rawStages.length
@@ -281,6 +301,8 @@
       outputs: base.outputs,
       required: base.required,
       stageId: String(step.stageId || ''),
+      durationDays: normalizeDurationDays(step.durationDays),
+      when: normalizeStepWhen(step.when, base.id),
       order: base.order,
       subs
     };
@@ -371,6 +393,94 @@
     return { titleId: val.slice(0, i), stageId: val.slice(i + 2) };
   }
 
+  function waitStepValue(titleId, stageId, stepId) {
+    return `step::${titleId}::${stageId}::${stepId}`;
+  }
+
+  function parseWaitStepValue(val) {
+    if (!val || val === 'always') return null;
+    const raw = String(val);
+    if (!raw.startsWith('step::')) return null;
+    const parts = raw.slice(6).split('::');
+    if (parts.length < 3) return null;
+    return { titleId: parts[0], stageId: parts[1], stepId: parts.slice(2).join('::') };
+  }
+
+  function findStepRef(stepId) {
+    if (!stepId) return null;
+    const ids = Object.keys(data.stepsByTitle || {});
+    for (let i = 0; i < ids.length; i += 1) {
+      const titleId = ids[i];
+      const step = (data.stepsByTitle[titleId] || []).find((s) => s.id === stepId);
+      if (step) return { titleId, step };
+    }
+    return null;
+  }
+
+  function waitStepTargets(titleId, stageId, exceptStepId, currentWhen) {
+    const peers = stepsInStage(titleId, stageId);
+    const out = peers.map((step, idx) => {
+      if (exceptStepId && step.id === exceptStepId) return null;
+      return {
+        titleId,
+        stageId,
+        stepId: step.id,
+        stepLabel: `${idx + 1}. ${step.label}`,
+        key: waitStepValue(titleId, stageId, step.id),
+        hasDecision: step.outcome === 'decision',
+        wouldCycle: !!(exceptStepId && stepWaitWouldCycle(exceptStepId, step.id))
+      };
+    }).filter(Boolean);
+    if (currentWhen && currentWhen.type === 'gate' && currentWhen.stepId
+      && !out.some((t) => t.stepId === currentWhen.stepId)) {
+      const ref = findStepRef(currentWhen.stepId);
+      out.unshift({
+        titleId: currentWhen.titleId,
+        stageId: currentWhen.stageId,
+        stepId: currentWhen.stepId,
+        stepLabel: `${ref ? ref.step.label : 'another step'} (other stage)`,
+        key: waitStepValue(currentWhen.titleId, currentWhen.stageId, currentWhen.stepId),
+        hasDecision: !!(ref && ref.step.outcome === 'decision'),
+        wouldCycle: !!(exceptStepId && stepWaitWouldCycle(exceptStepId, currentWhen.stepId))
+      });
+    }
+    return out;
+  }
+
+  function waitStepOptionsHtml(targets, selectedKey, placeholder) {
+    const always = `<option value="always" ${selectedKey ? '' : 'selected'}>${esc(placeholder || 'No wait — can run with the other steps in this stage')}</option>`;
+    const opts = targets.map((t) => {
+      const label = t.wouldCycle ? `${t.stepLabel} (would loop)` : t.stepLabel;
+      return `<option value="${esc(t.key)}" ${t.key === selectedKey ? 'selected' : ''} ${t.wouldCycle ? 'disabled' : ''}>${esc(label)}</option>`;
+    }).join('');
+    return always + opts;
+  }
+
+  function stepWaitWouldCycle(fromStepId, toStepId) {
+    if (!fromStepId || !toStepId) return false;
+    if (fromStepId === toStepId) return true;
+    const seen = new Set();
+    function walk(id) {
+      if (id === fromStepId) return true;
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      const ref = findStepRef(id);
+      if (!ref) return false;
+      if (ref.step.when && ref.step.when.type === 'gate' && ref.step.when.stepId) {
+        if (walk(ref.step.when.stepId)) return true;
+      }
+      const stage = stagesFor(ref.titleId).find((s) => s.id === ref.step.stageId);
+      if (stage && stage.when && stage.when.type === 'gate') {
+        const src = stepsInStage(stage.when.titleId, stage.when.stageId);
+        for (let i = 0; i < src.length; i += 1) {
+          if (src[i].id === fromStepId || walk(src[i].id)) return true;
+        }
+      }
+      return false;
+    }
+    return walk(toStepId);
+  }
+
   function titleMeta(titleId) {
     for (let d = 0; d < (data.departments || []).length; d += 1) {
       const dept = data.departments[d];
@@ -436,6 +546,19 @@
     return `${meta.title.label} · ${stageName}`;
   }
 
+  function stepGateTargetLabel(when, ownerTitleId) {
+    if (!when || when.type !== 'gate' || !when.stepId) return 'another step';
+    const ref = findStepRef(when.stepId);
+    const stepName = ref ? ref.step.label : 'another step';
+    const stage = ((data.stagesByTitle || {})[when.titleId] || []).find((s) => s.id === when.stageId);
+    const stageName = stage ? stage.label : '';
+    const local = `${stageName ? `${stageName} · ` : ''}${stepName}`;
+    const meta = titleMeta(when.titleId);
+    const owner = ownerTitleId || selectedTitleId;
+    if (!meta || when.titleId === owner) return local;
+    return `${meta.title.label} · ${local}`;
+  }
+
   function clearGatesTo(titleId, stageId) {
     Object.keys(data.stagesByTitle || {}).forEach((tid) => {
       (data.stagesByTitle[tid] || []).forEach((st) => {
@@ -444,6 +567,40 @@
         const matchTitle = srcTitle === titleId;
         const matchStage = !stageId || st.when.stageId === stageId;
         if (matchTitle && matchStage) st.when = { type: 'always' };
+      });
+    });
+    if (!stageId) clearStepGatesForTitle(titleId);
+  }
+
+  function clearStepGatesTo(stepId) {
+    if (!stepId) return;
+    Object.keys(data.stepsByTitle || {}).forEach((tid) => {
+      (data.stepsByTitle[tid] || []).forEach((st) => {
+        if (st.when && st.when.type === 'gate' && st.when.stepId === stepId) {
+          st.when = { type: 'always' };
+        }
+      });
+    });
+  }
+
+  function clearStepGatesForTitle(titleId) {
+    if (!titleId) return;
+    Object.keys(data.stepsByTitle || {}).forEach((tid) => {
+      (data.stepsByTitle[tid] || []).forEach((st) => {
+        if (st.when && st.when.type === 'gate' && st.when.titleId === titleId) {
+          st.when = { type: 'always' };
+        }
+      });
+    });
+  }
+
+  function retargetStepGates(titleId, fromStageId, toStageId) {
+    if (!titleId || !fromStageId || !toStageId) return;
+    Object.keys(data.stepsByTitle || {}).forEach((tid) => {
+      (data.stepsByTitle[tid] || []).forEach((st) => {
+        if (st.when && st.when.type === 'gate' && st.when.titleId === titleId && st.when.stageId === fromStageId) {
+          st.when.stageId = toStageId;
+        }
       });
     });
   }
@@ -547,14 +704,18 @@
     return out;
   }
 
-  function flowStepPreviewHtml(step, idx) {
+  function flowStepPreviewHtml(step, idx, titleId) {
     const subs = step.subs || [];
+    const days = normalizeDurationDays(step.durationDays);
+    const wait = step.when && step.when.type === 'gate' && step.when.stepId
+      ? ` · waits on ${stepGateTargetLabel(step.when, titleId)}`
+      : '';
     return `
       <li class="beta-flow-step ${isRequired(step) ? '' : 'is-optional'}">
         <span class="beta-flow-step-n">${idx + 1}</span>
         <div>
           <strong>${esc(step.label)}</strong>
-          <span>${isRequired(step) ? 'Required' : 'Optional'} · ${esc(outcomeShort(step))}${subs.length ? ` · ${subs.length} sub-step${subs.length === 1 ? '' : 's'}` : ''}</span>
+          <span>${isRequired(step) ? 'Required' : 'Optional'} · ${esc(outcomeShort(step))} · ${days} day${days === 1 ? '' : 's'}${esc(wait)}${subs.length ? ` · ${subs.length} sub-step${subs.length === 1 ? '' : 's'}` : ''}</span>
           ${subs.length ? `<ol class="beta-flow-subs">${subs.map((sub, j) =>
             `<li>${esc(subLetter(j))}. ${esc(sub.label)}${isRequired(sub) ? '' : ' · optional'}</li>`
           ).join('')}</ol>` : ''}
@@ -617,7 +778,7 @@
           ${open ? `
             <div class="beta-flow-body">
               ${n
-                ? `<ol class="beta-flow-steps">${stageSteps.map((step, si) => flowStepPreviewHtml(step, si)).join('')}</ol>`
+                ? `<ol class="beta-flow-steps">${stageSteps.map((step, si) => flowStepPreviewHtml(step, si, node.titleId)).join('')}</ol>`
                 : '<p class="beta-bench-sub">No steps in this stage yet.</p>'}
             </div>
           ` : ''}
@@ -902,6 +1063,50 @@
     return `Waits until ${name} is complete and the decision is ${gateResultLabel(when.result)}. Review required keeps this closed until that decision changes.`;
   }
 
+  function stepWhenSummary(when, ownerTitleId) {
+    if (!when || when.type !== 'gate' || !when.stepId) return 'No wait — this step can run with the others once the stage is open.';
+    const ref = findStepRef(when.stepId);
+    const sameStage = !!(ref && ownerTitleId && ref.step.stageId === when.stageId && when.titleId === ownerTitleId);
+    const name = sameStage && ref ? ref.step.label : stepGateTargetLabel(when, ownerTitleId);
+    if (!when.result || when.result === 'complete') {
+      return `Waits until “${name}” is complete.`;
+    }
+    return `Waits until “${name}” is complete and the decision is ${gateResultLabel(when.result)}.`;
+  }
+
+  function stepWhenControls(step, titleId) {
+    const isGate = step.when && step.when.type === 'gate' && step.when.stepId;
+    const selectedKey = isGate ? waitStepValue(step.when.titleId, step.when.stageId, step.when.stepId) : '';
+    const result = isGate ? (step.when.result || 'complete') : 'complete';
+    const src = isGate ? findStepRef(step.when.stepId) : null;
+    const srcHasDecision = !!(src && src.step.outcome === 'decision');
+    const days = normalizeDurationDays(step.durationDays);
+    return `
+      <div class="beta-step-when">
+        <div class="beta-duration-row">
+          <label class="beta-stage-name-wrap">
+            <span class="form-label">Days to complete</span>
+            <input class="form-input beta-duration" type="number" min="0" max="99" step="1" data-step-duration="${esc(step.id)}" value="${days}" />
+          </label>
+        </div>
+        <p class="beta-bench-sub">How long this work takes. Used with waits to see if a hire is on track for orientation.</p>
+        <label class="form-label">Waits until this step in the stage is complete</label>
+        <select class="form-input" data-step-wait="${esc(step.id)}">
+          ${waitStepOptionsHtml(waitStepTargets(titleId, step.stageId, step.id, step.when), selectedKey)}
+        </select>
+        <p class="beta-bench-sub">${esc(stepWhenSummary(step.when, titleId))}</p>
+        ${srcHasDecision ? `
+          <label class="form-label">And that step’s decision must be</label>
+          <select class="form-input" data-step-wait-result="${esc(step.id)}">
+            ${GATE_RESULTS.map((r) =>
+              `<option value="${esc(r.id)}" ${result === r.id ? 'selected' : ''}>${esc(r.label)}</option>`
+            ).join('')}
+          </select>
+        ` : ''}
+      </div>
+    `;
+  }
+
   function selectedDept() {
     return (data.departments || []).find((d) => d.id === selectedDeptId) || null;
   }
@@ -1158,6 +1363,7 @@
           </label>
           <p class="beta-bench-sub">Open this list and pick another job title to move the step. Notes and sub-steps come with it.</p>
           ${requiredNeedRadios(step)}
+          ${stepWhenControls(step, owner)}
           ${stepOutcomeRadios(step)}
           ${step.outcome === 'data' ? `<div class="beta-step-fields">${fieldChecksHtml(step.outputs || [], { stepId: step.id })}</div>` : ''}
           <label class="beta-step-notes">
@@ -1283,7 +1489,7 @@
               <div class="beta-bench-head">
                 <div class="beta-kicker">${esc(dept.label)} · job title</div>
                 <h2 class="beta-bench-title">${esc(title.label)}</h2>
-                <p class="beta-bench-sub">${steps.length} step${steps.length === 1 ? '' : 's'} in ${stages.length} stage${stages.length === 1 ? '' : 's'} · wait on this title or another (Recruiter, HR, IT)</p>
+                <p class="beta-bench-sub">${steps.length} step${steps.length === 1 ? '' : 's'} in ${stages.length} stage${stages.length === 1 ? '' : 's'} · a stage can wait on another stage, and a step can wait on another step in the same stage</p>
               </div>
               ${stageBlocks || `<div class="beta-empty">No stages yet.</div>`}
               <div class="beta-add-role beta-stage-add">
@@ -1302,6 +1508,15 @@
                 <input class="form-input" id="beta-new-step" type="text" placeholder="What does the ${esc(title.label)} do?" value="${esc(addDraftLabel)}" required />
                 <label class="form-label">Stage</label>
                 <select class="form-input" id="beta-add-stage-select">${stageOptions}</select>
+                <label class="beta-stage-name-wrap">
+                  <span class="form-label">Days to complete</span>
+                  <input class="form-input beta-duration" id="beta-new-duration" type="number" min="0" max="99" step="1" value="${addDraftDuration}" />
+                </label>
+                <p class="beta-bench-sub">How long this work takes. Used with waits to see if a hire is on track for orientation.</p>
+                <label class="form-label">Waits until this step in the stage is complete</label>
+                <select class="form-input" id="beta-new-step-wait">
+                  ${waitStepOptionsHtml(waitStepTargets(title.id, selectedStageId || (stages[0] && stages[0].id), null), addDraftWait)}
+                </select>
                 <div class="beta-outcome-picks" role="radiogroup" aria-label="Required or optional">
                   <label class="beta-pick ${addRequired ? 'is-on' : ''}">
                     <input type="radio" name="beta-new-required" value="1" ${addRequired ? 'checked' : ''}>
@@ -1380,6 +1595,23 @@
     const dest = stepsFor(destTitleId);
     step.order = dest.length;
     dest.push(step);
+    if (step.when && step.when.type === 'gate' && step.when.stepId) {
+      const target = findStepRef(step.when.stepId);
+      if (!target || target.titleId !== destTitleId || target.step.stageId !== destStage.id) {
+        step.when = { type: 'always' };
+      }
+    }
+    Object.keys(data.stepsByTitle || {}).forEach((tid) => {
+      (data.stepsByTitle[tid] || []).forEach((st) => {
+        if (!st.when || st.when.type !== 'gate' || st.when.stepId !== stepId) return;
+        if (tid === destTitleId && st.stageId === destStage.id) {
+          st.when.titleId = destTitleId;
+          st.when.stageId = destStage.id;
+        } else {
+          st.when = { type: 'always' };
+        }
+      });
+    });
     persist();
     render();
   }
@@ -1704,6 +1936,7 @@
         stepsFor(selectedTitleId).forEach((step) => {
           if (step.stageId === id) step.stageId = keep.id;
         });
+        retargetStepGates(selectedTitleId, id, keep.id);
         data.stagesByTitle[selectedTitleId] = stages.filter((s) => s.id !== id).map((s, i) =>
           Object.assign({}, s, { order: i })
         );
@@ -1715,6 +1948,11 @@
     });
     root.querySelector('#beta-add-stage-select')?.addEventListener('change', (e) => {
       selectedStageId = e.target.value;
+      addDraftLabel = String(root.querySelector('#beta-new-step')?.value || '');
+      addDraftNotes = String(root.querySelector('#beta-new-notes')?.value || '');
+      addDraftDuration = normalizeDurationDays(root.querySelector('#beta-new-duration')?.value);
+      addDraftWait = '';
+      render();
     });
     root.querySelectorAll('[data-step-label]').forEach((inp) => {
       bindNameField(inp, () => {
@@ -1835,10 +2073,72 @@
     });
     root.querySelectorAll('[data-step-del]').forEach((btn) => {
       btn.addEventListener('click', () => {
-        data.stepsByTitle[selectedTitleId] = stepsFor(selectedTitleId).filter((s) => s.id !== btn.getAttribute('data-step-del'));
+        const id = btn.getAttribute('data-step-del');
+        clearStepGatesTo(id);
+        data.stepsByTitle[selectedTitleId] = stepsFor(selectedTitleId).filter((s) => s.id !== id);
         persist();
         render();
       });
+    });
+    root.querySelectorAll('[data-step-duration]').forEach((inp) => {
+      inp.addEventListener('change', () => {
+        const step = findOwnedStep(inp.getAttribute('data-step-duration'));
+        if (!step) return;
+        step.durationDays = normalizeDurationDays(inp.value);
+        inp.value = String(step.durationDays);
+        persist();
+      });
+    });
+    root.querySelectorAll('[data-step-wait]').forEach((sel) => {
+      sel.addEventListener('change', () => {
+        const step = findOwnedStep(sel.getAttribute('data-step-wait'));
+        if (!step) return;
+        const val = sel.value;
+        if (!val || val === 'always') {
+          step.when = { type: 'always' };
+        } else {
+          const parsed = parseWaitStepValue(val);
+          if (!parsed || stepWaitWouldCycle(step.id, parsed.stepId)) {
+            if (parsed && stepWaitWouldCycle(step.id, parsed.stepId)) {
+              alert('That wait would loop. Pick a step that does not already wait on this one.');
+            }
+            step.when = { type: 'always' };
+          } else {
+            const resultSel = Array.from(root.querySelectorAll('[data-step-wait-result]')).find((el) =>
+              el.getAttribute('data-step-wait-result') === step.id
+            );
+            const keep = resultSel && resultSel.value;
+            const target = findStepRef(parsed.stepId);
+            const result = target && target.step.outcome === 'decision'
+              ? (keep && GATE_RESULTS.some((r) => r.id === keep) ? keep : 'complete')
+              : 'complete';
+            step.when = {
+              type: 'gate',
+              titleId: parsed.titleId,
+              stageId: parsed.stageId,
+              stepId: parsed.stepId,
+              result
+            };
+          }
+        }
+        persist();
+        render();
+      });
+    });
+    root.querySelectorAll('[data-step-wait-result]').forEach((sel) => {
+      sel.addEventListener('change', () => {
+        const step = findOwnedStep(sel.getAttribute('data-step-wait-result'));
+        if (!step || !step.when || step.when.type !== 'gate') return;
+        step.when.result = GATE_RESULTS.some((r) => r.id === sel.value) ? sel.value : 'complete';
+        persist();
+        render();
+      });
+    });
+    root.querySelector('#beta-new-duration')?.addEventListener('input', (e) => {
+      addDraftDuration = normalizeDurationDays(e.target.value);
+    });
+    root.querySelector('#beta-new-step-wait')?.addEventListener('change', (e) => {
+      addDraftWait = String(e.target.value || '');
     });
     root.querySelectorAll('[data-sub-add]').forEach((btn) => {
       btn.addEventListener('click', () => addSubStep(root, btn.getAttribute('data-sub-add')));
@@ -1901,6 +2201,8 @@
       inp.addEventListener('change', () => {
         addDraftLabel = String(root.querySelector('#beta-new-step')?.value || '');
         addDraftNotes = String(root.querySelector('#beta-new-notes')?.value || '');
+        addDraftDuration = normalizeDurationDays(root.querySelector('#beta-new-duration')?.value);
+        addDraftWait = String(root.querySelector('#beta-new-step-wait')?.value || '');
         addOutcome = setOutcome(inp.value);
         render();
       });
@@ -1909,6 +2211,8 @@
       inp.addEventListener('change', () => {
         addDraftLabel = String(root.querySelector('#beta-new-step')?.value || '');
         addDraftNotes = String(root.querySelector('#beta-new-notes')?.value || '');
+        addDraftDuration = normalizeDurationDays(root.querySelector('#beta-new-duration')?.value);
+        addDraftWait = String(root.querySelector('#beta-new-step-wait')?.value || '');
         addRequired = inp.value !== '0';
         render();
       });
@@ -1927,6 +2231,8 @@
       }
       const stageId = String(root.querySelector('#beta-add-stage-select')?.value || selectedStageId || '');
       selectedStageId = stageId || selectedStageId;
+      const durationDays = normalizeDurationDays(root.querySelector('#beta-new-duration')?.value ?? addDraftDuration);
+      const waitParsed = parseWaitStepValue(String(root.querySelector('#beta-new-step-wait')?.value || addDraftWait));
       const list = stepsFor(selectedTitleId);
       list.push(normalizeStep({
         id: uid('bs'),
@@ -1936,10 +2242,16 @@
         outputs: addOutcome === 'data' ? addFieldIds.slice() : [],
         required: addRequired,
         stageId: selectedStageId,
+        durationDays,
+        when: waitParsed
+          ? { type: 'gate', titleId: waitParsed.titleId, stageId: waitParsed.stageId, stepId: waitParsed.stepId, result: 'complete' }
+          : { type: 'always' },
         order: list.length
       }, list.length, data.dataFields));
       addDraftLabel = '';
       addDraftNotes = '';
+      addDraftDuration = 1;
+      addDraftWait = '';
       addRequired = true;
       persist();
       render();
@@ -2090,6 +2402,7 @@
       });
       stepsInStage(node.titleId, node.stageId).forEach((step) => {
         const input = compileStepInput(step);
+        const wait = step.when && step.when.type === 'gate' && step.when.stepId ? step.when : null;
         items.push({
           id: step.id,
           sectionId,
@@ -2107,12 +2420,15 @@
           options: input.options,
           outcome: step.outcome || 'confirm',
           required: step.required !== false,
+          durationDays: normalizeDurationDays(step.durationDays),
           dueOffsetDays: 0,
           dueDaysBefore: 0,
           dueAnchor: 'start',
           sensitive: false,
-          dependsOnPrior: false,
-          dependsOnTaskId: null,
+          dependsOnPrior: !!wait,
+          dependsOnTaskId: wait ? wait.stepId : null,
+          gateResult: wait ? (wait.result || 'complete') : null,
+          when: wait || { type: 'always' },
           checklistSteps: (step.subs || []).map((sub) => ({
             id: sub.id,
             label: sub.label,

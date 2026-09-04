@@ -1085,6 +1085,9 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .beta-stage-name-wrap .form-label { margin: 0; }
 .beta-stage-name { font-weight: 800; background: #fff; }
 .beta-stage-when { display: grid; gap: 6px; margin: 8px 0; }
+.beta-step-when { display: grid; gap: 6px; margin: 8px 0; }
+.beta-duration-row { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: end; }
+.beta-duration { width: 88px; }
 .beta-stage-add { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto; margin: 0 0 18px; }
 .beta-views { display: flex; gap: 0; margin: 0 0 18px; border: 1px dashed var(--beta-ink); width: fit-content; background: #fff; }
 .beta-view {
@@ -1277,7 +1280,25 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .nh-section-head.nh-bar-white .nh-chevron,
 .nh-section-head.nh-bar-white .nh-section-counts { color: #64748b; }
 .nh-section.is-locked .nh-task-value { opacity: .45; }
+.nh-task-row.is-locked .nh-task-value { opacity: .45; }
 .nh-section-wait { margin: 0 14px 10px; font-size: 12px; color: #3d4a5c; line-height: 1.4; }
+.nh-task-wait { display: block; font-size: 11px; color: #5b6b7c; margin-top: 2px; font-weight: 500; }
+.nh-track {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+.nh-track.is-on_track { background: #bbf7d0; color: #14532d; border-color: #86efac; }
+.nh-track.is-at_risk { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+.nh-track.is-behind { background: #fecaca; color: #991b1b; border-color: #fca5a5; }
+.nh-track.is-unknown { background: #f1f5f9; color: #475569; }
 .nh-section-head.nh-bar-blue .nh-chevron,
 .nh-section-head.nh-bar-blue .nh-section-counts { color: #1d4ed8; }
 .nh-section-head.nh-bar-green .nh-chevron,
@@ -1389,8 +1410,8 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 <script src="hub-auth.js?v=session1"></script>
 <script src="hub-admin.js?v=merge1"></script>
 <script src="new-hire-seed.js"></script>
-<script src="hub-checklist.js?v=process12"></script>
-    <script src="hub-beta.js?v=beta23"></script>
+<script src="hub-checklist.js?v=process13"></script>
+    <script src="hub-beta.js?v=beta25"></script>
 <script src="hub-hiring.js?v=hs5"></script>
 <script src="hub-applicants.js?v=ap6"></script>
 </head>
