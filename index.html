@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Airadigm Onboarding Hub</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Condensed:wght@700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/hub-sidebar.css?v=nav2">
-<link rel="stylesheet" href="css/hub-shell.css?v=beta5">
+<link rel="stylesheet" href="css/hub-sidebar.css?v=nav3">
+<link rel="stylesheet" href="css/hub-shell.css?v=ap1">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 [hidden] { display: none !important; }
@@ -983,6 +983,64 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
   .nh-dossier-row { border-right: none; }
 }
 .page-beta { background: transparent; min-height: 0; padding-bottom: 32px; }
+.page-hiring { background: transparent; min-height: 0; padding-bottom: 32px; }
+.page-applicants { background: transparent; min-height: 0; padding-bottom: 32px; }
+.ap-stats { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.ap-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; align-items: end; }
+.ap-span-2 { grid-column: span 2; }
+.ap-check-field { display: flex; flex-direction: column; justify-content: flex-end; }
+.ap-check { display: flex; align-items: center; gap: 8px; min-height: 36px; font-size: 13px; color: #334155; cursor: pointer; }
+.ap-check input { width: 16px; height: 16px; accent-color: #1a2540; }
+.ap-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.ap-toolbar-right { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ap-pos-filter { width: auto; min-width: 220px; max-width: 420px; background: #fff; }
+.ap-count { font-weight: 700; opacity: .75; }
+.ap-name { font-weight: 600; color: #1E3A5F; }
+.ap-meta { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+.ap-row-actions { width: 72px; text-align: right; }
+.ap-status-select { min-width: 120px; }
+@media (max-width: 900px) {
+  .ap-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ap-grid { grid-template-columns: 1fr 1fr; }
+  .ap-span-2 { grid-column: span 2; }
+}
+.hs-wrap { max-width: 1100px; }
+.hs-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+.hs-stat { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
+.hs-stat-label { font-size: 11px; color: #64748b; font-weight: 500; margin-bottom: 4px; }
+.hs-stat-num { font-size: 26px; font-weight: 700; color: #1E3A5F; line-height: 1.1; }
+.hs-lede { font-size: 13px; color: #64748b; max-width: 40rem; line-height: 1.45; margin: 0 0 14px; }
+.hs-composer { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px 18px; margin-bottom: 22px; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
+.hs-composer-kicker { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #64748b; margin-bottom: 6px; }
+.hs-composer-actions { margin-top: 12px; }
+.hs-list-head { font-size: 13px; font-weight: 700; color: #1E3A5F; margin-bottom: 10px; }
+.hs-group { margin-bottom: 18px; }
+.hs-group-title { font-size: 13px; font-weight: 700; color: #1E3A5F; margin-bottom: 8px; }
+.hs-grid { display: grid; grid-template-columns: 88px 180px minmax(180px, 1fr); gap: 10px; align-items: end; }
+.hs-grid.is-geo { grid-template-columns: 88px 160px minmax(160px, 1fr) minmax(160px, 1fr) minmax(140px, 1fr); }
+.hs-field { display: block; min-width: 0; }
+.hs-field-geo { display: none; }
+.hs-grid.is-geo .hs-field-geo,
+.ap-grid.is-geo .hs-field-geo { display: block; }
+.hs-notes { display: block; margin-top: 10px; }
+.hs-notes textarea { min-height: 72px; resize: vertical; background: #fff; }
+.hs-table-wrap { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
+.hs-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.hs-table th { text-align: left; padding: 10px 12px; color: #64748b; font-weight: 600; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+.hs-table td { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: middle; }
+.hs-table tr:last-child td { border-bottom: none; }
+.hs-qty-col, .hs-qty { width: 64px; }
+.hs-posting-cell { min-width: 180px; }
+.hs-posting-link { display: inline-block; margin-top: 4px; font-size: 12px; font-weight: 600; color: #1E3A5F; }
+.hs-row-actions { width: 72px; text-align: right; }
+.hs-table .form-input { background: #fff; }
+.hs-remove { background: none; border: none; color: #9f1239; font: inherit; font-size: 12px; cursor: pointer; text-decoration: underline; padding: 4px 0; }
+.hs-remove:hover { color: #7f1d1d; }
+.hs-empty { background: #fff; border: 1px dashed #cbd5e1; border-radius: 12px; padding: 28px 16px; text-align: center; color: #64748b; font-size: 14px; }
+@media (max-width: 900px) {
+  .hs-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hs-grid { grid-template-columns: 1fr 1fr; }
+}
 .beta-shell { --beta-ink: #0c1a33; --beta-mark: #2ee6a6; --beta-paper: #f4f6f8; --beta-line: #c5d0dc; width: 100%; max-width: none; }
 .beta-mast { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 22px; }
 .beta-stamp {
@@ -1331,8 +1389,10 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 <script src="hub-auth.js?v=session1"></script>
 <script src="hub-admin.js?v=merge1"></script>
 <script src="new-hire-seed.js"></script>
-<script src="hub-checklist.js?v=process1"></script>
-    <script src="hub-beta.js?v=beta20"></script>
+<script src="hub-checklist.js?v=process12"></script>
+    <script src="hub-beta.js?v=beta23"></script>
+<script src="hub-hiring.js?v=hs5"></script>
+<script src="hub-applicants.js?v=ap6"></script>
 </head>
 <body>
 
@@ -1359,9 +1419,17 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
   <nav class="sidebar-nav" aria-label="Main">
     <div class="nav-section">
       <div class="nav-section-label">New hire</div>
-      <button type="button" class="nav-item nav-checklist active" data-nh-view="dashboard" title="People — onboarding-window hires" onclick="showChecklistView('dashboard', this)">
+      <button type="button" class="nav-item" title="Hiring needs — how many people we need and where" onclick="showPage('hiring', this)">
+        <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 2.5-5 6-5s6 2 6 5"/><path d="M19 8v6M16 11h6"/></svg></span>
+        <span class="nav-label">Hiring needs</span>
+      </button>
+      <button type="button" class="nav-item" title="Applicants — light applicant tracking" onclick="showPage('applicants', this)">
+        <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg></span>
+        <span class="nav-label">Applicants</span>
+      </button>
+      <button type="button" class="nav-item nav-checklist active" data-nh-view="dashboard" title="Onboarding — current-window hires" onclick="showChecklistView('dashboard', this)">
         <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg></span>
-        <span class="nav-label">People</span>
+        <span class="nav-label">Onboarding</span>
       </button>
       <button type="button" class="nav-item" data-nh-view="todo" title="My work" onclick="showChecklistView('todo', this)">
         <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
@@ -1430,7 +1498,7 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 <div class="main">
   <header class="header">
     <div class="header-title">
-      <h1 id="hub-header-title">People</h1>
+      <h1 id="hub-header-title">Onboarding</h1>
       <div class="region" id="hub-header-sub">HR &amp; Training · Air Solutions &amp; Balancing</div>
     </div>
     <div class="header-actions" id="hub-header-actions" hidden>
@@ -1709,8 +1777,8 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 <!-- PAGE: NEW HIRE CHECKLIST -->
 <div id="page-checklist" class="page page-checklist active">
   <div class="main">
-    <div class="page-title">People</div>
-    <div class="page-sub">People = onboarding-window hires · Roster = full active list · Reports include Status / Missing for any hire.</div>
+    <div class="page-title">Onboarding</div>
+    <div class="page-sub">Onboarding = current-window hires · Roster = full active list · Reports include Status / Missing for any hire.</div>
     <div id="nh-checklist-root">
       <p class="nh-status">Loading employees…</p>
     </div>
@@ -1789,6 +1857,20 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 <div id="page-beta" class="page page-beta">
   <div id="beta-root">
     <p class="login-status">Loading process…</p>
+  </div>
+</div>
+
+<!-- PAGE: HIRING NEEDS -->
+<div id="page-hiring" class="page page-hiring">
+  <div id="hiring-root">
+    <p class="login-status">Loading hiring needs…</p>
+  </div>
+</div>
+
+<!-- PAGE: APPLICANTS -->
+<div id="page-applicants" class="page page-applicants">
+  <div id="applicants-root">
+    <p class="login-status">Loading applicants…</p>
   </div>
 </div>
 
@@ -1909,8 +1991,8 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 const PAULA_ONLY_PAGES = ['resources', 'responsibilities', 'orientation', 'weekly'];
 const HUB_PAGE_META = {
   checklist: {
-    title: 'People',
-    sub: 'People = onboarding-window hires · Roster = full active list · Reports include Status / Missing.'
+    title: 'Onboarding',
+    sub: 'Onboarding = current-window hires · Roster = full active list · Reports include Status / Missing.'
   },
   admin: {
     title: 'Admin',
@@ -1919,6 +2001,14 @@ const HUB_PAGE_META = {
   beta: {
     title: 'Process',
     sub: 'Department → job title → stages and steps. This is what the live New Hire Checklist uses.'
+  },
+  hiring: {
+    title: 'Hiring needs',
+    sub: 'Add a qty for each role and area. Same listing if the area matches; a new area is a new listing.'
+  },
+  applicants: {
+    title: 'Applicants',
+    sub: 'Light applicant tracking — add people, move them through the pipeline, and fill a hiring need when you hire.'
   },
   apps: {
     title: 'Other Apps',
@@ -1997,6 +2087,8 @@ function showPage(id, btn) {
       if (window.HubChecklist && HubChecklist.mountProcessAdmin) HubChecklist.mountProcessAdmin();
     }
     if (id === 'beta' && window.HubBeta) HubBeta.mount();
+    if (id === 'hiring' && window.HubHiring) HubHiring.mount();
+    if (id === 'applicants' && window.HubApplicants) HubApplicants.mount();
     if (id === 'checklist' && window.HubChecklist) HubChecklist.mount();
     else {
       const actions = document.getElementById('hub-header-actions');
@@ -3507,6 +3599,12 @@ window.applyHubData = function(data) {
   }
   if (window.HubChecklist && HubChecklist.applyRemote) {
     HubChecklist.applyRemote(data.new_hire_checklist || null);
+  }
+  if (window.HubHiring && HubHiring.applyRemote) {
+    HubHiring.applyRemote(data.hiring_strategy || null);
+  }
+  if (window.HubApplicants && HubApplicants.applyRemote) {
+    HubApplicants.applyRemote(data.hub_applicants || null);
   }
 };
 

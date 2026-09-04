@@ -2080,7 +2080,9 @@
         id: sectionId,
         title: `${node.title.label} · ${node.stage.label}`,
         defaultRole: owner.role,
-        defaultOwner: owner.assignee,
+        defaultOwner: node.title.label,
+        ownerTitle: node.title.label,
+        deptLabel: node.dept && node.dept.label,
         when: node.stage.when || { type: 'always' },
         titleId: node.titleId,
         stageId: node.stageId,
@@ -2093,9 +2095,14 @@
           sectionId,
           label: step.label,
           notes: step.notes || '',
-          owner: owner.assignee,
+          owner: node.title.label,
           role: owner.role,
-          assignee: owner.assignee,
+          assignee: node.title.label,
+          titleId: node.titleId,
+          titleLabel: node.title.label,
+          deptId: node.dept && node.dept.id,
+          deptLabel: node.dept && node.dept.label,
+          ownerPerson: owner.assignee,
           inputType: input.inputType,
           options: input.options,
           outcome: step.outcome || 'confirm',
@@ -2119,6 +2126,26 @@
     return { version: 3, roles, sections, items };
   }
 
+  function listOwnerDepartments() {
+    return (data.departments || []).map((d) => d.label).filter(Boolean);
+  }
+
+  function listOwnerTitles() {
+    const out = [];
+    const seen = new Set();
+    (data.departments || []).forEach((dept) => {
+      (dept.titles || []).forEach((t) => {
+        const id = String(t.id || '').trim();
+        const label = String(t.label || '').trim();
+        const key = id || label;
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        out.push({ value: id || label, label: label || id, department: dept.label || '' });
+      });
+    });
+    return out;
+  }
+
   function mount() {
     if (!data.departments.length) data = emptyData();
     if (!Array.isArray(data.dataFields) || !data.dataFields.length) {
@@ -2130,6 +2157,8 @@
   window.HubBeta = {
     applyRemote,
     mount,
-    compileTemplate: compileChecklistTemplate
+    compileTemplate: compileChecklistTemplate,
+    listOwnerDepartments,
+    listOwnerTitles
   };
 })();

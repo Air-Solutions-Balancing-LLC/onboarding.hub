@@ -13,7 +13,9 @@
     'airadigm_tasks_v2',
     'task_notes',
     'new_hire_checklist',
-    'beta_role_process'
+    'beta_role_process',
+    'hiring_strategy',
+    'hub_applicants'
   ];
 
   let supabase = null;
