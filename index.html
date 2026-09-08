@@ -1294,7 +1294,11 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
   border-radius: 6px;
   border: 1px solid #e2e8f0;
   white-space: nowrap;
-  cursor: help;
+  cursor: pointer;
+  font-family: inherit;
+  appearance: none;
+  background: #f1f5f9;
+  color: #475569;
 }
 .nh-track-tip-float {
   position: fixed;
@@ -1317,6 +1321,41 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .nh-track.is-at_risk { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
 .nh-track.is-behind { background: #fecaca; color: #991b1b; border-color: #fca5a5; }
 .nh-track.is-unknown { background: #f1f5f9; color: #475569; }
+.nh-track-insight-modal { width: 640px; max-width: 96vw; }
+.nh-track-insight-lead { font-size: 13px; color: #1e293b; line-height: 1.45; margin: 0 0 12px; }
+.nh-track-insight-push { font-size: 13px; color: #0f172a; margin: 0 0 16px; line-height: 1.4; }
+.nh-track-insight-sec { margin: 0 0 18px; }
+.nh-track-insight-sec h3 { font-size: 13px; font-weight: 700; color: #0f172a; margin: 0 0 6px; }
+.nh-track-insight-sec .nh-muted { margin: 0 0 10px; font-size: 12px; line-height: 1.4; }
+.nh-track-step {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  padding: 8px 0;
+  border-top: 1px solid #f1f5f9;
+}
+.nh-track-step-n {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  padding-top: 2px;
+}
+.nh-track-step-label { font-size: 13px; font-weight: 600; color: #0f172a; }
+.nh-track-step-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-top: 3px;
+  font-size: 11px;
+  color: #475569;
+}
+.nh-track-step-meta .is-overdue { color: #b91c1c; font-weight: 600; }
+.nh-task-flash { animation: nh-task-flash 1.6s ease-out; }
+@keyframes nh-task-flash {
+  0% { box-shadow: inset 0 0 0 2px #2563eb; background: #dbeafe; }
+  100% { box-shadow: inset 0 0 0 0 transparent; }
+}
 .nh-section-head.nh-bar-blue .nh-chevron,
 .nh-section-head.nh-bar-blue .nh-section-counts { color: #1d4ed8; }
 .nh-section-head.nh-bar-green .nh-chevron,
@@ -1428,7 +1467,7 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 <script src="hub-auth.js?v=session1"></script>
 <script src="hub-admin.js?v=merge1"></script>
 <script src="new-hire-seed.js"></script>
-<script src="hub-checklist.js?v=process14"></script>
+<script src="hub-checklist.js?v=process15"></script>
     <script src="hub-beta.js?v=beta25"></script>
 <script src="hub-hiring.js?v=hs5"></script>
 <script src="hub-applicants.js?v=ap6"></script>
