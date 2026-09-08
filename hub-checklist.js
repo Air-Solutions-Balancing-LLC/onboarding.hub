@@ -100,6 +100,7 @@
   let processPreview = null;
   let processTimelineScroll = 0;
   let selectedHireId = null;
+  let highlightTaskId = null;
   let openSections = {};
   let filters = {
     q: '',
@@ -907,7 +908,85 @@
       else status = 'behind';
     }
 
-    return { taskDue, crit, daysLeft, status };
+    return { taskDue, crit, daysLeft, status, rem: remMemo, preds, succs };
+  }
+
+  function isOpenRequired(hire, item) {
+    return !!(item && itemIsRequired(item) && hire && !isFilled(item, hire.values?.[item.id], hire));
+  }
+
+  function whoForItem(hire, item) {
+    const title = processTitleLabel(item) || assigneeOf(hire, item);
+    const person = processOwnerPerson(item);
+    if (title && person && normalizeNameKey(title) !== normalizeNameKey(person)) {
+      return `${title} · ${person}`;
+    }
+    return title || person || (item && item.role) || 'Unassigned';
+  }
+
+  function longestRemainingChains(hire, plan) {
+    const items = (data.items || []).filter((i) => i.role !== 'PM');
+    const byId = new Map(items.map((i) => [i.id, i]));
+    const rem = (plan && plan.rem) || {};
+    const crit = (plan && plan.crit) || 0;
+    if (!crit) return [];
+    const starts = items.filter((it) => {
+      if (!isOpenRequired(hire, it)) return false;
+      if ((rem[it.id] || 0) !== crit) return false;
+      return !(plan.preds[it.id] || []).some((pid) => {
+        const pred = byId.get(pid);
+        return pred && isOpenRequired(hire, pred) && (rem[pid] || 0) === crit;
+      });
+    });
+    function walk(start) {
+      const chain = [];
+      let cur = start;
+      const seen = new Set();
+      while (cur && !seen.has(cur.id)) {
+        seen.add(cur.id);
+        if (isOpenRequired(hire, cur)) chain.push(cur);
+        const kids = (plan.succs[cur.id] || []).map((id) => byId.get(id)).filter(Boolean);
+        let next = null;
+        let best = -1;
+        kids.forEach((k) => {
+          const r = rem[k.id] || 0;
+          if (r > best) {
+            best = r;
+            next = k;
+          }
+        });
+        cur = next;
+      }
+      return chain;
+    }
+    const seenStarts = new Set();
+    return starts.map(walk).filter((chain) => {
+      if (!chain.length) return false;
+      const key = chain.map((it) => it.id).join('>');
+      if (seenStarts.has(key)) return false;
+      seenStarts.add(key);
+      return true;
+    });
+  }
+
+  function trackInsight(hire) {
+    const plan = scheduleForHire(hire);
+    const chains = longestRemainingChains(hire, plan);
+    const onChain = new Set();
+    chains.forEach((chain) => chain.forEach((it) => onChain.add(it.id)));
+    const otherOpen = (data.items || []).filter((it) => {
+      if (it.role === 'PM') return false;
+      if (!isOpenRequired(hire, it)) return false;
+      return !onChain.has(it.id);
+    }).sort((a, b) => {
+      const ad = dueDateFor(hire, a);
+      const bd = dueDateFor(hire, b);
+      const at = ad ? ad.getTime() : Infinity;
+      const bt = bd ? bd.getTime() : Infinity;
+      if (at !== bt) return at - bt;
+      return String(a.label || '').localeCompare(String(b.label || ''));
+    });
+    return { plan, chains, otherOpen };
   }
 
   function trackLabel(status) {
@@ -924,7 +1003,7 @@
 
   function trackHelpText(plan) {
     if (!plan || plan.status === 'unknown') {
-      return 'Set an orientation date. Track compares remaining required work (step durations and waits) to the days left until orientation.';
+      return 'Set an orientation date. Track compares remaining required work (step durations and waits) to the days left until orientation. Click to see open steps.';
     }
     const work = plan.crit === 0
       ? 'all required steps are done'
@@ -935,20 +1014,20 @@
     else until = `orientation was ${dayCount(plan.daysLeft)} ago`;
 
     if (plan.crit === 0) {
-      return `On track — ${work}. ${until.charAt(0).toUpperCase()}${until.slice(1)}.`;
+      return `On track — ${work}. ${until.charAt(0).toUpperCase()}${until.slice(1)}. Click to see remaining steps.`;
     }
     if (plan.status === 'on_track') {
-      return `On track — ${work}, and ${until}. Remaining work still fits before orientation.`;
+      return `On track — ${work}, and ${until}. Remaining work still fits before orientation. Click to see which steps and who owns them.`;
     }
     if (plan.status === 'at_risk') {
       const short = Math.max(0, plan.crit - plan.daysLeft);
-      return `At risk — ${work}, and ${until}. That is ${dayCount(short)} short of fitting. A small slip puts this hire behind.`;
+      return `At risk — ${work}, and ${until}. That is ${dayCount(short)} short of fitting. Click to see which steps to push.`;
     }
     if (plan.daysLeft < 0) {
-      return `Behind — ${work}, and ${until}. Required work is still open after orientation.`;
+      return `Behind — ${work}, and ${until}. Required work is still open after orientation. Click to see which steps and who owns them.`;
     }
     const short = Math.max(0, plan.crit - plan.daysLeft);
-    return `Behind — ${work}, and ${until}. Need ${dayCount(short)} more than are left. Finish open gated steps or the hire misses orientation.`;
+    return `Behind — ${work}, and ${until}. Need ${dayCount(short)} more than are left. Click to see which steps and who owns them.`;
   }
 
   let trackTipEl = null;
@@ -996,6 +1075,15 @@
       el.addEventListener('focus', () => showTrackTip(el));
       el.addEventListener('mouseleave', hideTrackTip);
       el.addEventListener('blur', hideTrackTip);
+      el.addEventListener('mousedown', hideTrackTip);
+    });
+    root.querySelectorAll('[data-open-track]').forEach((el) => {
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        hideTrackTip();
+        openTrackInsightModal(el.getAttribute('data-open-track'));
+      });
     });
     root.querySelector('.nh-sheet-wrap')?.addEventListener('scroll', hideTrackTip);
   }
@@ -1004,7 +1092,145 @@
     const plan = scheduleForHire(hire);
     const help = trackHelpText(plan);
     const label = trackLabel(plan.status);
-    return `<span class="nh-track is-${esc(plan.status)}" tabindex="0" data-track-tip="${esc(help)}" aria-label="${esc(`${label}. ${help}`)}">${esc(label)}</span>`;
+    return `<button type="button" class="nh-track is-${esc(plan.status)}" data-open-track="${esc(hire.id)}" data-track-tip="${esc(help)}" aria-label="${esc(`${label}. ${help}`)}">${esc(label)}</button>`;
+  }
+
+  function trackStepRowHtml(hire, it, idx) {
+    const due = dueDateFor(hire, it);
+    const locked = itemLocked(hire, it);
+    const wait = itemWaitLabel(it);
+    const days = durationOf(it);
+    const sec = sectionById(it.sectionId);
+    const overdue = isPastDue(due, false);
+    const status = locked ? (wait || 'Waiting') : (overdue ? 'Past due' : 'Open');
+    return `
+      <div class="nh-track-step">
+        ${idx != null ? `<span class="nh-track-step-n">${idx + 1}</span>` : '<span class="nh-track-step-n">·</span>'}
+        <div class="nh-track-step-body">
+          <div class="nh-track-step-label">${esc(it.label)}</div>
+          <div class="nh-track-step-meta">
+            <span>${esc(whoForItem(hire, it))}</span>
+            ${sec ? `<span>${esc(sec.title || sectionHeading(sec))}</span>` : ''}
+            <span>${dayCount(days)}</span>
+            <span class="${overdue ? 'is-overdue' : ''}">Due ${esc(fmtDate(due))}</span>
+            <span>${esc(status)}</span>
+          </div>
+        </div>
+        <button type="button" class="btn-xs primary" data-reveal-task="${esc(it.id)}" data-reveal-hire="${esc(hire.id)}">Open</button>
+      </div>`;
+  }
+
+  function closeTrackInsightModal() {
+    document.getElementById('nh-track-insight-modal')?.classList.remove('open');
+  }
+
+  function revealHireTask(hireId, itemId) {
+    closeTrackInsightModal();
+    ensureData();
+    if (view !== 'detail') detailReturnView = view || 'dashboard';
+    filters.department = '';
+    filters.jobTitle = '';
+    applyAssignedToMe(false);
+    selectedHireId = hireId;
+    const item = (data.items || []).find((i) => i.id === itemId);
+    openSections = {};
+    (data.sections || []).forEach((s) => { openSections[s.id] = false; });
+    if (item) openSections[item.sectionId] = true;
+    highlightTaskId = itemId;
+    view = 'detail';
+    try {
+      history.pushState(
+        { hubNh: true, view: 'detail', hireId, returnView: detailReturnView },
+        '',
+        window.location.pathname || '/'
+      );
+    } catch (e) { /* ignore */ }
+    render();
+  }
+
+  function openTrackInsightModal(hireId) {
+    ensureData();
+    const hire = hires().find((h) => h.id === hireId);
+    if (!hire) return;
+    const insight = trackInsight(hire);
+    const plan = insight.plan;
+    let modal = document.getElementById('nh-track-insight-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'nh-track-insight-modal';
+      modal.className = 'modal-backdrop';
+      modal.innerHTML = `
+        <div class="modal nh-track-insight-modal">
+          <div class="modal-head">
+            <span class="modal-title" id="nh-track-insight-title">Track</span>
+            <button class="modal-close" type="button" id="nh-track-insight-x">×</button>
+          </div>
+          <div class="modal-body" id="nh-track-insight-body"></div>
+          <div class="modal-footer">
+            <button class="btn-secondary" type="button" id="nh-track-insight-close">Close</button>
+            <button class="btn-primary" type="button" id="nh-track-insight-hire">Open hire</button>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+      modal.addEventListener('click', (e) => { if (e.target === modal) closeTrackInsightModal(); });
+      document.getElementById('nh-track-insight-x').addEventListener('click', closeTrackInsightModal);
+      document.getElementById('nh-track-insight-close').addEventListener('click', closeTrackInsightModal);
+      document.getElementById('nh-track-insight-hire').addEventListener('click', () => {
+        const id = modal.getAttribute('data-hire-id');
+        closeTrackInsightModal();
+        if (id) openHireDetail(id);
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('open')) closeTrackInsightModal();
+      });
+    }
+    modal.setAttribute('data-hire-id', hire.id);
+    document.getElementById('nh-track-insight-title').textContent =
+      `${displayHireName(hire)} · ${trackLabel(plan.status)}`;
+    const people = [];
+    const seenWho = new Set();
+    insight.chains.flat().concat(insight.otherOpen).forEach((it) => {
+      const who = whoForItem(hire, it);
+      if (!who || seenWho.has(who)) return;
+      seenWho.add(who);
+      people.push(who);
+    });
+    const chainHtml = insight.chains.length
+      ? insight.chains.map((chain, i) => {
+          const days = chain.reduce((n, it) => n + durationOf(it), 0);
+          const head = insight.chains.length > 1
+            ? `Longest remaining chain ${i + 1} (${dayCount(days)})`
+            : `Longest remaining chain (${dayCount(days)})`;
+          return `<section class="nh-track-insight-sec">
+            <h3>${esc(head)}</h3>
+            <p class="nh-muted">These unfinished required steps, in order, are why Track is ${esc(trackLabel(plan.status).toLowerCase())}. This is the longest path, not the sum of every open task.</p>
+            ${chain.map((it, idx) => trackStepRowHtml(hire, it, idx)).join('')}
+          </section>`;
+        }).join('')
+      : `<p class="nh-muted">No unfinished required steps on a remaining chain.</p>`;
+    const otherHtml = insight.otherOpen.length
+      ? `<section class="nh-track-insight-sec">
+          <h3>Also still open (${insight.otherOpen.length})</h3>
+          <p class="nh-muted">Not on the longest chain, but still unfinished. Push these too if they are blocking people.</p>
+          ${insight.otherOpen.map((it) => trackStepRowHtml(hire, it, null)).join('')}
+        </section>`
+      : '';
+    const pushHtml = people.length
+      ? `<p class="nh-track-insight-push"><strong>Push</strong> ${esc(people.join(', '))}</p>`
+      : '';
+    document.getElementById('nh-track-insight-body').innerHTML = `
+      <p class="nh-track-insight-lead">${esc(trackHelpText(plan).replace(/ Click to see[^.]*\./g, '').trim())}</p>
+      ${pushHtml}
+      ${chainHtml}
+      ${otherHtml}
+    `;
+    document.getElementById('nh-track-insight-body').querySelectorAll('[data-reveal-task]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        revealHireTask(btn.getAttribute('data-reveal-hire'), btn.getAttribute('data-reveal-task'));
+      });
+    });
+    hideTrackTip();
+    modal.classList.add('open');
   }
 
   function dueDateFor(hire, item) {
@@ -2942,6 +3168,16 @@
       });
     });
     bindTrackTips(root);
+    if (highlightTaskId) {
+      const flashId = highlightTaskId;
+      highlightTaskId = null;
+      requestAnimationFrame(() => {
+        const el = document.getElementById('nh-task-' + flashId);
+        if (!el) return;
+        el.classList.add('nh-task-flash');
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      });
+    }
   }
 
   function fieldRow(hire, it, opts) {
@@ -3000,7 +3236,7 @@
     const wait = itemWaitLabel(it);
     const days = durationOf(it);
     return `
-      <div class="nh-task-row ${mine ? 'mine' : ''} ${filled ? 'filled' : 'open'} ${overdue ? 'overdue' : ''}${stepProg ? ' has-checklist' : ''}${canEditMine ? ' nh-mine-owned' : ''}${locked ? ' is-locked' : ''}">
+      <div id="nh-task-${esc(it.id)}" class="nh-task-row ${mine ? 'mine' : ''} ${filled ? 'filled' : 'open'} ${overdue ? 'overdue' : ''}${stepProg ? ' has-checklist' : ''}${canEditMine ? ' nh-mine-owned' : ''}${locked ? ' is-locked' : ''}">
         <div class="nh-task-assignee" title="${esc(who || 'Unassigned')} · ${esc(it.role)}">
           ${titleAssignee
             ? `<span class="nh-owner-chip">${esc(titleAssignee)}</span>`
