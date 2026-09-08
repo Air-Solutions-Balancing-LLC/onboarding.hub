@@ -100,6 +100,7 @@
   let processPreview = null;
   let processTimelineScroll = 0;
   let selectedHireId = null;
+  let hireDetailPane = 'summary';
   let highlightTaskId = null;
   let openSections = {};
   let filters = {
@@ -1183,6 +1184,7 @@
     filters.department = '';
     filters.jobTitle = '';
     applyAssignedToMe(false);
+    hireDetailPane = 'tasks';
     selectedHireId = hireId;
     const item = (data.items || []).find((i) => i.id === itemId);
     openSections = {};
@@ -1581,6 +1583,7 @@
     filters.department = '';
     filters.jobTitle = '';
     applyAssignedToMe(true);
+    hireDetailPane = 'summary';
     selectedHireId = hireId;
     openSections = {};
     (data.sections || []).forEach((s) => { openSections[s.id] = false; });
@@ -3176,16 +3179,133 @@
       </section>`;
   }
 
+  function itemsForSummary() {
+    ensureData();
+    return (data.items || []).filter((it) => it.role !== 'PM').sort((a, b) => {
+      const sa = sectionById(a.sectionId);
+      const sb = sectionById(b.sectionId);
+      const fa = (sa && sa.flowIndex) || 0;
+      const fb = (sb && sb.flowIndex) || 0;
+      if (fa !== fb) return fa - fb;
+      if (String(a.sectionId) !== String(b.sectionId)) {
+        return String(a.sectionId || '').localeCompare(String(b.sectionId || ''));
+      }
+      return (a.order || 0) - (b.order || 0);
+    });
+  }
+
+  function stepStatusText(hire, it) {
+    const filled = isFilled(it, hire.values?.[it.id], hire);
+    const locked = itemLocked(hire, it);
+    const overdue = isPastDue(dueDateFor(hire, it), filled);
+    if (filled) return 'Done';
+    if (locked) return 'Waiting';
+    if (overdue) return 'Past due';
+    return 'Open';
+  }
+
+  function summaryResultHtml(hire, it) {
+    const raw = hire.values?.[it.id];
+    const stepProg = checklistProgress(hire, it);
+    if (stepProg) return `${stepProg.done} of ${stepProg.total} steps`;
+    if (it.sensitive && !revealSensitive && raw) return '••••••••';
+    if (isFileValueItem(it) && isHttpUrl(raw)) {
+      const label = /resume/i.test(it.label || '') ? 'Open resume' : 'Open file';
+      return `<a class="nh-task-link" href="${esc(String(raw).trim())}" target="_blank" rel="noopener">${label}</a>`;
+    }
+    const text = displayProgressValue(hire, it);
+    if (isHttpUrl(text)) {
+      return `<a class="nh-task-link" href="${esc(text.trim())}" target="_blank" rel="noopener">Open</a>`;
+    }
+    return esc(text);
+  }
+
+  function jumpToHireTask(itemId) {
+    const item = (data.items || []).find((i) => i.id === itemId);
+    hireDetailPane = 'tasks';
+    applyAssignedToMe(false);
+    openSections = {};
+    (data.sections || []).forEach((s) => { openSections[s.id] = false; });
+    if (item) openSections[item.sectionId] = true;
+    highlightTaskId = itemId;
+    render();
+  }
+
+  function hireSummaryHtml(hire) {
+    const items = itemsForSummary();
+    const overall = hireProgress(hire, 'all', 'all');
+    if (!items.length) {
+      return `<div class="nh-empty-block">No process steps are set up yet.</div>`;
+    }
+    const bySection = [];
+    const seen = new Set();
+    items.forEach((it) => {
+      if (seen.has(it.sectionId)) return;
+      seen.add(it.sectionId);
+      bySection.push(sectionById(it.sectionId) || { id: it.sectionId, title: 'Other' });
+    });
+    const sections = bySection.map((sec) => {
+      const secItems = items.filter((it) => it.sectionId === sec.id);
+      const done = secItems.filter((it) => isFilled(it, hire.values?.[it.id], hire)).length;
+      const barCls = sectionBarClass(done, secItems.length);
+      const rows = secItems.map((it) => {
+        const filled = isFilled(it, hire.values?.[it.id], hire);
+        const due = dueDateFor(hire, it);
+        const overdue = isPastDue(due, filled);
+        const status = stepStatusText(hire, it);
+        const who = whoForItem(hire, it) || processTitleLabel(it) || it.role || '—';
+        return `
+          <div class="nh-summary-row ${filled ? 'filled' : 'open'} ${overdue ? 'overdue' : ''}" data-jump-task="${esc(it.id)}" role="button" tabindex="0">
+            <span class="nh-summary-owner">${esc(who)}</span>
+            <span class="nh-summary-label">${esc(it.label)}</span>
+            <span class="nh-summary-due ${overdue ? 'is-overdue' : ''}">${esc(fmtDate(due))}</span>
+            <span class="nh-summary-result">${summaryResultHtml(hire, it)}</span>
+            <span class="nh-summary-status">${esc(status)}</span>
+            <span class="nh-summary-updated">${stepUpdatedHtml(hire, it.id) || '<span class="nh-muted">—</span>'}</span>
+          </div>`;
+      }).join('');
+      return `
+        <div class="nh-section open ${barCls}">
+          <div class="nh-section-head static ${barCls}">
+            <div class="nh-section-title">${esc(sectionHeading(sec))}</div>
+            <span class="nh-section-counts"><strong>${done}</strong> done / <strong>${secItems.length - done}</strong> open</span>
+          </div>
+          <div class="nh-section-body">
+            <div class="nh-summary-table">
+              <div class="nh-summary-head">
+                <span>Assigned</span>
+                <span>Step</span>
+                <span>Due</span>
+                <span>Result</span>
+                <span>Status</span>
+                <span>Updated</span>
+              </div>
+              ${rows}
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+    return `
+      <div class="nh-summary">
+        <p class="nh-summary-lead">${overall.done} of ${overall.total} steps done. Click a row to open that task.</p>
+        ${sections}
+      </div>`;
+  }
+
   function renderDetail(root) {
     const hire = hires().find((h) => h.id === selectedHireId);
     if (!hire) { view = 'dashboard'; return renderDashboard(root); }
     const archived = isArchivedStatus(hire.status);
-    const p = hireProgress(hire);
+    const overall = hireProgress(hire, 'all', 'all');
+    const p = hireDetailPane === 'summary' ? overall : hireProgress(hire);
     const scoped = filterScopeLabel();
+    const showSummary = hireDetailPane !== 'tasks';
     setPageTitle(displayHireName(hire));
     setPageSub(archived
       ? 'Archived hire — set Employment back to Active on Archive to restore, or Delete from Archive.'
-      : `Showing tasks for ${scoped} (${p.done}/${p.total}). Use Assigned to me to see only your tasks.`);
+      : (showSummary
+        ? `Onboarding summary — every process step and current result (${overall.done}/${overall.total}).`
+        : `Showing tasks for ${scoped} (${p.done}/${p.total}). Use Assigned to me to see only your tasks.`));
 
     const sectionsHtml = data.sections.map((sec) => {
       const items = itemsForHireFilter(hire, itemsForSection(sec.id));
@@ -3236,9 +3356,9 @@
           ${archived ? `<button class="btn-xs danger" type="button" id="nh-del-hire">Delete</button>` : ''}
         </div>
       </div>
-      <div class="nh-detail-filters">
+      ${showSummary ? '' : `<div class="nh-detail-filters">
         ${roleFilterControls({ showHireFilters: true })}
-      </div>
+      </div>`}
       <div class="nh-profile">
         <div>
           <div class="nh-profile-name">${esc(hire.name)}</div>
@@ -3261,12 +3381,18 @@
           ${trackBadgeHtml(hire)}
           <div class="nh-prog big">
             <div class="nh-prog-bar"><span style="width:${p.pct}%"></span></div>
-            <div class="nh-prog-label">${p.done}/${p.total} for ${esc(scoped)} · ${p.pct}%</div>
+            <div class="nh-prog-label">${showSummary ? `${overall.done}/${overall.total} overall · ${overall.pct}%` : `${p.done}/${p.total} for ${esc(scoped)} · ${p.pct}%`}</div>
           </div>
         </div>
       </div>
-      ${hireProfileSheetHtml(hire)}
-      ${sectionsHtml || `<div class="nh-empty-block">No tasks assigned to ${esc(scoped)} for this hire.</div>`}`;
+      <div class="nh-detail-tabs" role="tablist">
+        <button type="button" class="nh-detail-tab ${showSummary ? 'is-on' : ''}" data-hire-pane="summary" role="tab" aria-selected="${showSummary ? 'true' : 'false'}">Onboarding summary</button>
+        <button type="button" class="nh-detail-tab ${showSummary ? '' : 'is-on'}" data-hire-pane="tasks" role="tab" aria-selected="${showSummary ? 'false' : 'true'}">Tasks</button>
+      </div>
+      ${showSummary
+        ? hireSummaryHtml(hire)
+        : `${hireProfileSheetHtml(hire)}
+      ${sectionsHtml || `<div class="nh-empty-block">No tasks assigned to ${esc(scoped)} for this hire.</div>`}`}`;
 
     root.querySelector('#nh-back').addEventListener('click', () => {
       if (history.state && history.state.hubNh && history.state.view === 'detail') {
@@ -3284,7 +3410,26 @@
       }
     });
     bindStatusSelects(root);
-    bindRoleBar(root);
+    if (!showSummary) bindRoleBar(root);
+    root.querySelectorAll('[data-hire-pane]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        hireDetailPane = btn.getAttribute('data-hire-pane') === 'tasks' ? 'tasks' : 'summary';
+        render();
+      });
+    });
+    root.querySelectorAll('[data-jump-task]').forEach((el) => {
+      const go = () => jumpToHireTask(el.getAttribute('data-jump-task'));
+      el.addEventListener('click', (ev) => {
+        if (ev.target.closest('a')) return;
+        go();
+      });
+      el.addEventListener('keydown', (ev) => {
+        if (ev.key !== 'Enter' && ev.key !== ' ') return;
+        if (ev.target.closest('a')) return;
+        ev.preventDefault();
+        go();
+      });
+    });
     root.querySelector('#nh-reveal').addEventListener('change', (e) => {
       revealSensitive = e.target.checked;
       render();
