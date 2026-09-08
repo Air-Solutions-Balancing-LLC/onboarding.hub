@@ -379,7 +379,7 @@
       Object.keys(progress).forEach((hireId) => {
         const p = progress[hireId];
         if (!p || typeof p !== 'object') return;
-        ['values', 'assignees', 'checklists'].forEach((mapKey) => {
+        ['values', 'assignees', 'checklists', 'history'].forEach((mapKey) => {
           if (!p[mapKey] || typeof p[mapKey] !== 'object') return;
           Object.keys(p[mapKey]).forEach((itemId) => {
             if (!keepIds.has(itemId)) delete p[mapKey][itemId];
@@ -590,11 +590,55 @@
 
   function progressOf(empId) {
     ensureData();
-    if (!data.progress[empId]) data.progress[empId] = { values: {}, assignees: {}, checklists: {} };
+    if (!data.progress[empId]) data.progress[empId] = { values: {}, assignees: {}, checklists: {}, history: {} };
     if (!data.progress[empId].values) data.progress[empId].values = {};
     if (!data.progress[empId].assignees) data.progress[empId].assignees = {};
     if (!data.progress[empId].checklists) data.progress[empId].checklists = {};
+    if (!data.progress[empId].history) data.progress[empId].history = {};
     return data.progress[empId];
+  }
+
+  function actorName() {
+    const u = window.hubCurrentUser;
+    const fromUser = String((u && (u.full_name || u.name || u.email)) || '').trim();
+    if (fromUser) return fromUser;
+    const me = viewerChecklistName();
+    if (me && me !== 'all') return me;
+    return '';
+  }
+
+  function touchStepHistory(hireId, itemId) {
+    if (!hireId || !itemId) return;
+    const p = progressOf(hireId);
+    p.history[itemId] = { at: new Date().toISOString(), by: actorName() };
+  }
+
+  function stepHistory(hire, itemId) {
+    const rec = hire && hire.history && hire.history[itemId];
+    if (!rec || !rec.at) return null;
+    return rec;
+  }
+
+  function fmtUpdatedShort(iso) {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    const md = `${d.getMonth() + 1}/${d.getDate()}`;
+    return d.getFullYear() === new Date().getFullYear() ? md : `${md}/${String(d.getFullYear()).slice(-2)}`;
+  }
+
+  function fmtUpdatedFull(iso) {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+
+  function stepUpdatedHtml(hire, itemId) {
+    const rec = stepHistory(hire, itemId);
+    if (!rec) return '';
+    const short = fmtUpdatedShort(rec.at);
+    if (!short) return '';
+    const full = rec.by ? `${fmtUpdatedFull(rec.at)} · ${rec.by}` : fmtUpdatedFull(rec.at);
+    return `<span class="nh-step-updated" title="${esc(full)}">Updated ${esc(short)}</span>`;
   }
 
   function normalizeSteps(item) {
@@ -667,6 +711,7 @@
       values: p.values,
       assignees: p.assignees,
       checklists: p.checklists,
+      history: p.history,
       _emp: emp
     };
   }
@@ -725,6 +770,12 @@
     Object.keys(from.checklists || {}).forEach((itemId) => {
       if (!keep.checklists[itemId]) keep.checklists[itemId] = {};
       Object.assign(keep.checklists[itemId], from.checklists[itemId] || {});
+    });
+    Object.keys(from.history || {}).forEach((itemId) => {
+      const cur = keep.history[itemId];
+      const next = from.history[itemId];
+      if (!next || !next.at) return;
+      if (!cur || !cur.at || String(next.at) > String(cur.at)) keep.history[itemId] = next;
     });
   }
 
@@ -1114,6 +1165,7 @@
             <span>${dayCount(days)}</span>
             <span class="${overdue ? 'is-overdue' : ''}">Due ${esc(fmtDate(due))}</span>
             <span>${esc(status)}</span>
+            ${stepUpdatedHtml(hire, it.id)}
           </div>
         </div>
         <button type="button" class="btn-xs primary" data-reveal-task="${esc(it.id)}" data-reveal-hire="${esc(hire.id)}">Open</button>
@@ -1274,6 +1326,7 @@
     const v = String(val ?? '').trim();
     if (!v) return false;
     if (/^(n\/a|na|—|-|pending|not yet|tbd)$/i.test(v)) return false;
+    if (isFileValueItem(item) && !/resume/i.test(item.label || '')) return isHttpUrl(v);
     return true;
   }
 
@@ -1855,22 +1908,87 @@
     return aliases[lower] || raw;
   }
 
+  function dateSearchBits(iso) {
+    const raw = String(iso || '').trim();
+    if (!raw) return [];
+    const bits = [raw];
+    const d = parseDate(raw);
+    if (!d || isNaN(d.getTime())) return bits;
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    const day = d.getDate();
+    bits.push(`${m}/${day}`, `${m}/${day}/${y}`, `${m}/${day}/${String(y).slice(-2)}`);
+    bits.push(`${String(m).padStart(2, '0')}/${String(day).padStart(2, '0')}/${y}`);
+    return bits;
+  }
+
+  function foldSearch(s) {
+    return String(s || '').toLowerCase().replace(/['’`]/g, '');
+  }
+
+  function employeeSearchText(emp) {
+    ensureData();
+    const hire = empToHire(emp);
+    const bits = [
+      displayHireName(emp),
+      emp.full_name,
+      emp.preferred_name,
+      emp.company_email,
+      emp.employee_number,
+      emp.employee_type,
+      formatType(normalizePosition(emp.employee_type)),
+      emp.region,
+      normalizeRegion(emp.region) || emp.region,
+      emp.city_center,
+      emp.assigned_pm,
+      emp.status,
+      STATUS_LABELS[emp.status] || '',
+      String(STATUS_LABELS[emp.status] || emp.status || '').replace(/-/g, ' '),
+      emp.onboarding_status,
+      formatOnboardingLabel(emp.onboarding_status),
+      emp.status_note
+    ];
+    dateSearchBits(emp.start_date).forEach((b) => bits.push(b));
+    dateSearchBits(emp.work_start_date).forEach((b) => bits.push(b));
+    dateSearchBits(emp.bootcamp_start_date).forEach((b) => bits.push(b));
+    const values = hire.values || {};
+    const assignees = hire.assignees || {};
+    const history = hire.history || {};
+    (data.items || []).forEach((it) => {
+      const val = values[it.id];
+      if (isFilled(it, val, hire)) {
+        bits.push(it.label, it.dataLabel);
+        bits.push(val === true ? 'yes done' : val);
+      } else if (val != null && String(val).trim() && val !== true) {
+        bits.push(it.label, val);
+      }
+      if (assignees[it.id]) bits.push(assignees[it.id]);
+    });
+    Object.keys(history).forEach((id) => {
+      const rec = history[id];
+      if (rec && rec.by) bits.push(rec.by);
+    });
+    const plan = scheduleForHire(hire);
+    bits.push(trackLabel(plan && plan.status), plan && plan.status);
+    return foldSearch(bits.filter((b) => b != null && String(b).trim() && String(b) !== '—').join('\n'));
+  }
+
+  function employeeMatchesQuery(emp, q) {
+    const tokens = foldSearch(q).trim().split(/\s+/).filter(Boolean);
+    if (!tokens.length) return true;
+    const hay = employeeSearchText(emp);
+    return tokens.every((tok) => hay.includes(tok));
+  }
+
   function filteredEmployees(opts) {
     const onboardingWindowOnly = !!(opts && opts.onboardingWindowOnly);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const q = filters.q.trim().toLowerCase();
+    const q = filters.q;
     const c = filters.cols || {};
     return employees.filter((e) => {
-      const matchSearch =
-        !q ||
-        (e.full_name || '').toLowerCase().includes(q) ||
-        (e.preferred_name || '').toLowerCase().includes(q) ||
-        displayHireName(e).toLowerCase().includes(q) ||
-        (e.company_email || '').toLowerCase().includes(q) ||
-        String(e.employee_number ?? '').includes(q);
-      // Dashboard / Roster: current hires only (archived statuses live in Archive)
-      if (!(matchSearch && isCurrentStatus(e.status || 'active'))) return false;
+      if (!isCurrentStatus(e.status || 'active')) return false;
+      if (q && !employeeMatchesQuery(e, q)) return false;
 
       if (onboardingWindowOnly && !inOnboardingWindow(empToHire(e), today)) return false;
 
@@ -1899,18 +2017,12 @@
   }
 
   function filteredArchivedEmployees() {
-    const q = filters.q.trim().toLowerCase();
+    const q = filters.q;
     return employees.filter((e) => {
       if (!isArchivedStatus(e.status)) return false;
-      const matchSearch =
-        !q ||
-        (e.full_name || '').toLowerCase().includes(q) ||
-        (e.preferred_name || '').toLowerCase().includes(q) ||
-        displayHireName(e).toLowerCase().includes(q) ||
-        (e.company_email || '').toLowerCase().includes(q) ||
-        String(e.employee_number ?? '').includes(q);
+      if (q && !employeeMatchesQuery(e, q)) return false;
       const matchFilter = filters.archiveStatus === 'all' || e.status === filters.archiveStatus;
-      return matchSearch && matchFilter;
+      return matchFilter;
     });
   }
 
@@ -2477,11 +2589,13 @@
 
     if (stepProg) {
       control = `<button type="button" class="btn-xs" data-open-checklist="${esc(e.item.id)}" data-hire="${esc(e.hire.id)}">Steps ${stepProg.done}/${stepProg.total}</button>`;
+    } else if (isFileValueItem(e.item)) {
+      valueCtrl = fileValueControlHtml(e.item, raw, { todo: true, hireId: e.hire.id });
     } else {
       control = `<input type="checkbox" class="nh-todo-cb" data-todo-check data-hire="${esc(e.hire.id)}" data-item="${esc(e.item.id)}" ${e.done ? 'checked' : ''} title="${e.done ? 'Mark open' : 'Mark done'}">`;
-      if (e.item.inputType === 'date') {
+      if (e.item.inputType === 'date' || valueInputType(e.item) === 'date') {
         const v = typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}/.test(raw) ? raw.slice(0, 10) : '';
-        valueCtrl = `<input class="form-input nh-todo-field" type="date" data-todo-field="${esc(e.item.id)}" data-hire="${esc(e.hire.id)}" value="${esc(v)}" title="Enter completion date">`;
+        valueCtrl = `<input class="form-input nh-todo-field" type="date" data-todo-field="${esc(e.item.id)}" data-hire="${esc(e.hire.id)}" value="${esc(v)}" title="${esc(valuePlaceholder(e.item))}">`;
       } else if (isRegionField || e.item.inputType === 'select') {
         const optsList = isRegionField ? REGION_OPTIONS : (e.item.options || []);
         const cur = isRegionField ? (normalizeRegion(raw) || raw || '') : String(raw || '');
@@ -2490,10 +2604,11 @@
           return `<option value="${esc(v)}" ${String(cur) === v ? 'selected' : ''}>${esc(v)}</option>`;
         }).join('');
         valueCtrl = `<select class="form-input nh-todo-field" data-todo-field="${esc(e.item.id)}" data-hire="${esc(e.hire.id)}" title="Select value"><option value="">—</option>${opts}</select>`;
-      } else if (e.item.inputType === 'text' || e.item.inputType === 'number') {
+      } else if (e.item.inputType !== 'checkbox') {
         let display = raw == null ? '' : String(raw);
         if (e.item.sensitive && !revealSensitive && display) display = '••••••••';
-        valueCtrl = `<input class="form-input nh-todo-field" type="text" data-todo-field="${esc(e.item.id)}" data-hire="${esc(e.hire.id)}" value="${esc(display)}" ${e.item.sensitive && !revealSensitive && raw ? 'readonly' : ''} placeholder="Enter…" title="Enter value">`;
+        const type = valueInputType(e.item);
+        valueCtrl = `<input class="form-input nh-todo-field" type="${esc(type)}" data-todo-field="${esc(e.item.id)}" data-hire="${esc(e.hire.id)}" value="${esc(display)}" ${e.item.sensitive && !revealSensitive && raw ? 'readonly' : ''} placeholder="${esc(valuePlaceholder(e.item))}" title="${esc(valuePlaceholder(e.item))}">`;
       }
     }
 
@@ -2510,6 +2625,7 @@
           <span class="nh-todo-check-meta">
             <span class="nh-owner-chip">${esc(e.who || 'Unassigned')}</span>
             <span class="nh-due ${dueCls}">${e.due ? esc(fmtDate(e.due)) : 'No due date'}</span>
+            ${stepUpdatedHtml(e.hire, e.item.id)}
             ${editBtn}
           </span>
         </span>
@@ -2669,7 +2785,7 @@
         </button>
       </div>
       <div class="nh-toolbar">
-        <input type="search" class="nh-search" id="nh-search" placeholder="Search by name, email, or #..." value="${esc(filters.q)}" />
+        <input type="search" class="nh-search" id="nh-search" placeholder="Search anything…" value="${esc(filters.q)}" />
         <div class="nh-filters">
           <button type="button" class="btn-secondary" id="nh-column-visibility-btn" aria-expanded="false" aria-haspopup="menu" aria-controls="nh-column-visibility-menu">Show/Hide columns</button>
           <span class="nh-muted">${onboardFilter
@@ -2771,7 +2887,7 @@
         <div class="nh-stat"><div class="nh-stat-label">Technicians</div><div class="nh-stat-num nh-stat-amber">${s.technicians}</div></div>
       </div>
       <div class="nh-toolbar">
-        <input type="search" class="nh-search" id="nh-search" placeholder="Search by name, email, or #..." value="${esc(filters.q)}" />
+        <input type="search" class="nh-search" id="nh-search" placeholder="Search anything…" value="${esc(filters.q)}" />
         <div class="nh-filters">
           <span class="nh-muted">All active hires · Onboarding is current-window only · archived under Archive</span>
         </div>
@@ -2825,7 +2941,7 @@
         <div class="nh-stat"><div class="nh-stat-label">Rescinded</div><div class="nh-stat-num">${employees.filter((e) => e.status === 'rescinded').length}</div></div>
       </div>
       <div class="nh-toolbar">
-        <input type="search" class="nh-search" id="nh-search" placeholder="Search archived by name, email, or #..." value="${esc(filters.q)}" />
+        <input type="search" class="nh-search" id="nh-search" placeholder="Search archived hires…" value="${esc(filters.q)}" />
         <div class="nh-filters">
           ${archiveFilters.map((f) =>
             `<button type="button" class="nh-filter-btn${filters.archiveStatus === f ? ' active' : ''}" data-archive-filter="${f}">${f === 'all' ? 'all archived' : formatStatusLabel(f)}</button>`
@@ -2929,6 +3045,75 @@
     return due < today;
   }
 
+  function looksLikeFileDocumentLabel(label) {
+    const s = String(label || '');
+    if (/headshot/i.test(s)) return true;
+    if (/osha/i.test(s) && /card/i.test(s)) return true;
+    if (/diploma/i.test(s) && /ged/i.test(s)) return true;
+    if (/hs\s*diploma/i.test(s)) return true;
+    return false;
+  }
+
+  function isFileValueItem(item) {
+    if (!item) return false;
+    const t = String(item.inputType || '').toLowerCase();
+    if (t === 'file' || t === 'url') return true;
+    const dl = String(item.dataLabel || '').trim().toLowerCase();
+    if (dl === 'file' || dl === 'file (pdf or image)') return true;
+    if (/resume/i.test(item.label || '')) return true;
+    return looksLikeFileDocumentLabel(item.label);
+  }
+
+  function valueInputType(item) {
+    if (isFileValueItem(item)) return 'url';
+    const t = String((item && item.inputType) || '').toLowerCase();
+    const label = String((item && item.dataLabel) || '').trim().toLowerCase();
+    const kind = t && t !== 'text' ? t : label;
+    if (kind === 'date') return 'date';
+    if (kind === 'email' || kind === 'email address') return 'email';
+    if (kind === 'phone' || kind === 'phone number') return 'tel';
+    if (kind === 'number') return 'number';
+    return 'text';
+  }
+
+  function valuePlaceholder(item) {
+    if (isFileValueItem(item)) {
+      return /resume/i.test(item.label || '')
+        ? 'Paste SharePoint / Drive link (https://…)'
+        : 'PDF or image link (https://…)';
+    }
+    const type = valueInputType(item);
+    if (type === 'date') return 'Date';
+    if (type === 'email') return 'Email';
+    if (type === 'tel') return 'Phone';
+    if (type === 'number') return 'Number';
+    const label = String((item && item.dataLabel) || '').trim();
+    if (label && !/^text$/i.test(label)) return label;
+    return 'Text';
+  }
+
+  function fileValueControlHtml(item, raw, opts) {
+    const display = raw == null ? '' : String(raw);
+    const locked = !!(opts && opts.locked);
+    const todo = !!(opts && opts.todo);
+    const attr = todo
+      ? `data-todo-field="${esc(item.id)}" data-hire="${esc(opts.hireId || '')}"`
+      : `data-field="${esc(item.id)}"`;
+    const cls = todo ? 'form-input nh-todo-field' : 'form-input nh-field-input';
+    const openLabel = /resume/i.test(item.label || '') ? 'Open resume' : 'Open file';
+    const openBtn = isHttpUrl(display)
+      ? `<a class="btn-xs primary nh-resume-open" href="${esc(display.trim())}" target="_blank" rel="noopener">${openLabel}</a>`
+      : '';
+    const hint = /resume/i.test(item.label || '')
+      ? 'Jessa: paste a link to the PDF or file'
+      : 'Paste a SharePoint or Drive link to the PDF or image';
+    return `<div class="nh-resume-field">
+      <input class="${cls}" type="url" ${attr} value="${esc(display)}" ${locked ? 'disabled' : ''} placeholder="${esc(valuePlaceholder(item))}" title="${esc(valuePlaceholder(item))}">
+      ${openBtn}
+      ${todo ? '' : `<span class="nh-muted nh-resume-hint">${esc(hint)}</span>`}
+    </div>`;
+  }
+
   function valueControlHtml(hire, it) {
     const raw = hire.values?.[it.id];
     const filled = isFilled(it, raw, hire);
@@ -2956,13 +3141,15 @@
       }).join('');
       return `<select class="form-input nh-field-input" data-field="${esc(it.id)}"><option value="">—</option>${opts}</select>`;
     }
-    if (it.inputType === 'date') {
+    if (it.inputType === 'date' || valueInputType(it) === 'date') {
       const v = typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}/.test(raw) ? raw.slice(0, 10) : '';
-      return `<input class="form-input nh-field-input" type="date" data-field="${esc(it.id)}" value="${esc(v)}">`;
+      return `<input class="form-input nh-field-input" type="date" data-field="${esc(it.id)}" value="${esc(v)}" placeholder="${esc(valuePlaceholder(it))}">`;
     }
+    if (isFileValueItem(it)) return fileValueControlHtml(it, raw);
     let display = raw == null ? '' : String(raw);
     if (it.sensitive && !revealSensitive && display) display = '••••••••';
-    return `<input class="form-input nh-field-input" type="text" data-field="${esc(it.id)}" value="${esc(display)}" ${it.sensitive && !revealSensitive && raw ? 'readonly' : ''} placeholder="Not on file yet">`;
+    const type = valueInputType(it);
+    return `<input class="form-input nh-field-input" type="${esc(type)}" data-field="${esc(it.id)}" value="${esc(display)}" ${it.sensitive && !revealSensitive && raw ? 'readonly' : ''} placeholder="${esc(valuePlaceholder(it))}">`;
   }
 
   function hireProfileSheetHtml(hire) {
@@ -3150,6 +3337,7 @@
           return;
         }
         progressOf(hire.id).assignees[itemId] = sel.value;
+        touchStepHistory(hire.id, itemId);
         persist();
         render();
       });
@@ -3209,23 +3397,16 @@
         return `<option value="${esc(v)}" ${String(cur) === v ? 'selected' : ''}>${esc(optionText(o))}</option>`;
       }).join('');
       control = `<select class="form-input nh-field-input" data-field="${esc(it.id)}" ${locked ? 'disabled' : ''}><option value="">—</option>${opts}</select>`;
-    } else if (it.inputType === 'date') {
+    } else if (it.inputType === 'date' || valueInputType(it) === 'date') {
       const v = typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}/.test(raw) ? raw.slice(0, 10) : '';
-      control = `<input class="form-input nh-field-input" type="date" data-field="${esc(it.id)}" value="${esc(v)}" ${locked ? 'disabled' : ''}>`;
-    } else if (/resume/i.test(it.label || '')) {
-      let display = raw == null ? '' : String(raw);
-      const openBtn = isHttpUrl(display)
-        ? `<a class="btn-xs primary nh-resume-open" href="${esc(display.trim())}" target="_blank" rel="noopener">Open resume</a>`
-        : '';
-      control = `<div class="nh-resume-field">
-        <input class="form-input nh-field-input" type="url" data-field="${esc(it.id)}" value="${esc(display)}" placeholder="Paste SharePoint / Drive link (https://…)">
-        ${openBtn}
-        <span class="nh-muted nh-resume-hint">Jessa: paste a link to the PDF or file</span>
-      </div>`;
+      control = `<input class="form-input nh-field-input" type="date" data-field="${esc(it.id)}" value="${esc(v)}" ${locked ? 'disabled' : ''} placeholder="${esc(valuePlaceholder(it))}">`;
+    } else if (isFileValueItem(it)) {
+      control = fileValueControlHtml(it, raw, { locked });
     } else {
       let display = raw == null ? '' : String(raw);
       if (it.sensitive && !revealSensitive && display) display = '••••••••';
-      control = `<input class="form-input nh-field-input" type="text" data-field="${esc(it.id)}" value="${esc(display)}" ${it.sensitive && !revealSensitive && raw ? 'readonly' : ''} placeholder="Enter value…">`;
+      const type = valueInputType(it);
+      control = `<input class="form-input nh-field-input" type="${esc(type)}" data-field="${esc(it.id)}" value="${esc(display)}" ${it.sensitive && !revealSensitive && raw ? 'readonly' : ''} ${locked ? 'disabled' : ''} placeholder="${esc(valuePlaceholder(it))}">`;
     }
     const ownerActions = canEditMine && !processDriven()
       ? `<div class="nh-task-owner-actions">
@@ -3257,7 +3438,10 @@
         </div>
         <div class="nh-task-due ${overdue ? 'is-overdue' : ''}">${esc(fmtDate(due))}</div>
         <div class="nh-task-value">${control}</div>
-        <div class="nh-field-status">${locked ? 'Waiting' : (filled ? 'Done' : (overdue ? 'Past due' : 'Open'))}</div>
+        <div class="nh-field-status">
+          <span>${locked ? 'Waiting' : (filled ? 'Done' : (overdue ? 'Past due' : 'Open'))}</span>
+          ${stepUpdatedHtml(hire, it.id)}
+        </div>
       </div>`;
   }
 
@@ -3336,6 +3520,7 @@
         if (cb.checked) prog.checklists[iid][sid] = true;
         else delete prog.checklists[iid][sid];
         syncChecklistCompletion(hid, iid);
+        touchStepHistory(hid, iid);
         persist();
         const item2 = data.items.find((i) => i.id === iid);
         const steps2 = normalizeSteps(item2);
@@ -3357,6 +3542,7 @@
     const hire = hires().find((h) => h.id === hireId);
     if (hire && itemLocked(hire, item)) return;
     const p = progressOf(hireId);
+    const prev = p.values[itemId];
     if (item.inputType === 'checkbox') {
       if (value) p.values[itemId] = true;
       else delete p.values[itemId];
@@ -3365,6 +3551,10 @@
       if (v) p.values[itemId] = v;
       else delete p.values[itemId];
     }
+    const next = p.values[itemId];
+    const changed = item.inputType === 'checkbox'
+      ? Boolean(prev) !== Boolean(next)
+      : String(prev ?? '') !== String(next ?? '');
 
     const emp = employees.find((e) => e.id === hireId);
     if (emp) {
@@ -3381,6 +3571,7 @@
         assigned_pm: emp.assigned_pm
       });
     }
+    if (changed) touchStepHistory(hireId, itemId);
     persist();
   }
 
@@ -3427,6 +3618,8 @@
     Object.values(data.progress || {}).forEach((p) => {
       if (p.values) delete p.values[id];
       if (p.assignees) delete p.assignees[id];
+      if (p.checklists) delete p.checklists[id];
+      if (p.history) delete p.history[id];
     });
     persist();
     return true;

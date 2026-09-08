@@ -35,7 +35,8 @@
     { id: 'phone', label: 'Phone number', input: 'phone' },
     { id: 'text', label: 'Text', input: 'text' },
     { id: 'date', label: 'Date', input: 'date' },
-    { id: 'number', label: 'Number', input: 'number' }
+    { id: 'number', label: 'Number', input: 'number' },
+    { id: 'file', label: 'File (PDF or image)', input: 'file' }
   ];
   const INPUT_TYPES = [
     { id: 'text', label: 'Text' },
@@ -173,7 +174,67 @@
       }
     });
 
+    ensureFileCatalogField(dataFields);
+    retagFileDocumentSteps(stepsByTitle, dataFields);
+
     return { version: 3, departments, stepsByTitle, stagesByTitle, dataFields };
+  }
+
+  function looksLikeFileDocumentLabel(label) {
+    const s = String(label || '');
+    if (/headshot/i.test(s)) return true;
+    if (/osha/i.test(s) && /card/i.test(s)) return true;
+    if (/diploma/i.test(s) && /ged/i.test(s)) return true;
+    if (/hs\s*diploma/i.test(s)) return true;
+    return false;
+  }
+
+  function fileCatalogField(fields) {
+    return (fields || []).find((f) => f && f.input === 'file') || null;
+  }
+
+  function ensureFileCatalogField(fields) {
+    if (!Array.isArray(fields) || fileCatalogField(fields)) return false;
+    const used = new Set(fields.map((f) => f.id));
+    const id = used.has('file') ? slugFrom('File PDF or image', used) : 'file';
+    fields.push({ id, label: 'File (PDF or image)', input: 'file' });
+    return true;
+  }
+
+  function retagFileDocumentSteps(stepsByTitle, fields) {
+    const file = fileCatalogField(fields);
+    if (!file) return false;
+    let changed = false;
+    Object.keys(stepsByTitle || {}).forEach((titleId) => {
+      (stepsByTitle[titleId] || []).forEach((step) => {
+        if (!looksLikeFileDocumentLabel(step.label)) return;
+        if (step.outcome === 'decision') return;
+        const outs = Array.isArray(step.outputs) ? step.outputs : [];
+        if (step.outcome === 'data' && outs.length === 1 && outs[0] === file.id) return;
+        step.outcome = 'data';
+        step.outputs = [file.id];
+        changed = true;
+      });
+    });
+    return changed;
+  }
+
+  function fileDocumentProcessNeedsSave(raw) {
+    if (!raw || typeof raw !== 'object') return false;
+    const file = fileCatalogField(data.dataFields);
+    if (!file) return false;
+    const rawHasFile = Array.isArray(raw.dataFields) && raw.dataFields.some((f) => f && f.input === 'file');
+    if (!rawHasFile) return true;
+    let needs = false;
+    Object.keys(data.stepsByTitle || {}).forEach((titleId) => {
+      (data.stepsByTitle[titleId] || []).forEach((step) => {
+        if (!looksLikeFileDocumentLabel(step.label) || step.outcome === 'decision') return;
+        const incoming = ((raw.stepsByTitle || {})[titleId] || []).find((s) => s && s.id === step.id);
+        const outs = Array.isArray(incoming && incoming.outputs) ? incoming.outputs : [];
+        if (!incoming || incoming.outcome !== 'data' || outs[0] !== file.id) needs = true;
+      });
+    });
+    return needs;
   }
 
   function normalizeDataFields(list) {
@@ -185,7 +246,9 @@
       const input = INPUT_TYPES.some((t) => t.id === f.input) ? f.input : 'text';
       return { id, label, input };
     });
-    return fields.length ? fields : DEFAULT_DATA_FIELDS.map((f) => Object.assign({}, f));
+    if (!fields.length) return DEFAULT_DATA_FIELDS.map((f) => Object.assign({}, f));
+    ensureFileCatalogField(fields);
+    return fields;
   }
 
   function normalizeWhen(when, ownerTitleId, localStageIds) {
@@ -2328,7 +2391,7 @@
     if (selectedDeptId && !data.departments.some((d) => d.id === selectedDeptId)) selectedDeptId = null;
     const dept = selectedDept();
     if (selectedTitleId && !(dept && dept.titles.some((t) => t.id === selectedTitleId))) selectedTitleId = null;
-    if (seedRequired) persist();
+    if (seedRequired || fileDocumentProcessNeedsSave(raw)) persist();
   }
 
   const TITLE_OWNERS = {
@@ -2364,12 +2427,23 @@
     if (step.outcome === 'decision') {
       return { inputType: 'select', options: ['Pass', 'Fail', 'Review required', 'Complete'] };
     }
+    if (step.outcome !== 'decision' && looksLikeFileDocumentLabel(step.label)) {
+      const file = fileCatalogField(data.dataFields);
+      return {
+        inputType: 'file',
+        options: [],
+        dataLabel: (file && file.label) || 'File (PDF or image)'
+      };
+    }
     if (step.outcome === 'data') {
       const catalog = data.dataFields || [];
       const first = (step.outputs || []).map((id) => catalog.find((f) => f.id === id)).find(Boolean);
-      let inputType = first && first.input ? first.input : 'text';
-      if (inputType === 'file' || inputType === 'email' || inputType === 'phone') inputType = 'text';
-      return { inputType, options: [] };
+      const inputType = first && first.input ? first.input : 'text';
+      return {
+        inputType,
+        options: [],
+        dataLabel: first ? first.label : ''
+      };
     }
     return { inputType: 'checkbox', options: [] };
   }
@@ -2418,6 +2492,7 @@
           ownerPerson: owner.assignee,
           inputType: input.inputType,
           options: input.options,
+          dataLabel: input.dataLabel || '',
           outcome: step.outcome || 'confirm',
           required: step.required !== false,
           durationDays: normalizeDurationDays(step.durationDays),

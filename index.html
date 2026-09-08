@@ -729,16 +729,16 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .nh-stat-red { color: #dc2626; }
 .nh-stat-amber { color: #ea580c; }
 .nh-toolbar { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
-.nh-search { flex: 1; min-width: 220px; max-width: 320px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; font-size: 13px; font-family: inherit; outline: none; }
+.nh-search { flex: 1; min-width: 220px; max-width: 480px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; font-size: 13px; font-family: inherit; outline: none; }
 .nh-search:focus { border-color: #1E3A5F; box-shadow: 0 0 0 3px rgba(30,58,95,.12); }
 .nh-filters { display: flex; flex-wrap: wrap; gap: 6px; }
 .nh-filter-btn { padding: 6px 12px; border-radius: 8px; border: none; background: #f1f5f9; color: #475569; font-size: 12px; font-weight: 600; text-transform: capitalize; cursor: pointer; font-family: inherit; }
 .nh-filter-btn:hover { background: #e2e8f0; }
 .nh-filter-btn.active { background: #1E3A5F; color: #fff; }
 .nh-table-wrap { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
-.nh-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.nh-table th { text-align: left; padding: 12px 14px; color: #64748b; font-weight: 600; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
-.nh-table td { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: middle; }
+.nh-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.nh-table th { text-align: left; padding: 13px 16px; color: #64748b; font-weight: 600; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+.nh-table td { padding: 13px 16px; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: middle; }
 .nh-table tr:hover td { background: #f8fafc; }
 .nh-name { font-weight: 600; color: #1E3A5F; }
 .nh-muted { color: #94a3b8; }
@@ -1286,12 +1286,12 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .nh-track {
   display: inline-flex;
   align-items: center;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: .04em;
   text-transform: uppercase;
-  padding: 3px 8px;
-  border-radius: 6px;
+  padding: 5px 10px;
+  border-radius: 7px;
   border: 1px solid #e2e8f0;
   white-space: nowrap;
   cursor: pointer;
@@ -1387,9 +1387,10 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .nh-task-due.is-overdue { color: #dc2626; font-weight: 700; }
 .nh-task-value { min-width: 0; }
 .nh-task-value .nh-field-input { width: 100%; font-size: 12px; padding: 6px 8px; }
-.nh-field-status { font-size: 11px; font-weight: 600; text-align: right; color: #b45309; }
+.nh-field-status { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; font-size: 11px; font-weight: 600; text-align: right; color: #b45309; line-height: 1.25; }
 .nh-task-row.filled .nh-field-status { color: #166534; }
 .nh-task-row.overdue .nh-field-status { color: #dc2626; }
+.nh-step-updated { display: block; font-size: 10px; font-weight: 500; color: #64748b; cursor: default; }
 .nh-lock { font-size: 10px; color: #b45309; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
 .nh-assignee { margin-top: 6px; font-size: 12px; padding: 5px 8px; }
 .nh-template-list { display: grid; gap: 0; }
@@ -1397,19 +1398,19 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .nh-template-row:last-child { border-bottom: none; }
 .nh-template-actions { display: flex; gap: 6px; }
 .nh-sheet-wrap { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: auto; max-height: calc(100vh - 280px); }
-.nh-sheet { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; --nh-sticky-2-left: 52px; }
-.nh-sheet th, .nh-sheet td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; border-right: 1px solid #f8fafc; white-space: nowrap; vertical-align: middle; }
-.nh-sheet thead th { position: sticky; top: 0; z-index: 3; background: #f8fafc; color: #64748b; font-weight: 700; text-align: left; box-shadow: inset 0 -1px 0 #e2e8f0; }
-.nh-sheet .nh-sheet-filters th { top: var(--nh-sticky-top-1, 34px); z-index: 3; background: #f1f5f9; font-weight: 500; padding: 6px 8px; box-shadow: inset 0 -1px 0 #e2e8f0; }
-.nh-sheet .nh-sheet-subhead th { top: var(--nh-sticky-top-2, 72px); font-weight: 500; font-size: 10px; color: #94a3b8; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
-.nh-sheet .nh-sticky { position: sticky; left: 0; z-index: 2; background: #fff; min-width: 52px; box-sizing: border-box; }
+.nh-sheet { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; --nh-sticky-2-left: 60px; }
+.nh-sheet th, .nh-sheet td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; border-right: 1px solid #f8fafc; white-space: nowrap; vertical-align: middle; }
+.nh-sheet thead th { position: sticky; top: 0; z-index: 3; background: #f8fafc; color: #64748b; font-weight: 700; text-align: left; box-shadow: inset 0 -1px 0 #e2e8f0; font-size: 13px; }
+.nh-sheet .nh-sheet-filters th { top: var(--nh-sticky-top-1, 42px); z-index: 3; background: #f1f5f9; font-weight: 500; padding: 8px 10px; box-shadow: inset 0 -1px 0 #e2e8f0; }
+.nh-sheet .nh-sheet-subhead th { top: var(--nh-sticky-top-2, 88px); font-weight: 500; font-size: 12px; color: #94a3b8; max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
+.nh-sheet .nh-sticky { position: sticky; left: 0; z-index: 2; background: #fff; min-width: 60px; box-sizing: border-box; }
 .nh-sheet thead .nh-sticky { z-index: 5; background: #f8fafc; }
 .nh-sheet .nh-sheet-filters .nh-sticky { background: #f1f5f9; z-index: 5; }
 .nh-sheet .nh-sheet-subhead .nh-sticky { z-index: 5; background: #f8fafc; }
 .nh-sheet .nh-sticky-2 {
-  left: var(--nh-sticky-2-left, 52px);
+  left: var(--nh-sticky-2-left, 60px);
   z-index: 3;
-  min-width: 160px;
+  min-width: 180px;
   background: #fff;
   box-shadow: 4px 0 10px -6px rgba(15, 23, 42, 0.28);
 }
@@ -1418,30 +1419,31 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 .nh-sheet .nh-sheet-subhead .nh-sticky-2 { z-index: 6; background: #f8fafc; }
 .nh-sheet tbody tr:hover .nh-sticky { background: #fff; }
 .nh-sheet tbody tr:hover .nh-sticky-2 { background: #fff; }
+.nh-sheet .btn-xs { font-size: 12px; padding: 5px 12px; }
 .nh-col-filter {
-  width: 100%; min-width: 72px; max-width: 140px; box-sizing: border-box;
-  font-size: 11px; font-family: inherit; color: #334155;
+  width: 100%; min-width: 88px; max-width: 160px; box-sizing: border-box;
+  font-size: 13px; font-family: inherit; color: #334155;
   border: 1px solid #e2e8f0; border-radius: 6px; background: #fff;
-  padding: 4px 6px; outline: none;
+  padding: 6px 8px; outline: none;
 }
 .nh-col-filter:focus { border-color: #1E3A5F; box-shadow: 0 0 0 2px rgba(30,58,95,.12); }
-.nh-sheet-filters .nh-sticky-2 .nh-col-filter { max-width: 180px; min-width: 120px; }
-.nh-sheet .nh-sec-col { text-align: center; min-width: 52px; }
-.nh-sheet .nh-sec-sub { text-align: center; max-width: 72px; }
-.nh-sheet .nh-sec-cell { text-align: center; padding: 4px 6px; }
-.nh-status-select { font-size: 11px; font-family: inherit; padding: 4px 6px; border-radius: 6px; border: 1px solid #e2e8f0; background: #fff; color: #334155; text-transform: capitalize; max-width: 120px; }
+.nh-sheet-filters .nh-sticky-2 .nh-col-filter { max-width: 200px; min-width: 140px; }
+.nh-sheet .nh-sec-col { text-align: center; min-width: 64px; }
+.nh-sheet .nh-sec-sub { text-align: center; max-width: 88px; }
+.nh-sheet .nh-sec-cell { text-align: center; padding: 6px 8px; }
+.nh-status-select { font-size: 13px; font-family: inherit; padding: 6px 8px; border-radius: 6px; border: 1px solid #e2e8f0; background: #fff; color: #334155; text-transform: capitalize; max-width: 140px; }
 .nh-status-select.nh-saving { opacity: .55; }
-.nh-onboarding-select { text-transform: none; min-width: 118px; max-width: 140px; font-weight: 600; }
+.nh-onboarding-select { text-transform: none; min-width: 132px; max-width: 160px; font-weight: 600; }
 .nh-onboarding-select.is-not_started { color: #475569; background: #f8fafc; }
 .nh-onboarding-select.is-in_progress { color: #c2410c; background: #fff7ed; }
 .nh-onboarding-select.is-complete { color: #166534; background: #f0fdf4; }
 .nh-profile-select { max-width: 150px; text-transform: none; }
-.nh-city-input { max-width: 160px; font-size: 12px; padding: 5px 8px; }
+.nh-city-input { max-width: 160px; font-size: 13px; padding: 6px 8px; }
 .nh-profile-selects { display: flex; flex-wrap: wrap; gap: 10px 14px; margin: 8px 0; align-items: center; }
 .nh-profile-selects .nh-check-label { gap: 6px; }
 .nh-date-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 6px; }
 .nh-date-meta strong { color: #64748b; font-weight: 600; margin-right: 4px; }
-.nh-pct { display: inline-block; min-width: 44px; padding: 3px 6px; border-radius: 6px; font-size: 11px; font-weight: 700; border: none; cursor: pointer; font-family: inherit; }
+.nh-pct { display: inline-block; min-width: 52px; padding: 5px 8px; border-radius: 7px; font-size: 13px; font-weight: 700; border: none; cursor: pointer; font-family: inherit; }
 .nh-pct-done { background: #dcfce7; color: #166534; }
 .nh-pct-mid { background: #dbeafe; color: #1d4ed8; }
 .nh-pct-low { background: #ffedd5; color: #c2410c; }
@@ -1455,7 +1457,7 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
   .nh-stats, .nh-stats-todo { grid-template-columns: repeat(2, minmax(0,1fr)); }
   .nh-task-head { display: none; }
   .nh-task-head, .nh-task-row { grid-template-columns: 1fr; gap: 6px; }
-  .nh-field-status { text-align: left; }
+  .nh-field-status { text-align: left; align-items: flex-start; }
   .nh-sheet-wrap { max-height: none; }
 }
 </style>
@@ -1467,8 +1469,8 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 <script src="hub-auth.js?v=session1"></script>
 <script src="hub-admin.js?v=merge1"></script>
 <script src="new-hire-seed.js"></script>
-<script src="hub-checklist.js?v=process15"></script>
-    <script src="hub-beta.js?v=beta25"></script>
+<script src="hub-checklist.js?v=process19"></script>
+    <script src="hub-beta.js?v=beta27"></script>
 <script src="hub-hiring.js?v=hs5"></script>
 <script src="hub-applicants.js?v=ap6"></script>
 </head>
