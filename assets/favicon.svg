@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Airadigm Onboarding Hub">
+  <!-- Navy tile matching hub chrome; cyan airflow arcs (not the logo letter A). -->
+  <rect width="32" height="32" rx="7" fill="#1a2540"/>
+  <path
+    d="M6.5 13.5c3.8-4.2 9.2-4.2 13 0 1.9 2.1 4.4 2.1 6.5 0"
+    fill="none"
+    stroke="#2298D5"
+    stroke-width="2.75"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M6.5 20.5c3.8-4.2 9.2-4.2 13 0 1.9 2.1 4.4 2.1 6.5 0"
+    fill="none"
+    stroke="#2298D5"
+    stroke-width="2.75"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    opacity="0.9"
+  />
+</svg>
