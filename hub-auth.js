@@ -240,7 +240,8 @@
     fillChrome(hubRealUser || { email: session?.user?.email });
   }
 
-  // Extra Hub tabs (Resources, Responsibilities, Orientation, Weekly) are Paula-only.
+  // Legacy Paula-only pages (Resources / Responsibilities / Orientation / Weekly) are retired from nav.
+  // Kept only so deep links bounce cleanly; content lives under Process + Reports now.
   const PAULA_EMAILS = [
     'paula.quintero@airadigmsolutions.com',
     'pquintero@airadigmsolutions.com',
@@ -260,7 +261,6 @@
 
   function applyNavVisibility() {
     const signedIn = !!hubRealUser;
-    const paula = isPaulaUser(effectiveUser());
     const adminBtn = document.getElementById('nav-admin');
     // Real admins always keep Admin. Other allowlisted users keep current access.
     if (adminBtn) {
@@ -270,8 +270,9 @@
     if (userMgmtCard) {
       userMgmtCard.style.display = isRealAdmin() ? '' : 'none';
     }
+    // Legacy Paula extras stay hidden for everyone (nav buttons removed).
     document.querySelectorAll('[data-paula-only]').forEach((el) => {
-      el.style.display = paula ? '' : 'none';
+      el.style.display = 'none';
     });
     fillChrome();
     renderViewAsUi();
@@ -398,14 +399,12 @@
     if (window.HubChecklist && typeof HubChecklist.applyViewerDefaults === 'function') {
       HubChecklist.applyViewerDefaults();
     }
-    // If on a Paula-only page while viewing as non-Paula, bounce to checklist
-    if (!isPaulaUser(effectiveUser())) {
-      const active = document.querySelector('.page.active');
-      const id = active?.id || '';
-      if (/page-(resources|responsibilities|orientation|weekly)/.test(id)) {
-        if (typeof showChecklistView === 'function') showChecklistView('dashboard');
-        else if (typeof showPage === 'function') showPage('checklist');
-      }
+    // Legacy Paula pages are retired from nav — bounce anyone still on them
+    const active = document.querySelector('.page.active');
+    const id = active?.id || '';
+    if (/page-(resources|responsibilities|orientation|weekly)/.test(id)) {
+      if (typeof showChecklistView === 'function') showChecklistView('reports');
+      else if (typeof showPage === 'function') showPage('checklist');
     }
   }
 
@@ -679,9 +678,9 @@
     stopViewAs,
     // Any allowlisted user can open Admin (user mgmt + checklist process)
     canAccessAdmin: () => !!hubRealUser,
-    // Paula-only tabs follow the effective (view-as) user
+    // Legacy Paula extras retired from nav (always false)
     isPaula: () => isPaulaUser(effectiveUser()),
-    canAccessHubExtras: () => isPaulaUser(effectiveUser()),
+    canAccessHubExtras: () => false,
     applyNavVisibility
   };
 })();

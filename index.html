@@ -396,6 +396,51 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 }
 .nh-agree-callout summary { cursor: pointer; font-weight: 600; color: #92400e; }
 .nh-agree-callout ul { margin: 8px 0 0; padding-left: 18px; line-height: 1.45; }
+.nh-prep-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px 24px;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+.nh-prep-phases { display: flex; flex-direction: column; gap: 10px; }
+.nh-prep-steps { display: flex; flex-direction: column; gap: 8px; }
+.nh-prep-step {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 10px 14px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+.nh-prep-step.is-milestone {
+  background: #fff7ed;
+  border-color: #fdba74;
+}
+.nh-prep-tminus {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+.nh-prep-cal { font-size: 11px; color: #64748b; margin-top: 2px; }
+.nh-prep-name { font-size: 13px; font-weight: 600; color: #0f172a; }
+.nh-prep-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  margin-top: 6px;
+  font-size: 11px;
+}
+@media (max-width: 640px) {
+  .nh-prep-step { grid-template-columns: 1fr; }
+}
 .nh-report-preview-modal { width: min(960px, 96vw); max-height: 90vh; display: flex; flex-direction: column; }
 .nh-report-preview-modal .modal-body { overflow: auto; max-height: min(70vh, 720px); }
 .nh-report-preview-body { background: #fff; }
@@ -1535,10 +1580,10 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 <script src="config.js"></script>
 <script src="js/hub-access.js"></script>
 <script src="js/hub-shell.js?v=pop1"></script>
-<script src="hub-auth.js?v=session1"></script>
+<script src="hub-auth.js?v=nav4"></script>
 <script src="hub-admin.js?v=merge1"></script>
 <script src="new-hire-seed.js"></script>
-<script src="hub-checklist.js?v=process20"></script>
+<script src="hub-checklist.js?v=prep1"></script>
     <script src="hub-beta.js?v=beta27"></script>
 <script src="hub-hiring.js?v=hs5"></script>
 <script src="hub-applicants.js?v=ap6"></script>
@@ -1604,22 +1649,6 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
     <button type="button" class="nav-item nav-admin" id="nav-admin" style="display:none" onclick="showPage('admin', this)">
       <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M5 5l1.5 1.5M17.5 17.5 19 19M3 12h2M19 12h2M5 19l1.5-1.5M17.5 6.5 19 5"/></svg></span>
       <span class="nav-label">Admin</span>
-    </button>
-    <button type="button" class="nav-item nav-resp" data-paula-only style="display:none" onclick="showPage('responsibilities', this)">
-      <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg></span>
-      <span class="nav-label">Responsibilities</span>
-    </button>
-    <button type="button" class="nav-item nav-orient" data-paula-only style="display:none" onclick="showPage('orientation', this)">
-      <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span>
-      <span class="nav-label">Orientation &amp; Bootcamp</span>
-    </button>
-    <button type="button" class="nav-item nav-weekly" data-paula-only style="display:none" onclick="showPage('weekly', this)">
-      <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
-      <span class="nav-label">Weekly Tasks</span>
-    </button>
-    <button type="button" class="nav-item nav-resources" data-paula-only style="display:none" onclick="showPage('resources', this)">
-      <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></svg></span>
-      <span class="nav-label">Resources</span>
     </button>
   </nav>
   <a href="#" id="otherAppsNav" class="nav-item nav-other-apps" title="Other Apps — Atlas, Vulcan, and Safety Tracker" onclick="showPage('apps', this); return false;">
@@ -2198,9 +2227,9 @@ function showPage(id, btn) {
       alert('Please sign in to open Admin.');
       return;
     }
-    if (PAULA_ONLY_PAGES.includes(id) && !(window.HubAuth && HubAuth.canAccessHubExtras && HubAuth.canAccessHubExtras())) {
-      alert('That tab is only available to Paula Quintero.');
-      showChecklistView('dashboard');
+    if (PAULA_ONLY_PAGES.includes(id)) {
+      // Legacy tabs removed from nav — send people to Reports → Prep timeline
+      showChecklistView('reports');
       return;
     }
     const page = document.getElementById('page-' + id);
