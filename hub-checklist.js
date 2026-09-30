@@ -58,6 +58,7 @@
   let reportMissingHireId = '__all__'; // '__all__' | hire id
   let reportPrepOrient = '2026-10-27'; // next Orientation (Paula / Brenda · Oct 2026)
   const NEXT_ORIENTATION_ISO = '2026-10-27';
+  let reportPrepOwner = 'all'; // 'all' | person name — default everyone
   let userDefaultsApplied = false;
   const STATUS_OPTIONS = ['pre_employment', 'active', 'archived', 'terminated', 'quit', 'rescinded', 'resigned'];
   const CURRENT_STATUSES = ['pre_employment', 'active'];
@@ -5422,25 +5423,33 @@
   /**
    * Cohort prep steps retargeted from the Sep 2026 Orientation calendar structure
    * (phases + owners from Responsibilities / Orientation content). Bootcamp stays TBD.
+   * Full-team plan — not filtered to the signed-in user.
    */
   function prepTimelineDefs() {
     return [
       { phase: 'ongoing', dayRef: null, dateLabel: 'Ongoing', name: 'Screen new candidates (Indeed)', owner: 'Brenda, Paula, Natalia', notes: 'Oldest → newest; location within 1 hr of major city/airport' },
       { phase: 'ongoing', dayRef: null, dateLabel: 'Ongoing', name: 'Conduct pre-screening interviews', owner: 'Natalia & Paula', notes: 'Check Brenda\'s calendar for interview links' },
-      { phase: 'ongoing', dayRef: null, dateLabel: 'As hired', name: 'Ensure candidate documentation is complete (digital onboarding, OSHA, diploma/GED)', owner: 'Paula', notes: 'Follow up with Lisa if status unclear; upload to SharePoint' },
+      { phase: 'ongoing', dayRef: null, dateLabel: 'As hired', name: 'Ensure candidate documentation is complete (digital onboarding, OSHA, diploma/GED)', owner: 'Paula', notes: 'Follow up with Lisa / Jessa if status unclear; upload to SharePoint' },
+      { phase: 'ongoing', dayRef: null, dateLabel: 'As hired', name: 'HR digital onboarding + e-Verify (hire must be employable before shipping)', owner: 'Lisa / Jessa', notes: 'Channel: ship iPad/PPE only after employable — not BG-clear alone' },
+      { phase: 'ongoing', dayRef: null, dateLabel: 'As needed', name: 'Background / driving / drug screens via Checker', owner: 'Lisa / Jessa', notes: 'Checker preferred; timing depends on history/counties — often longest wait' },
+      { phase: 'ongoing', dayRef: null, dateLabel: 'As needed', name: 'Written offer — 48h to accept (72h if sent Friday)', owner: 'Lisa / Jessa', notes: 'Channel agreement Sep 2026 (Cade)' },
 
       { phase: 'before', dayRef: 'fri2Before', name: 'Remind Brenda about sending the ORIENTATION email', owner: 'Paula', notes: '2 Fridays before Orientation' },
       { phase: 'before', dayRef: 'mon2Before', name: 'Confirm cell phone numbers & mailing addresses (Indeed)', owner: 'Paula / Natalia', notes: '~2 weeks before Orientation' },
       { phase: 'before', dayRef: 'thu2Before', name: 'Follow up on any missing OSHA / diploma / digital onboarding items', owner: 'Paula', notes: '' },
+      { phase: 'before', dayRef: 'mon2Before', name: 'Confirm HR onboarding complete for cohort (employable gate for shipping)', owner: 'Lisa / Jessa', notes: 'Flag anyone still pending before ship window' },
 
       { phase: 'before', dayRef: 'thuBefore', name: 'Brenda sends ORIENTATION email (track / reply as needed)', owner: 'Brenda', notes: 'Triggers Training checklist work' },
       { phase: 'before', dayRef: 'friBefore', name: 'Send consolidated onboarding checklists (Reply All) + calendar reminder', owner: 'Paula', notes: 'One week prior — after Brenda\'s ORIENTATION email' },
       { phase: 'before', dayRef: 'monBefore', name: 'Prepare ATA accounts, enrollments (Basics, Getting Started, Safety) + Digital ATA Scores spreadsheets', owner: 'Paula / Natalia', notes: 'Enroll on Orientation Day' },
       { phase: 'before', dayRef: 'monBefore', name: 'Final OSHA / diplomas verification; add techs to Office Calendar + Anniversary Tracker', owner: 'Natalia', notes: '' },
-      { phase: 'before', dayRef: 'friBefore', name: 'Reply All with final status + tracking (iPad/PPE only if already shipped after HR onboarding / e-Verify); send Orientation link to Ana/Joe + Tue 8:15–9:15 AM placeholder', owner: 'Paula', notes: 'Ship only after employable — channel agreement Sep 2026' },
+      { phase: 'before', dayRef: 'monBefore', name: 'IT prep — Airadigm email / accounts ready for Orientation week', owner: 'Ana', notes: 'Coordinate with Training on Orientation link timing' },
+      { phase: 'before', dayRef: 'friBefore', name: 'Ship iPad / PPE only if hire is already employable (HR onboarding + e-Verify); include tracking in status update', owner: 'Joe', notes: 'Do not ship after BG-clear alone — channel agreement Sep 2026' },
+      { phase: 'before', dayRef: 'friBefore', name: 'Reply All with final status + tracking; send Orientation link to Ana/Joe + Tue 8:15–9:15 AM placeholder', owner: 'Paula', notes: 'Friday before Orientation week' },
 
       { phase: 'during', dayRef: 'monOrient', name: 'Confirm iPad delivery + tech check-in (materials ship only after employable); post Orientation link in RC; schedule Meet & Greet ATA (target Wednesday)', owner: 'Paula', notes: 'Meet & Greet: Brian, Brenda, Techs, Paula' },
       { phase: 'during', dayRef: 'orientDay', name: 'ORIENTATION DAY — Tools testing 8:15 AM EST, IT Onboarding, enroll in ATA, create tracking spreadsheets', owner: 'Brenda, Paula, Natalia', notes: 'Key milestone — all prep should be complete', milestone: true },
+      { phase: 'during', dayRef: 'orientDay', name: 'IT Onboarding session + tools testing support', owner: 'Ana', notes: '8:15 AM EST tools testing with Orientation group' },
       { phase: 'during', dayRef: 'wedOrient', name: 'Add techs to RC threads + create TEAM (PM + Brenda + tech)', owner: 'Paula', notes: 'Wait until Brenda confirms RC account is active' },
       { phase: 'during', dayRef: 'wedOrient', name: 'Add techs to weekly + monthly recurring meetings (New Tech Update Wed / TTB Thu; survey tech ≠ Wednesday)', owner: 'Paula', notes: '' },
       { phase: 'during', dayRef: 'wedOrient', name: 'Post confirmation in Orientation thread; ask tech to confirm meeting attendance', owner: 'Paula', notes: '' },
@@ -5454,21 +5463,60 @@
     ];
   }
 
-  function buildPrepTimeline(orientIso) {
+  /** Plain-language relative date — never unexplained "T-11" jargon. */
+  function prepRelativeLabel(iso, orientationIso) {
+    const due = parseDate(iso);
+    const orient = parseDate(orientationIso);
+    if (!due || !orient) return '';
+    const n = Math.round((due - orient) / 86400000);
+    if (n === 0) return 'Orientation day';
+    if (n === 1) return '1 day after Orientation';
+    if (n === -1) return '1 day before Orientation';
+    if (n < 0) return Math.abs(n) + ' days before Orientation';
+    return n + ' days after Orientation';
+  }
+
+  function prepOwnerMatches(ownerField, filterOwner) {
+    if (!filterOwner || filterOwner === 'all') return true;
+    const hay = String(ownerField || '').toLowerCase();
+    const needle = String(filterOwner || '').toLowerCase();
+    if (!needle) return true;
+    // Match whole name tokens so "Ana" does not match "Natalia"
+    const parts = hay.split(/[,&/]+|\band\b/).map((p) => p.trim()).filter(Boolean);
+    return parts.some((p) => p === needle || p.startsWith(needle + ' ') || p.endsWith(' ' + needle));
+  }
+
+  function prepOwnerList() {
+    const names = new Set();
+    prepTimelineDefs().forEach((d) => {
+      String(d.owner || '')
+        .split(/[,&/]+|\band\b/)
+        .map((p) => p.trim())
+        .filter(Boolean)
+        .forEach((n) => names.add(n));
+    });
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }
+
+  function buildPrepTimeline(orientIso, ownerFilter) {
     const anchors = prepOrientAnchors(orientIso || NEXT_ORIENTATION_ISO);
+    const orientDay = anchors ? anchors.orientDay : (orientIso || NEXT_ORIENTATION_ISO);
     const defs = prepTimelineDefs();
+    const who = ownerFilter || 'all';
     const phases = [
-      { id: 'ongoing', badge: 'ONGOING', title: 'Pipeline (anytime)', hint: 'Hiring / docs that run until Orientation day' },
-      { id: 'before', badge: 'BEFORE', title: 'Before Orientation', hint: 'From ~2 weeks out through the Friday before Orientation week' },
+      { id: 'ongoing', badge: 'ONGOING', title: 'Pipeline (anytime)', hint: 'Hiring / docs that run until Orientation day — all owners' },
+      { id: 'before', badge: 'BEFORE', title: 'Before Orientation', hint: 'Sorted by date, earliest first (counting toward Orientation)' },
       { id: 'during', badge: 'DURING', title: 'Orientation week', hint: 'Monday–Friday of Orientation week (includes Orientation Day)' },
       { id: 'after', badge: 'AFTER', title: 'After Orientation', hint: 'Systems updates and weekly ATA cadence' },
       { id: 'bootcamp', badge: 'BOOTCAMP', title: 'Bootcamp path', hint: 'Dates stay TBD until bootcamp is scheduled' }
     ];
     return phases.map((phase) => {
+      const datedFirst = phase.id === 'before' || phase.id === 'during' || phase.id === 'after';
       const steps = defs
         .filter((d) => d.phase === phase.id)
+        .filter((d) => prepOwnerMatches(d.owner, who))
         .map((d) => {
-          const iso = d.dayRef && anchors ? anchors[d.dayRef] : null;
+          const iso = d.dayRef && anchors ? anchors[d.dayRef] : '';
           return {
             name: d.name,
             owner: d.owner,
@@ -5476,38 +5524,73 @@
             milestone: !!d.milestone,
             iso: iso || '',
             label: iso ? prettyDay(iso) : (d.dateLabel || 'TBD'),
-            tminus: iso && anchors ? tMinusLabel(iso, anchors.orientDay) : (d.dateLabel || 'TBD')
+            relative: iso ? prepRelativeLabel(iso, orientDay) : ''
           };
+        })
+        .sort((a, b) => {
+          if (a.iso && b.iso) {
+            const cmp = a.iso.localeCompare(b.iso);
+            if (cmp !== 0) return cmp;
+            return a.name.localeCompare(b.name);
+          }
+          if (a.iso) return datedFirst ? -1 : 1;
+          if (b.iso) return datedFirst ? 1 : -1;
+          return a.name.localeCompare(b.name);
         });
-      return Object.assign({}, phase, { steps, orientIso: anchors ? anchors.orientDay : orientIso });
+      return Object.assign({}, phase, { steps, orientIso: orientDay });
     });
   }
 
-  function prepTimelineHtml(orientIso) {
-    const phases = buildPrepTimeline(orientIso);
+  function prepTimelineHtml(orientIso, ownerFilter) {
+    const who = ownerFilter || reportPrepOwner || 'all';
+    const phases = buildPrepTimeline(orientIso, who);
     const orientLabel = prettyDay(orientIso) || orientIso;
     const cohortHires = hiresForCohort(orientIso);
     const hireLine = cohortHires.length
       ? `${cohortHires.length} hire${cohortHires.length === 1 ? '' : 's'} on this Orientation date in Roster`
       : 'No roster hires yet with this Orientation date — timeline still applies as the cohort plan';
+    const owners = prepOwnerList();
+    const filterChips = [
+      `<button type="button" class="nh-person-chip ${who === 'all' ? 'active' : ''}" data-prep-owner="all">All owners</button>`,
+      ...owners.map((n) =>
+        `<button type="button" class="nh-person-chip ${who === n ? 'active' : ''}" data-prep-owner="${esc(n)}">${esc(n)}</button>`
+      )
+    ].join('');
+
     const phaseBlocks = phases.map((phase) => {
-      if (!phase.steps.length) return '';
+      const phaseClass = phase.id === 'bootcamp' ? 'after' : phase.id === 'ongoing' ? 'before' : phase.id;
+      if (!phase.steps.length) {
+        return `
+          <details class="og-phase ${phaseClass}" open>
+            <summary>
+              <span class="og-phase-left">
+                <span class="og-phase-badge">${esc(phase.badge)}</span>
+                <span class="og-phase-title">${esc(phase.title)}</span>
+                <span class="og-phase-count">0 steps</span>
+              </span>
+            </summary>
+            <div class="og-phase-body">
+              <div class="nh-muted" style="padding:6px 2px">No steps for this owner filter in this phase.</div>
+            </div>
+          </details>`;
+      }
       const rows = phase.steps.map((s) => `
         <div class="nh-prep-step${s.milestone ? ' is-milestone' : ''}">
           <div class="nh-prep-when">
-            <div class="nh-prep-tminus">${esc(s.tminus)}</div>
-            <div class="nh-prep-cal">${esc(s.label)}</div>
+            <div class="nh-prep-date">${esc(s.label)}</div>
+            ${s.relative ? `<div class="nh-prep-rel">${esc(s.relative)}</div>` : ''}
           </div>
           <div class="nh-prep-body">
             <div class="nh-prep-name">${esc(s.name)}</div>
             <div class="nh-prep-meta">
+              <span class="nh-prep-owner-label">Owner</span>
               <span class="nh-owner-chip">${esc(s.owner)}</span>
               ${s.notes ? `<span class="nh-muted">${esc(s.notes)}</span>` : ''}
             </div>
           </div>
         </div>`).join('');
       return `
-        <details class="og-phase ${phase.id === 'bootcamp' ? 'after' : phase.id === 'ongoing' ? 'before' : phase.id}" open>
+        <details class="og-phase ${phaseClass}" open>
           <summary>
             <span class="og-phase-left">
               <span class="og-phase-badge">${esc(phase.badge)}</span>
@@ -5527,12 +5610,16 @@
         <div>
           <div class="nh-tl-kicker">Next Orientation</div>
           <div class="nh-tl-title">${esc(orientLabel)}</div>
-          <p class="nh-muted" style="margin:6px 0 0;max-width:42rem">Full prep calendar with owners (who does what) and target dates derived from Orientation. Bootcamp start stays TBD. Primary for Brenda; Hub Admins and the rest of the team can read the same plan.</p>
+          <p class="nh-prep-help">Dates count back from Orientation (${esc(orientLabel)}). Every step lists who owns it. Default view shows the full team plan — not only your tasks.</p>
         </div>
         <div class="nh-muted" style="font-size:12px">${esc(hireLine)}</div>
       </div>
+      <div class="nh-prep-owner-bar nh-no-print">
+        <span class="nh-filter-label">Owner</span>
+        <div class="nh-person-chips">${filterChips}</div>
+      </div>
       <div class="nh-prep-phases">${phaseBlocks}</div>
-      <p class="nh-footnote">Mirrors the Sep 2026 Orientation calendar structure (Before / During / After) retargeted to this Orientation date. Live hire checklists and owners still come from <strong>Process</strong> → Onboarding / My work.</p>`;
+      <p class="nh-footnote">Full cohort prep plan (Brenda, Paula, Natalia, Jessa, Lisa, Ana, Joe, …). Live hire checklists still come from <strong>Process</strong> → Onboarding / My work.</p>`;
   }
 
   function channelAgreementCalloutHtml() {
@@ -5635,7 +5722,7 @@
           <strong>Orientation prep timeline</strong>
           <span class="nh-muted"> · Orientation ${esc(reportPrepOrient || NEXT_ORIENTATION_ISO)} · Generated ${esc(todayIso())}</span>
         </div>
-        ${prepTimelineHtml(reportPrepOrient || NEXT_ORIENTATION_ISO)}`;
+          ${prepTimelineHtml(reportPrepOrient || NEXT_ORIENTATION_ISO, reportPrepOwner)}`;
     }
     if (kind === 'cohorts') {
       return head + `
@@ -5868,10 +5955,10 @@
           </label>
           <button type="button" class="btn-secondary" id="nh-report-prep-reset">Use Oct 27, 2026</button>
           <button type="button" class="btn-primary" id="nh-report-preview">Preview / PDF…</button>
-          <span class="nh-muted">Bootcamp start: TBD</span>
+          <span class="nh-muted">Bootcamp start: TBD · default = all owners</span>
         </div>
         <div class="nh-prep-print" id="nh-prep-print-root">
-          ${prepTimelineHtml(reportPrepOrient)}
+          ${prepTimelineHtml(reportPrepOrient, reportPrepOwner)}
         </div>`;
     } else if (reportKind === 'missing') {
       body = `
@@ -6028,6 +6115,12 @@
     root.querySelector('#nh-report-prep-reset')?.addEventListener('click', () => {
       reportPrepOrient = NEXT_ORIENTATION_ISO;
       render();
+    });
+    root.querySelectorAll('[data-prep-owner]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        reportPrepOwner = btn.getAttribute('data-prep-owner') || 'all';
+        render();
+      });
     });
     root.querySelector('#nh-report-missing-hire')?.addEventListener('change', (e) => {
       reportMissingHireId = e.target.value || '__all__';
