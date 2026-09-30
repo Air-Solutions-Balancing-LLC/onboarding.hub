@@ -2385,13 +2385,67 @@
     });
   }
 
+  // Channel agreements (RingCentral onboarding, ~2026-09-29 — James O'Brien / Cade Elguezabal)
+  const CHANNEL_STEP_NOTES = [
+    {
+      match: /written offer accepted|offer accept/i,
+      notes: 'SLA: 48 hours to accept a written offer (72 hours if sent Friday). Channel agreement Sep 2026 (Cade).'
+    },
+    {
+      match: /background check|drug screen|Checker/i,
+      notes: 'Checker is preferred for background / driving / drug screens. Speed still depends on candidate history and counties — some take multiple days. Often the longest wait. Channel agreement Sep 2026 (James / Cade).'
+    },
+    {
+      match: /HR ONBOARDING COMPLETE|e-?verify|employable/i,
+      notes: 'Confirmed employable (HR onboarding + e-Verify). Required before shipping iPad / PPE — not background-clear alone. Channel agreement Sep 2026 (James).'
+    },
+    {
+      match: /iPad\s*Ship|Ship.*iPad|PPE\s*Ship|Ship.*PPE|Kit 1 Shipped|backpack.*ship|Ship.*backpack/i,
+      notes: 'Ship iPad / PPE / backpack only after HR onboarding + e-Verify (employable). Do not ship after BG/driving/drug clear alone. Fast / last-minute shipping allowed as an exception — avoid when possible. Channel agreement Sep 2026 (James).'
+    }
+  ];
+
+  function applyChannelAgreementNotes() {
+    let changed = false;
+    Object.keys(data.stepsByTitle || {}).forEach((titleId) => {
+      (data.stepsByTitle[titleId] || []).forEach((step) => {
+        const rule = CHANNEL_STEP_NOTES.find((r) => r.match.test(step.label || ''));
+        if (!rule) return;
+        const cur = String(step.notes || '').trim();
+        if (cur.includes('Channel agreement Sep 2026')) return;
+        if (!cur) {
+          step.notes = rule.notes;
+          changed = true;
+        } else if (!/48 hour|employable|Checker|e-Verify|fast.?ship/i.test(cur)) {
+          step.notes = cur + '\n\n' + rule.notes;
+          changed = true;
+        }
+        (step.subs || []).forEach((sub) => {
+          const subRule = CHANNEL_STEP_NOTES.find((r) => r.match.test(sub.label || ''));
+          if (!subRule) return;
+          const sCur = String(sub.notes || '').trim();
+          if (sCur.includes('Channel agreement Sep 2026')) return;
+          if (!sCur) {
+            sub.notes = subRule.notes;
+            changed = true;
+          } else if (!/48 hour|employable|Checker|e-Verify|fast.?ship/i.test(sCur)) {
+            sub.notes = sCur + '\n\n' + subRule.notes;
+            changed = true;
+          }
+        });
+      });
+    });
+    return changed;
+  }
+
   function applyRemote(raw) {
     const seedRequired = incomingNeedsRequiredSeed(raw);
     data = normalize(raw);
     if (selectedDeptId && !data.departments.some((d) => d.id === selectedDeptId)) selectedDeptId = null;
     const dept = selectedDept();
     if (selectedTitleId && !(dept && dept.titles.some((t) => t.id === selectedTitleId))) selectedTitleId = null;
-    if (seedRequired || fileDocumentProcessNeedsSave(raw)) persist();
+    const channelChanged = applyChannelAgreementNotes();
+    if (seedRequired || fileDocumentProcessNeedsSave(raw) || channelChanged) persist();
   }
 
   const TITLE_OWNERS = {

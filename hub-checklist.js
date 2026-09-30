@@ -3579,6 +3579,7 @@
           ${stepProg ? ` <span class="nh-steps-chip">${stepProg.total} steps</span>` : ''}
           ${linkHtml ? ` <span class="nh-task-link-wrap">${linkHtml}</span>` : ''}
           ${processDriven() ? `<span class="nh-task-wait">${days} day${days === 1 ? '' : 's'}${wait ? ` · ${esc(wait)}` : ''}</span>` : (wait ? `<span class="nh-task-wait">${esc(wait)}</span>` : '')}
+          ${it.notes ? `<div class="nh-task-notes">${esc(it.notes)}</div>` : ''}
           ${ownerActions}
         </div>
         <div class="nh-task-due ${overdue ? 'is-overdue' : ''}">${esc(fmtDate(due))}</div>
@@ -5358,6 +5359,38 @@
     return String(p.values._onboard_meeting_invite || '').trim();
   }
 
+  function personalEmailValue(hire) {
+    const it = findItemByLabel(/^Personal email/i);
+    if (!it) return '';
+    return String(hire.values?.[it.id] || '').trim();
+  }
+
+  function pmValue(hire) {
+    return String(hire.assignedPm || '').trim()
+      || String((findItemByLabel(/Assigned Project Manager/i) && hire.values?.[findItemByLabel(/Assigned Project Manager/i).id]) || '').trim();
+  }
+
+  function reportTitleForKind(kind) {
+    if (kind === 'cohorts') return 'Orientation cohorts';
+    if (kind === 'onboard') return 'Onboard status';
+    if (kind === 'it') return 'IT summary';
+    if (kind === 'missing') return 'Status / Missing';
+    return 'Report';
+  }
+
+  function channelAgreementCalloutHtml() {
+    return `
+      <details class="nh-agree-callout nh-no-print">
+        <summary>Shipping &amp; offer timing (channel agreement · Sep 2026)</summary>
+        <ul>
+          <li><strong>Offer accept:</strong> 48 hours (72 if the offer is sent Friday) — Cade.</li>
+          <li><strong>Background:</strong> Checker preferred; timing still depends on history/counties — often the longest wait — James / Cade.</li>
+          <li><strong>Ship iPad / PPE:</strong> only after confirmed employable (HR onboarding + e-Verify), <em>not</em> after BG/driving/drug clear alone — James.</li>
+          <li><strong>Fast shipping:</strong> allowed as an exception when needed; avoid when possible — James.</li>
+        </ul>
+      </details>`;
+  }
+
   function missingSectionsForHire(hire) {
     ensureData();
     const sections = [];
@@ -5414,6 +5447,191 @@
     }).join('');
   }
 
+  function reportPrintableHtml(kind, cohort, cohortHires, opts) {
+    const hrItem = findItemByLabel(/HR ONBOARDING COMPLETE/i);
+    const upsItem = findItemByLabel(/^Tracking for iPad/i)
+      || findItemByLabel(/^Tracking for Kit/i)
+      || findItemByLabel(/UPS|Tracking for Kit|Tracking for iPad/i);
+    const ipadItem = findItemByLabel(/iPad is received by the new hire/i) || findItemByLabel(/Date iPad is received/i);
+    const oshaItem = findItemByLabel(/OSHA-10 certified prior/i) || findItemByLabel(/OSHA/i);
+    const diplomaItem = findItemByLabel(/HS Diploma received/i);
+    const emailItem = findItemByLabel(/Airadigm\/KES email address/i) || findItemByLabel(/Airadigm.*email address/i);
+    const msPassItem = findItemByLabel(/Microsoft\/email password/i);
+    const rentalItem = findItemByLabel(/National Rental profile/i);
+    const usaUserItem = findItemByLabel(/USABalancer username/i);
+    const usaPassItem = findItemByLabel(/USABalancer password/i);
+    const title = reportTitleForKind(kind);
+    const head = `
+      <div class="nh-missing-doc-title">
+        <strong>${esc(title)}</strong>
+        <span class="nh-muted"> · Orientation ${esc(cohort || 'none')} · Generated ${esc(todayIso())}</span>
+        <div class="nh-muted" style="font-size:11px;margin-top:4px">Mirrors New Hire Checklist spreadsheet sheets 02 / 03 / 04 — current status before orientation.</div>
+      </div>`;
+
+    if (kind === 'missing') {
+      const missingHires = (opts && opts.missingHires) || cohortHires;
+      return head + missingDocHtml(missingHires);
+    }
+    if (kind === 'cohorts') {
+      return head + `
+        <div class="nh-table-wrap nh-report-table">
+          <table class="nh-table nh-report-print-table">
+            <thead>
+              <tr>
+                <th>Orientation Cohort</th><th>Name</th><th>Region</th><th>Project Manager</th>
+                <th>Hometown</th><th>Personal Email</th><th>Bootcamp Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${cohortHires.length ? cohortHires.map((h) => `<tr>
+                <td>${esc(h.startDate || '—')}</td>
+                <td>${esc(h.name)}</td>
+                <td>${esc(h.division || '—')}</td>
+                <td>${esc(pmValue(h) || '—')}</td>
+                <td>${esc(h.cityCenter || '—')}</td>
+                <td>${esc(personalEmailValue(h) || '—')}</td>
+                <td>${esc(h.bootcampDate || '—')}</td>
+              </tr>`).join('') : '<tr><td colspan="7" class="nh-empty">No active hires in this cohort</td></tr>'}
+            </tbody>
+          </table>
+        </div>`;
+    }
+    if (kind === 'onboard') {
+      return head + `
+        <div class="nh-table-wrap nh-report-table">
+          <table class="nh-table nh-report-print-table">
+            <thead>
+              <tr>
+                <th>Technician</th><th>Region</th><th>HR Onboarding</th><th>iPad UPS Tracking</th>
+                <th>iPad Delivered</th><th>OSHA-10 or 30</th><th>HS Diploma / GED</th><th>Accepted Meeting Invite</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${cohortHires.length ? cohortHires.map((h) => {
+                const invite = meetingInviteValue(h) || '—';
+                return `<tr>
+                  <td>${esc(h.name)}</td>
+                  <td>${esc(h.division || '—')}</td>
+                  <td>${esc(hrItem && isFilled(hrItem, h.values?.[hrItem.id], h) ? 'Complete' : 'Pending')}</td>
+                  <td>${esc(displayProgressValue(h, upsItem))}</td>
+                  <td>${esc(displayProgressValue(h, ipadItem))}</td>
+                  <td>${esc(statusReceivedLabel(h, oshaItem))}</td>
+                  <td>${esc(statusReceivedLabel(h, diplomaItem))}</td>
+                  <td>${esc(invite)}</td>
+                </tr>`;
+              }).join('') : '<tr><td colspan="8" class="nh-empty">No active hires in this cohort</td></tr>'}
+            </tbody>
+          </table>
+        </div>`;
+    }
+    // IT — never show passwords in PDF unless revealSensitive is on (same as screen)
+    return head + `
+      <div class="nh-table-wrap nh-report-table">
+        <table class="nh-table nh-report-print-table">
+          <thead>
+            <tr>
+              <th>#</th><th>Technician</th><th>Region</th><th>Airadigm Email</th>
+              <th>MS / email password</th><th>National Rental</th><th>USABalancer user</th><th>USABalancer password</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${cohortHires.length ? cohortHires.map((h) => `<tr>
+              <td class="nh-muted">${esc(h.employeeNumber ?? '—')}</td>
+              <td>${esc(h.name)}</td>
+              <td>${esc(h.division || '—')}</td>
+              <td>${esc(displayProgressValue(h, emailItem, { sensitiveMask: false }))}</td>
+              <td>${esc(displayProgressValue(h, msPassItem))}</td>
+              <td>${esc(displayProgressValue(h, rentalItem))}</td>
+              <td>${esc(displayProgressValue(h, usaUserItem))}</td>
+              <td>${esc(displayProgressValue(h, usaPassItem))}</td>
+            </tr>`).join('') : '<tr><td colspan="8" class="nh-empty">No active hires in this cohort</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+      ${revealSensitive ? '' : '<p class="nh-muted" style="font-size:11px">Passwords hidden — check “Show passwords” on IT summary before export if Brenda needs them.</p>'}`;
+  }
+
+  function openReportPreview(kind, cohort, cohortHires, opts) {
+    const bodyHtml = reportPrintableHtml(kind, cohort, cohortHires, opts);
+    let modal = document.getElementById('nh-report-preview-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'nh-report-preview-modal';
+      modal.className = 'modal-backdrop';
+      modal.innerHTML = `
+        <div class="modal nh-report-preview-modal">
+          <div class="modal-head">
+            <span class="modal-title" id="nh-report-preview-title">Report preview</span>
+            <button class="modal-close" type="button" id="nh-report-preview-x" aria-label="Close">×</button>
+          </div>
+          <div class="modal-body">
+            <p class="nh-muted" style="margin:0 0 10px">Review this cohort snapshot before download. Print / Save as PDF uses your browser print dialog.</p>
+            <div id="nh-report-preview-body" class="nh-report-preview-body nh-missing-print"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn-secondary" id="nh-report-preview-close">Close</button>
+            <button type="button" class="btn-primary" id="nh-report-preview-print">Download PDF…</button>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeReportPreview();
+      });
+      modal.querySelector('#nh-report-preview-x').addEventListener('click', closeReportPreview);
+      modal.querySelector('#nh-report-preview-close').addEventListener('click', closeReportPreview);
+      modal.querySelector('#nh-report-preview-print').addEventListener('click', () => {
+        printReportFromPreview();
+      });
+    }
+    modal.querySelector('#nh-report-preview-title').textContent = `${reportTitleForKind(kind)} · preview`;
+    modal.querySelector('#nh-report-preview-body').innerHTML = bodyHtml;
+    modal.style.display = 'flex';
+    modal.dataset.printKind = kind;
+  }
+
+  function closeReportPreview() {
+    const modal = document.getElementById('nh-report-preview-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function printReportFromPreview() {
+    const modal = document.getElementById('nh-report-preview-modal');
+    const body = document.getElementById('nh-report-preview-body');
+    if (!body) return;
+    let host = document.getElementById('nh-report-print-host');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'nh-report-print-host';
+      host.className = 'nh-missing-print';
+      document.body.appendChild(host);
+    }
+    host.innerHTML = body.innerHTML;
+    document.body.classList.add('nh-printing-missing', 'nh-printing-report');
+    if (modal) modal.style.display = 'none';
+    window.print();
+    setTimeout(() => {
+      document.body.classList.remove('nh-printing-missing', 'nh-printing-report');
+      host.innerHTML = '';
+    }, 400);
+  }
+
+  function printReportDirect(kind, cohort, cohortHires, opts) {
+    let host = document.getElementById('nh-report-print-host');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'nh-report-print-host';
+      host.className = 'nh-missing-print';
+      document.body.appendChild(host);
+    }
+    host.innerHTML = reportPrintableHtml(kind, cohort, cohortHires, opts);
+    document.body.classList.add('nh-printing-missing', 'nh-printing-report');
+    window.print();
+    setTimeout(() => {
+      document.body.classList.remove('nh-printing-missing', 'nh-printing-report');
+      host.innerHTML = '';
+    }, 400);
+  }
+
   function renderReports(root) {
     ensureData();
     const dates = orientationCohortDates();
@@ -5424,7 +5642,9 @@
     const cohortHires = hiresForCohort(cohort);
 
     const hrItem = findItemByLabel(/HR ONBOARDING COMPLETE/i);
-    const upsItem = findItemByLabel(/^Tracking for Kit/i) || findItemByLabel(/UPS|Tracking for Kit/i);
+    const upsItem = findItemByLabel(/^Tracking for iPad/i)
+      || findItemByLabel(/^Tracking for Kit/i)
+      || findItemByLabel(/UPS|Tracking for Kit|Tracking for iPad/i);
     const ipadItem = findItemByLabel(/iPad is received by the new hire/i) || findItemByLabel(/Date iPad is received/i);
     const oshaItem = findItemByLabel(/OSHA-10 certified prior/i) || findItemByLabel(/OSHA/i);
     const diplomaItem = findItemByLabel(/HS Diploma received/i);
@@ -5435,7 +5655,7 @@
     const usaPassItem = findItemByLabel(/USABalancer password/i);
 
     setPageTitle('Reports');
-    setPageSub('Cohort summaries plus a Status / Missing one-pager (all roles) for any hire or the whole cohort — print or save as PDF from the browser.');
+    setPageSub('Same cohort cuadros as the New Hire Checklist spreadsheet (Orient Cohorts / Onboard Status / IT). Preview in-app, then download PDF for Brenda before orientation.');
 
     const cohortOpts = [
       ...dates.map((d) => `<option value="${esc(d)}" ${d === reportCohort ? 'selected' : ''}>${esc(d)}</option>`),
@@ -5453,33 +5673,36 @@
       ...cohortHires.map((h) => `<option value="${esc(h.id)}" ${reportMissingHireId === h.id ? 'selected' : ''}>${esc(h.name)}</option>`)
     ].join('');
 
-    let body = '';
-    if (reportKind === 'missing') {
-      body = `
-        <div class="nh-missing-toolbar nh-no-print">
+    const exportBar = `
+      <div class="nh-missing-toolbar nh-no-print">
+        ${reportKind === 'missing' ? `
           <label class="nh-report-cohort">
             <span class="nh-filter-label">Hire</span>
             <select id="nh-report-missing-hire" class="form-input nh-role-select">
               ${hireOpts || '<option value="__all__">No hires</option>'}
             </select>
-          </label>
-          <button type="button" class="btn-secondary" id="nh-missing-print">Print / save PDF</button>
-          <span class="nh-muted">General view — incomplete tasks across <strong>all roles</strong>, not only yours.</span>
-        </div>
+          </label>` : ''}
+        <button type="button" class="btn-primary" id="nh-report-preview">Preview report</button>
+        <button type="button" class="btn-secondary" id="nh-report-print">Download PDF…</button>
+        <span class="nh-muted">Brenda: review the cuadro first, then save as PDF from the print dialog.</span>
+      </div>`;
+
+    let body = '';
+    if (reportKind === 'missing') {
+      body = `
+        ${exportBar}
         <div class="nh-missing-print" id="nh-missing-print-root">
-          <div class="nh-missing-doc-title">
-            <strong>Status / Missing</strong>
-            <span class="nh-muted"> · Orientation ${esc(cohort || 'none')} · Generated ${esc(todayIso())}</span>
-          </div>
-          ${missingDocHtml(missingHires)}
+          ${reportPrintableHtml('missing', cohort, cohortHires, { missingHires })}
         </div>`;
     } else if (reportKind === 'cohorts') {
       body = `
+        ${exportBar}
         <div class="nh-table-wrap nh-report-table">
           <table class="nh-table" data-sort-key="nh-report-cohorts">
             <thead>
               <tr>
-                <th>Name</th><th>Region</th><th>City / hometown</th><th>Bootcamp</th><th>Overall</th><th></th>
+                <th>Name</th><th>Region</th><th>Project Manager</th><th>Hometown</th>
+                <th>Personal Email</th><th>Bootcamp</th><th>Overall</th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -5489,7 +5712,9 @@
                 return `<tr>
                   <td><button type="button" class="nh-linkish" data-open-hire="${esc(h.id)}">${esc(h.name)}</button></td>
                   <td>${esc(h.division || '—')}</td>
+                  <td>${esc(pmValue(h) || '—')}</td>
                   <td>${esc(h.cityCenter || '—')}</td>
+                  <td>${esc(personalEmailValue(h) || '—')}</td>
                   <td>${esc(h.bootcampDate || '—')}</td>
                   <td><span class="nh-pct ${pctClass(pr.pct)}">${pr.done}/${pr.total}</span>
                     <span class="nh-muted" style="margin-left:6px">${miss.openCount} open</span></td>
@@ -5498,18 +5723,20 @@
                     <button class="btn-xs primary" type="button" data-open-hire="${esc(h.id)}">Open</button>
                   </td>
                 </tr>`;
-              }).join('') : '<tr><td colspan="6" class="nh-empty">No active hires in this cohort</td></tr>'}
+              }).join('') : '<tr><td colspan="8" class="nh-empty">No active hires in this cohort</td></tr>'}
             </tbody>
           </table>
-        </div>`;
+        </div>
+        <p class="nh-footnote">Matches spreadsheet <strong>02-Orient. Cohorts</strong> (Name, Region, PM, Hometown, Personal Email, Bootcamp).</p>`;
     } else if (reportKind === 'onboard') {
       body = `
+        ${exportBar}
         <div class="nh-table-wrap nh-report-table">
           <table class="nh-table" data-sort-key="nh-report-onboard">
             <thead>
               <tr>
-                <th>Technician</th><th>Region</th><th>HR Onboarding</th><th>UPS / Kit tracking</th>
-                <th>iPad received</th><th>OSHA</th><th>Diploma / GED</th><th>Meeting invite</th><th></th>
+                <th>Technician</th><th>Region</th><th>HR Onboarding</th><th>iPad UPS Tracking</th>
+                <th>iPad Delivered</th><th>OSHA</th><th>Diploma / GED</th><th>Meeting invite</th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -5539,12 +5766,13 @@
             </tbody>
           </table>
         </div>
-        <p class="nh-footnote">Edit checklist fields on the hire. Meeting invite is saved here for the Onboard Status report.</p>`;
+        <p class="nh-footnote">Matches spreadsheet <strong>04-Onboard Status</strong>. Meeting invite is Hub-only (column H on the sheet). Preview / PDF for Brenda before orientation.</p>`;
     } else {
       body = `
+        ${exportBar}
         <div class="nh-toolbar nh-toolbar-plain" style="margin-bottom:10px">
           <label class="nh-check-label"><input type="checkbox" id="nh-report-sensitive" ${revealSensitive ? 'checked' : ''}> Show passwords</label>
-          <span class="nh-muted">Sensitive IT fields stay hidden until you check this.</span>
+          <span class="nh-muted">Sensitive IT fields stay hidden until you check this. PDF respects this toggle.</span>
         </div>
         <div class="nh-table-wrap nh-report-table">
           <table class="nh-table" data-sort-key="nh-report-it">
@@ -5571,11 +5799,13 @@
               </tr>`).join('') : '<tr><td colspan="9" class="nh-empty">No active hires in this cohort</td></tr>'}
             </tbody>
           </table>
-        </div>`;
+        </div>
+        <p class="nh-footnote">Matches spreadsheet <strong>03-IT summary</strong>.</p>`;
     }
 
     root.innerHTML = `
       ${roleBar()}
+      ${channelAgreementCalloutHtml()}
       <div class="nh-report-chrome nh-no-print">
         <div class="nh-report-tabs">
           <button type="button" class="wt-filter-btn ${reportKind === 'cohorts' ? 'active' : ''}" data-report="cohorts">Orientation cohorts</button>
@@ -5608,10 +5838,12 @@
       reportMissingHireId = e.target.value || '__all__';
       render();
     });
-    root.querySelector('#nh-missing-print')?.addEventListener('click', () => {
-      document.body.classList.add('nh-printing-missing');
-      window.print();
-      setTimeout(() => document.body.classList.remove('nh-printing-missing'), 300);
+    const previewOpts = { missingHires };
+    root.querySelector('#nh-report-preview')?.addEventListener('click', () => {
+      openReportPreview(reportKind, cohort, cohortHires, previewOpts);
+    });
+    root.querySelector('#nh-report-print')?.addEventListener('click', () => {
+      openReportPreview(reportKind, cohort, cohortHires, previewOpts);
     });
     root.querySelector('#nh-report-sensitive')?.addEventListener('change', (e) => {
       revealSensitive = !!e.target.checked;
@@ -5687,11 +5919,55 @@
     data = migrate(value);
     applyProcessTemplate(data);
     ensureData();
+    if (alignSpreadsheetEquipmentFields()) persist();
     if (ensureProfileFields()) persist();
     // Start with every category collapsed
     data.sections.forEach((s) => {
       if (openSections[s.id] === undefined) openSections[s.id] = false;
     });
+  }
+
+  function alignSpreadsheetEquipmentFields() {
+    // Sheet1 (workbook v7): split combined PPE/iPad ship into separate iPad + PPE fields.
+    if (processDriven()) return false;
+    ensureData();
+    let changed = false;
+    const seedItems = (window.NEW_HIRE_SEED && NEW_HIRE_SEED.items) || [];
+    const byLabel = new Map((data.items || []).map((i) => [String(i.label || '').trim().toLowerCase(), i]));
+    seedItems.forEach((s) => {
+      const key = String(s.label || '').trim().toLowerCase();
+      if (!key || byLabel.has(key)) return;
+      if (!/^Tracking for (Backpack|iPad)$/i.test(s.label)
+        && !/^Tentative Delivery Date$/i.test(s.label)
+        && !/^DATE PPE Shipped$/i.test(s.label)
+        && !/^DATE iPad Shipped$/i.test(s.label)) return;
+      const copy = JSON.parse(JSON.stringify(s));
+      data.items.push(copy);
+      byLabel.set(key, copy);
+      changed = true;
+    });
+    const oldCombo = (data.items || []).find((i) => /DATE PPE\/\s*iPad \(Kit 1\) Shipped/i.test(i.label || ''));
+    if (oldCombo) {
+      oldCombo.label = 'DATE iPad Shipped';
+      oldCombo.notes = (oldCombo.notes || '') || (seedItems.find((s) => s.id === 't84') || {}).notes || '';
+      oldCombo.dependsOnTaskId = oldCombo.dependsOnTaskId || 't44';
+      oldCombo.dependsOnPrior = true;
+      changed = true;
+    }
+    ['t27', 't28', 't29', 't44', 't83', 't84', 't123'].forEach((id) => {
+      const live = (data.items || []).find((i) => i.id === id);
+      const seed = seedItems.find((i) => i.id === id);
+      if (!live || !seed || !seed.notes) return;
+      if (String(live.notes || '').includes('Channel agreement Sep 2026')) return;
+      if (!live.notes) {
+        live.notes = seed.notes;
+        changed = true;
+      } else if (!/48 hour|employable|Checker|e-Verify/i.test(live.notes)) {
+        live.notes = String(live.notes).trim() + '\n\n' + seed.notes;
+        changed = true;
+      }
+    });
+    return changed;
   }
 
   async function mount(opts) {
